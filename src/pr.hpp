@@ -20,6 +20,7 @@ namespace pr {
         int ScreenWidth = 1280;
         int ScreenHeight = 768;
         int SwapInterval = 1;
+        int NumSamples = 0;
         std::string Title;
     };
     void Initialize(Config config);
@@ -36,7 +37,8 @@ namespace pr {
     bool ProcessSystem();
 
     // Drawing
-    void ClearBackground(float r, float g, float b, float a, bool clearDepth = true);
+    void ClearBackground(float r, float g, float b, float a);
+    void SetDepthTest(bool enabled);
 
     // Batch Module
     enum class PrimitiveMode {
@@ -48,16 +50,15 @@ namespace pr {
     public:
         void clear();
         void add(float3 p, byte3 c);
-        void draw(PrimitiveMode mode);
-        void width(float w);
+        void draw(PrimitiveMode mode, float width = 1.0f);
     private:
-        float _width = 1.0f;
         std::vector<float3> _positions;
         std::vector<byte3> _colors;
     };
 
     // Simple Functions
     void DrawLine(float3 p0, float3 p1, byte3 c, float width = 1.0f);
+    void DrawPoint(float3 p, byte3 c, float width = 1.0f);
 
     // Random Number
     struct IRandom {
