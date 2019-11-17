@@ -364,17 +364,33 @@ namespace pr {
         }
     }
 
-    void DrawLine(float3 p0, float3 p1, byte3 c, float width) {
+    void DrawLine(float3 p0, float3 p1, byte3 c, float lineWidth) {
         static Primitive prim;
         prim.add(p0, c);
         prim.add(p1, c);
-        prim.draw(PrimitiveMode::Lines, width);
+        prim.draw(PrimitiveMode::Lines, lineWidth);
         prim.clear();
     }
-    void DrawPoint(float3 p, byte3 c, float width) {
+    void DrawPoint(float3 p, byte3 c, float pointSize) {
         static Primitive prim;
         prim.add(p, c);
-        prim.draw(PrimitiveMode::Points, width);
+        prim.draw(PrimitiveMode::Points, pointSize);
+        prim.clear();
+    }
+    void DrawCircle(float3 o, byte3 c, float radius, int vertexCount, float lineWidth) {
+        LinearTransform<float> i2rad(0, vertexCount - 1, 0, pi * 2.0f);
+
+        static Primitive prim;
+        for (int i = 0; i < vertexCount; ++i) {
+            float radian = i2rad.evaluate(i);
+            float3 p = {
+                std::cos(radian),
+                std::sin(radian),
+                0.0f
+            };
+            prim.add(o + radius * p, c);
+        }
+        prim.draw(PrimitiveMode::LineStrip, lineWidth);
         prim.clear();
     }
 
