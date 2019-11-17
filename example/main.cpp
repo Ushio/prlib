@@ -7,15 +7,26 @@ int main() {
     Config config;
     config.ScreenWidth = 1920;
     config.ScreenHeight = 1080;
+    config.SwapInterval = 4;
     Initialize(config);
 
     Camera3D camera;
-    camera.origin = { 1, 1, 1 };
+    camera.origin = { 4, 4, 4 };
     camera.lookat = { 0, 0, 0 };
 
     while (pr::ProcessSystem() == false) {
+        //printf("p=%s, down=%s, up=%s\n", 
+        //    IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE) ? "_" : "^",
+        //    IsMouseButtonDown(MOUSE_BUTTON_MIDDLE) ? "o" : " ",
+        //    IsMouseButtonUp(MOUSE_BUTTON_MIDDLE) ? "o" : " ");
+
+        UpdateCameraBlenderLike(&camera);
+        SetDepthTest(true);
+
         ClearBackground(0, 0, 0, 1);
         BeginCamera(camera);
+
+        DrawGrid(GridAxis::XZ, 1.0f, 10, { 255, 255, 255 });
 
         DrawLine({}, { 1, 0, 0 }, { 255, 0, 0 });
         DrawLine({}, { 0, 1, 0 }, { 0, 255, 0 });

@@ -10,6 +10,8 @@
 #include <random>
 #include <functional>
 #include <stack>
+#include <queue>
+#include <map>
 
 #define MAX_CAMERA_STACK_SIZE 1000
 
@@ -28,6 +30,53 @@ namespace pr {
 
     void *g_current_pipeline = nullptr;
     PrimitivePipeline *g_primitive_pipeline = nullptr;
+
+    // Input System
+    enum class InputEventType {
+        MouseButtons,
+        MouseMove,
+        MouseScroll,
+        Keys
+    };
+    struct MouseButtonEvent {
+        int button; // GLFW_MOUSE_BUTTON_LEFT or GLFW_MOUSE_BUTTON_RIGHT  or GLFW_MOUSE_BUTTON_MIDDLE or other 
+        int action; // One of GLFW_PRESS or GLFW_RELEASE.
+    };
+    struct MouseMoveEvent {
+        float x;
+        float y;
+    };
+    struct MouseScrollEvent {
+        float dx;
+        float dy;
+    };
+    struct KeyEvent {
+        int key;
+        int action; // GLFW_PRESS, GLFW_RELEASE or GLFW_REPEAT.
+    };
+    struct InputEvent {
+        InputEventType type;
+        union {
+            MouseButtonEvent mouseButtonEvent;
+            MouseMoveEvent   mouseMoveEvent;
+            MouseScrollEvent mouseScrollEvent;
+            KeyEvent         keyEvent;
+        } data;
+    };
+    enum class ButtonCondition {
+        Released = 0,
+        Pressed  = 1
+    };
+    std::queue<InputEvent> g_events;
+
+    std::map<int, ButtonCondition> g_mouseButtonConditions;
+    std::map<int, ButtonCondition> g_mouseButtonConditionsPrevious;
+    glm::vec2 g_mousePosition    = glm::vec2(0, 0);
+    glm::vec2 g_mouseDelta       = glm::vec2(0, 0);
+    glm::vec2 g_mouseScrollDelta = glm::vec2(0, 0);
+
+    std::map<int, ButtonCondition> g_keyConditions;
+    std::map<int, ButtonCondition> g_keyConditionsPrevious;
 
     class ICamera;
     // Global Variable (User)
@@ -476,6 +525,52 @@ namespace pr {
         prim.draw(PrimitiveMode::LineStrip, lineWidth);
         prim.clear();
     }
+    void DrawGrid(GridAxis axis, float step, int blockCount, glm::u8vec3 c, float lineWidth) {
+        int hBlockCount = blockCount / 2;
+        float hWide = blockCount * step * 0.5f;
+
+        glm::vec3 uaxis;
+        glm::vec3 vaxis;
+        switch (axis) {
+        case GridAxis::XY:
+            uaxis = glm::vec3(1, 0, 0);
+            vaxis = glm::vec3(0, 1, 0);
+            break;
+        case GridAxis::XZ:
+            uaxis = glm::vec3(1, 0, 0);
+            vaxis = glm::vec3(0, 0, 1);
+            break;
+        case GridAxis::YZ:
+            uaxis = glm::vec3(0, 1, 0);
+            vaxis = glm::vec3(0, 0, 1);
+            break;
+        default:
+            PR_ASSERT(0);
+            break;
+        }
+
+        static Primitive prim;
+        {
+            // u line
+            auto L = uaxis * (-hWide);
+            auto R = uaxis * (+hWide);
+            for (int ui = -hBlockCount; ui <= hBlockCount; ++ui) {
+                prim.add(L + vaxis * (float)ui * step, c);
+                prim.add(R + vaxis * (float)ui * step, c);
+            }
+        }
+        {
+            // v line
+            auto L = vaxis * (-hWide);
+            auto R = vaxis * (+hWide);
+            for (int vi = -hBlockCount; vi <= hBlockCount; ++vi) {
+                prim.add(uaxis * (float)vi * step + L, c);
+                prim.add(uaxis * (float)vi * step + R, c);
+            }
+        }
+        prim.draw(PrimitiveMode::Lines, lineWidth);
+        prim.clear();
+    }
 
     static void SetupGraphics() {
         glViewport(0, 0, g_config.ScreenWidth, g_config.ScreenHeight);
@@ -488,6 +583,45 @@ namespace pr {
         glDisable(GL_BLEND);
 
         UpdateCurrentMatrix();
+    }
+
+    // Event Handling
+    static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+    {
+        InputEvent e;
+        e.type = InputEventType::MouseButtons;
+        e.data.mouseButtonEvent.action = action;
+        e.data.mouseButtonEvent.button = button;
+        g_events.push(e);
+    }
+    static void CursorPositionCallback(GLFWwindow* window, double xpos, double ypos)
+    {
+        InputEvent e;
+        e.type = InputEventType::MouseMove;
+        e.data.mouseMoveEvent.x = (float)xpos;
+        e.data.mouseMoveEvent.y = (float)ypos;
+        g_events.push(e);
+    }
+    void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+    {
+        InputEvent e;
+        e.type = InputEventType::MouseScroll;
+        e.data.mouseScrollEvent.dx = (float)xoffset;
+        e.data.mouseScrollEvent.dy = (float)yoffset;
+        g_events.push(e);
+    }
+
+    void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+    {
+        if (action == GLFW_REPEAT) {
+            return;
+        }
+
+        InputEvent e;
+        e.type = InputEventType::Keys;
+        e.data.keyEvent.key = key;
+        e.data.keyEvent.action = action;
+        g_events.push(e);
     }
 
     void Initialize(Config config) {
@@ -519,6 +653,11 @@ namespace pr {
 
         glfwSwapInterval(config.SwapInterval);
 
+        glfwSetMouseButtonCallback(g_window, MouseButtonCallback);
+        glfwSetCursorPosCallback(g_window, CursorPositionCallback);
+        glfwSetKeyCallback(g_window, KeyCallback);
+        glfwSetScrollCallback(g_window, ScrollCallback);
+
         SetupGraphics();
     }
     void CleanUp() {
@@ -547,11 +686,95 @@ namespace pr {
         }
         return 0;
     }
+
+    static void HandleInputEvents() {
+        auto previousMousePosition = g_mousePosition;
+        g_mouseButtonConditionsPrevious = g_mouseButtonConditions;
+        g_keyConditionsPrevious = g_keyConditions;
+        g_mouseScrollDelta = glm::vec2(0, 0);
+
+        std::map<int, bool> mousebuttonChanged;
+        std::map<int, bool> keyChanged;
+
+        while (g_events.empty() == false) {
+            InputEvent e = g_events.front();
+
+            switch (e.type)
+            {
+            case InputEventType::MouseButtons: {
+                MouseButtonEvent data = e.data.mouseButtonEvent;
+                auto condition = g_mouseButtonConditions[data.button];
+                if (data.action != GLFW_PRESS && data.action != GLFW_RELEASE) {
+                    break;
+                }
+                auto newCondition = data.action == GLFW_PRESS ? ButtonCondition::Pressed : ButtonCondition::Released;
+                if (condition == newCondition) {
+                    break;
+                }
+
+                // suspend process event. Because we can't handle on-off per 1 frame by polling senario.
+                if (mousebuttonChanged[data.button]) {
+                    goto suspend_event_handle;
+                }
+                mousebuttonChanged[data.button] = true;
+
+                // update mouse button state
+                g_mouseButtonConditions[data.button] = newCondition;
+                break;
+            }
+            case InputEventType::MouseMove: {
+                MouseMoveEvent data = e.data.mouseMoveEvent;
+                g_mousePosition.x = data.x;
+                g_mousePosition.y = data.y;
+                break;
+            }
+            case InputEventType::MouseScroll: {
+                MouseScrollEvent data = e.data.mouseScrollEvent;
+                g_mouseScrollDelta.x += data.dx;
+                g_mouseScrollDelta.y += data.dy;
+                break;
+            }
+            case InputEventType::Keys: {
+                KeyEvent data = e.data.keyEvent;
+                auto condition = g_keyConditions[data.key];
+                if (data.action != GLFW_PRESS && data.action != GLFW_RELEASE) {
+                    break;
+                }
+                auto newCondition = data.action == GLFW_PRESS ? ButtonCondition::Pressed : ButtonCondition::Released;
+                if (condition == newCondition) {
+                    break;
+                }
+
+                // suspend process event. Because we can't handle on-off per 1 frame by polling senario.
+                if (keyChanged[data.key]) {
+                    goto suspend_event_handle;
+                }
+                keyChanged[data.key] = true;
+
+                // update key state
+                g_keyConditions[data.key] = newCondition;
+                break;
+            }
+            default:
+                PR_ASSERT(0);
+                break;
+            }
+
+            g_events.pop();
+        }
+suspend_event_handle:
+        ;
+
+        g_mouseDelta = g_mousePosition - previousMousePosition;
+    }
     bool ProcessSystem() {
         g_frameBuffer->copyToScreen();
         glfwSwapBuffers(g_window);
 
         glfwPollEvents();
+
+        HandleInputEvents();
+
         int width, height;
         glfwGetFramebufferSize(g_window, &width, &height);
         g_frameBuffer->resize(width, height, g_config.NumSamples);
@@ -559,6 +782,51 @@ namespace pr {
         glViewport(0, 0, width, height);
 
         return glfwWindowShouldClose(g_window);
+    }
+
+    glm::vec2 GetMousePosition() {
+        return g_mousePosition;
+    }
+    glm::vec2 GetMouseDelta() {
+        return g_mouseDelta;
+    }
+    glm::vec2 GetMouseScrollDelta() {
+        return g_mouseScrollDelta;
+    }
+    int MOUSE_BUTTON_LEFT   = GLFW_MOUSE_BUTTON_LEFT;
+    int MOUSE_BUTTON_MIDDLE = GLFW_MOUSE_BUTTON_MIDDLE;
+    int MOUSE_BUTTON_RIGHT  = GLFW_MOUSE_BUTTON_RIGHT;
+
+    bool IsMouseButtonPressed(int button) {
+        return g_mouseButtonConditions[button] == ButtonCondition::Pressed;
+    }
+    bool IsMouseButtonDown(int button) {
+        return
+            g_mouseButtonConditions[button] == ButtonCondition::Pressed &&
+            g_mouseButtonConditionsPrevious[button] == ButtonCondition::Released;
+    }
+    bool IsMouseButtonUp(int button) {
+        return
+            g_mouseButtonConditions[button] == ButtonCondition::Released &&
+            g_mouseButtonConditionsPrevious[button] == ButtonCondition::Pressed;
+    }
+
+    extern int KEY_LEFT_SHIFT = GLFW_KEY_LEFT_SHIFT;
+    extern int KEY_RIGHT_SHIFT = GLFW_KEY_RIGHT_SHIFT;
+
+    bool IsKeyPressed(int button) {
+        return g_keyConditions[button] == ButtonCondition::Pressed;
+    }
+
+    bool IsKeyDown(int button) {
+        return
+            g_keyConditions[button] == ButtonCondition::Pressed &&
+            g_keyConditionsPrevious[button] == ButtonCondition::Released;
+    }
+    bool IsKeyUp(int button) {
+        return
+            g_keyConditions[button] == ButtonCondition::Released &&
+            g_keyConditionsPrevious[button] == ButtonCondition::Pressed;
     }
 
     // Random Number
@@ -651,5 +919,114 @@ namespace pr {
     }
     float Degrees(float radians) {
         return glm::degrees(radians);
+    }
+
+    // Interactions
+    void UpdateCameraBlenderLike(
+        Camera3D *camera,
+        float wheel_sensitivity,
+        float zoom_mouse_sensitivity,
+        float rotate_sensitivity,
+        float shift_sensitivity
+    ) {
+        glm::vec2 mousePositionDelta = GetMouseDelta();
+
+        bool shift = IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT);
+
+        bool middle_pressed = IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE) && !IsMouseButtonDown(MOUSE_BUTTON_MIDDLE);
+        bool right_pressed  = IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)  && !IsMouseButtonDown(MOUSE_BUTTON_RIGHT);
+
+        float deltaWheel = GetMouseScrollDelta().y;
+        if (deltaWheel != 0.0f) {
+            auto lookat = camera->lookat;
+            auto origin = camera->origin;
+
+            float d = glm::distance(lookat, origin);
+            d -= d * deltaWheel * wheel_sensitivity;
+            d = std::max(0.01f, d);
+
+            auto dir = glm::normalize(origin - lookat);
+            origin = lookat + dir * d;
+            camera->origin = origin;
+        } else if (right_pressed) {
+            if (mousePositionDelta.y != 0.0f) {
+                auto lookat = camera->lookat;
+                auto origin = camera->origin;
+
+                float d = glm::distance(lookat, origin);
+                d -= d * mousePositionDelta.y * zoom_mouse_sensitivity;
+                d = std::max(0.1f, d);
+
+                auto dir = glm::normalize(origin - lookat);
+                origin = lookat + dir * d;
+                camera->origin = origin;
+            }
+        }
+
+        // Handle Rotation
+        if (middle_pressed && shift == false) {
+            if (mousePositionDelta.x != 0.0f) {
+                auto lookat = camera->lookat;
+                auto origin = camera->origin;
+                auto up = camera->up;
+                auto S = origin - lookat;
+
+                auto q = glm::angleAxis(-rotate_sensitivity * mousePositionDelta.x, glm::vec3(0, 1, 0));
+
+                S  = q * S;
+                up = q * up;
+
+                camera->origin = lookat + S;
+                camera->up = up;
+            }
+
+            if (mousePositionDelta.y != 0.0f) {
+                auto lookat = camera->lookat;
+                auto origin = camera->origin;
+
+                auto foward = origin - lookat;
+
+                auto up = camera->up;
+                auto right = glm::normalize(glm::cross(foward, up));
+                up = glm::cross(right, foward);
+                up = glm::normalize(up);
+
+                auto S = origin - lookat;
+                auto q = glm::angleAxis(rotate_sensitivity * mousePositionDelta.y, right);
+
+                S  = q * S;
+                up = q * up;
+
+                camera->origin = lookat + S;
+                camera->up = up;
+            }
+        }
+
+        if (middle_pressed && shift) {
+            auto lookat = camera->lookat;
+            auto origin = camera->origin;
+
+            auto foward = origin - lookat;
+
+            auto up = camera->up;
+            if (glm::length(up) <= std::numeric_limits<float>::epsilon()) {
+                up = glm::vec3 { 0, 1, 0 };
+            }
+            auto right = glm::normalize(glm::cross(foward, up));
+            up = glm::cross(right, foward);
+            up = glm::normalize(up);
+
+            float d = glm::distance(lookat, origin);
+
+            auto move =
+                d * up * shift_sensitivity * mousePositionDelta.y +
+                d * right * shift_sensitivity * mousePositionDelta.x;
+
+            lookat = lookat + move;
+            origin = origin + move;
+
+            camera->lookat = lookat;
+            camera->origin = origin;
+        }
     }
 }

@@ -50,6 +50,33 @@ namespace pr {
     */
     bool ProcessSystem();
 
+    // Inputs
+    extern int MOUSE_BUTTON_LEFT;
+    extern int MOUSE_BUTTON_MIDDLE;
+    extern int MOUSE_BUTTON_RIGHT;
+
+    // query mouse button state
+    bool IsMouseButtonPressed(int button); 
+
+    // up or down event
+    bool IsMouseButtonDown(int button);
+    bool IsMouseButtonUp(int button);
+
+    // Mouse behavior
+    glm::vec2 GetMousePosition();
+    glm::vec2 GetMouseDelta();
+    glm::vec2 GetMouseScrollDelta();
+
+    extern int KEY_LEFT_SHIFT;
+    extern int KEY_RIGHT_SHIFT;
+
+    // query key state
+    bool IsKeyPressed(int button);
+
+    // up or down event
+    bool IsKeyDown(int button);
+    bool IsKeyUp(int button);
+
     // Random Number
     struct IRandom {
         virtual ~IRandom() {}
@@ -112,6 +139,14 @@ namespace pr {
     void BeginCamera(Camera3D camera);
     void EndCamera();
 
+    void UpdateCameraBlenderLike(
+        Camera3D *camera,
+        float wheel_sensitivity = 0.1f,
+        float zoom_mouse_sensitivity = 0.002f,
+        float rotate_sensitivity = 0.004f,
+        float shift_sensitivity = 0.0006f
+    );
+
     // Batch Module
     enum class PrimitiveMode {
         Points,
@@ -133,4 +168,10 @@ namespace pr {
     void DrawPoint(glm::vec3 p, glm::u8vec3 c, float pointSize = 1.0f);
     void DrawCircle(glm::vec3 o, glm::u8vec3 c, float radius, int vertexCount = 32, float lineWidth = 1.0f);
 
+    enum class GridAxis {
+        XY,
+        XZ,
+        YZ
+    };
+    void DrawGrid(GridAxis axis, float step, int blockCount, glm::u8vec3 c, float lineWidth = 1.0f);
 }
