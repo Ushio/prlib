@@ -9,6 +9,9 @@
 #include <memory>
 #include <random>
 #include <functional>
+#include <stack>
+
+#define MAX_CAMERA_STACK_SIZE 1000
 
 namespace pr {
     // foward
@@ -16,7 +19,7 @@ namespace pr {
     class PrimitivePipeline;
     class MSFrameBufferObject;
 
-    // Global 
+    // Global Variable (Internal)
     Config g_config;
     GLFWwindow *g_window = nullptr;
 
@@ -25,6 +28,10 @@ namespace pr {
 
     void *g_current_pipeline = nullptr;
     PrimitivePipeline *g_primitive_pipeline = nullptr;
+
+    class ICamera;
+    // Global Variable (User)
+    std::stack<std::unique_ptr<const ICamera>> g_cameraStack;
 
     static bool HasCompileError(GLuint shader) {
         GLint success = 0;
@@ -105,6 +112,16 @@ namespace pr {
         void bindFragLocation(int location, const char *variable) {
             glBindFragDataLocation(_program, location, variable);
         }
+        void setUniformMatrix(glm::mat4 m, const char *variable) {
+            GLint cur_program;
+            glGetIntegerv(GL_CURRENT_PROGRAM, &cur_program);
+
+            glUseProgram(_program);
+            auto location = glGetUniformLocation(_program, variable);
+            glUniformMatrix4fv(location, 1, GL_FALSE, (float *)&m);
+
+            glUseProgram(cur_program);
+        }
     private:
         GLuint _vs = 0;
         GLuint _fs = 0;
@@ -173,15 +190,17 @@ namespace pr {
             _vao = std::unique_ptr<VertexArrayObject>(new VertexArrayObject());
 
             const char *vs = R"(
-                #version 420
+                #version 410
 
+                uniform mat4 u_vp;
+                
                 in vec3 in_position;
                 in vec3 in_color;
 
                 out vec3 tofs_color;
 
                 void main() {
-                    gl_Position = vec4(in_position, 1.0);
+                    gl_Position = u_vp * vec4(in_position, 1.0);
                     tofs_color = in_color;
                 }
             )";
@@ -230,6 +249,10 @@ namespace pr {
         // byte x 4
         ArrayBuffer *colors() {
             return _colors.get();
+        }
+
+        void setVP(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
+            _shader->setUniformMatrix(projMatrix * viewMatrix, "u_vp");
         }
     private:
         std::unique_ptr<VertexArrayObject> _vao;
@@ -314,6 +337,52 @@ namespace pr {
         GLuint _depth = 0;
     };
 
+    class ICamera {
+    public:
+        virtual ~ICamera() {};
+        virtual glm::mat4 getProjectionMatrx() const = 0;
+        virtual glm::mat4 getViewMatrix() const = 0;
+    };
+    class CameraDefault : public ICamera {
+    public:
+        virtual glm::mat4 getProjectionMatrx() const override {
+            return glm::identity<glm::mat4>();
+        }
+        virtual glm::mat4 getViewMatrix() const override {
+            return glm::identity<glm::mat4>();
+        }
+    };
+
+    class Camera3DObject : public ICamera {
+    public:
+        Camera3DObject(Camera3D camera):_camera(camera) {
+
+        }
+        virtual glm::mat4 getProjectionMatrx() const override {
+            return glm::perspectiveFov(_camera.fovy, (float)GetScreenWidth(), (float)GetScreenHeight(), _camera.zNear, _camera.zFar);
+        }
+        virtual glm::mat4 getViewMatrix() const override {
+            return glm::lookAt(_camera.origin, _camera.lookat, _camera.up);
+        }
+    private:
+        Camera3D _camera;
+    };
+
+    static const ICamera *GetCurrentCamera() {
+        if (g_cameraStack.empty()) {
+            static CameraDefault d;
+            return &d;
+        }
+        return g_cameraStack.top().get();
+    }
+    static void UpdateCurrentMatrix() {
+        auto camera = GetCurrentCamera();
+        auto v = camera->getViewMatrix();
+        auto p = camera->getProjectionMatrx();
+        auto vp = v * p;
+        g_primitive_pipeline->setVP(camera->getViewMatrix(), camera->getProjectionMatrx());
+    }
+
     /*
      Graphics Core
     */
@@ -329,11 +398,24 @@ namespace pr {
             glDisable(GL_DEPTH_TEST);
         }
     }
+    void BeginCamera(Camera3D camera) {
+        PR_ASSERT(g_cameraStack.size() <= MAX_CAMERA_STACK_SIZE);
+
+        g_cameraStack.push(std::unique_ptr<const ICamera>(new Camera3DObject(camera)));
+        UpdateCurrentMatrix();
+    }
+    void EndCamera() {
+        PR_ASSERT(g_cameraStack.empty() == false);
+
+        g_cameraStack.pop();
+        UpdateCurrentMatrix();
+    }
+
     void Primitive::clear() {
         _positions.clear();
         _colors.clear();
     }
-    void Primitive::add(float3 p, byte3 c) {
+    void Primitive::add(glm::vec3 p, glm::u8vec3 c) {
         _positions.emplace_back(p);
         _colors.emplace_back(c);
     }
@@ -342,48 +424,49 @@ namespace pr {
             g_current_pipeline = g_primitive_pipeline;
             g_primitive_pipeline->bind();
         }
+        PR_ASSERT(_positions.size() == _colors.size());
 
         auto p = g_primitive_pipeline->positions();
         auto c = g_primitive_pipeline->colors();
-        p->upload(_positions.data(), _positions.size() * sizeof(float3));
-        c->upload(_colors.data(), _colors.size() * sizeof(byte3));
+        p->upload(_positions.data(), (int)(_positions.size() * sizeof(glm::vec3)));
+        c->upload(_colors.data(), (int)(_colors.size() * sizeof(glm::u8vec3)));
 
         switch (mode) {
         case PrimitiveMode::Points:
             glPointSize(width);
-            glDrawArrays(GL_POINTS, 0, _positions.size());
+            glDrawArrays(GL_POINTS, 0, (int)_positions.size());
             break;
         case PrimitiveMode::Lines:
             glLineWidth(width);
-            glDrawArrays(GL_LINES, 0, _positions.size());
+            glDrawArrays(GL_LINES, 0, (int)_positions.size());
             break;
         case PrimitiveMode::LineStrip:
             glLineWidth(width);
-            glDrawArrays(GL_LINE_STRIP, 0, _positions.size());
+            glDrawArrays(GL_LINE_STRIP, 0, (int)_positions.size());
             break;
         }
     }
 
-    void DrawLine(float3 p0, float3 p1, byte3 c, float lineWidth) {
+    void DrawLine(glm::vec3 p0, glm::vec3 p1, glm::u8vec3 c, float lineWidth) {
         static Primitive prim;
         prim.add(p0, c);
         prim.add(p1, c);
         prim.draw(PrimitiveMode::Lines, lineWidth);
         prim.clear();
     }
-    void DrawPoint(float3 p, byte3 c, float pointSize) {
+    void DrawPoint(glm::vec3 p, glm::u8vec3 c, float pointSize) {
         static Primitive prim;
         prim.add(p, c);
         prim.draw(PrimitiveMode::Points, pointSize);
         prim.clear();
     }
-    void DrawCircle(float3 o, byte3 c, float radius, int vertexCount, float lineWidth) {
-        LinearTransform<float> i2rad(0, vertexCount - 1, 0, pi * 2.0f);
+    void DrawCircle(glm::vec3 o, glm::u8vec3 c, float radius, int vertexCount, float lineWidth) {
+        LinearTransform<float> i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
 
         static Primitive prim;
         for (int i = 0; i < vertexCount; ++i) {
-            float radian = i2rad.evaluate(i);
-            float3 p = {
+            float radian = i2rad.evaluate((float)i);
+            glm::vec3 p = {
                 std::cos(radian),
                 std::sin(radian),
                 0.0f
@@ -403,6 +486,8 @@ namespace pr {
         g_frameBuffer->bind();
 
         glDisable(GL_BLEND);
+
+        UpdateCurrentMatrix();
     }
 
     void Initialize(Config config) {
@@ -481,11 +566,11 @@ namespace pr {
         return this->uniform_float();
     }
     float IRandom::uniform(float a, float b) {
-        return linalg::lerp(a, b, uniform_float());
+        return glm::mix(a, b, uniform_float());
     }
     int IRandom::uniform(int a, int b) {
         int64_t length = (int64_t)b - (int64_t)a;
-        return a + this->uniform_integer() % length;
+        return a + (int)(this->uniform_integer() % length);
     }
 
     // http://xoshiro.di.unimi.it/splitmix64.c
@@ -514,7 +599,7 @@ namespace pr {
             s[2] = r1 & 0xFFFFFFFF;
             s[3] = (r1 >> 32) & 0xFFFFFFFF;
 
-            if (state() == uint4(0, 0, 0, 0)) {
+            if (state() == glm::uvec4(0, 0, 0, 0)) {
                 s[0] = 1;
             }
         }
@@ -530,8 +615,8 @@ namespace pr {
             uint64_t b = next() >> 1;
             return (a << 31) | b;
         }
-        uint4 state() const {
-            return uint4(s[0], s[1], s[2], s[3]);
+        glm::uvec4 state() const {
+            return glm::uvec4(s[0], s[1], s[2], s[3]);
         }
     private:
         uint32_t rotl(const uint32_t x, int k) {
@@ -559,5 +644,12 @@ namespace pr {
 
     IRandom *CreateRandomNumberGenerator(uint32_t seed) {
         return new Xoshiro128StarStar(seed);
+    }
+
+    float Radians(float degrees) {
+        return glm::radians(degrees);
+    }
+    float Degrees(float radians) {
+        return glm::degrees(radians);
     }
 }

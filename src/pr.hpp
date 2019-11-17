@@ -3,8 +3,25 @@
 #include <string>
 #include <vector>
 
-// https://github.com/sgorsten/linalg
-#include "linalg.h"
+#ifdef GLM_VERSION
+    #ifndef GLM_FORCE_CTOR_INIT
+        #error "please #define GLM_FORCE_CTOR_INIT or include pr.hpp first"
+    #endif
+    #ifndef GLM_FORCE_PURE
+        #error "please #define GLM_FORCE_PURE or include pr.hpp first"
+    #endif
+#else
+    #ifndef GLM_FORCE_CTOR_INIT
+        #define GLM_FORCE_CTOR_INIT
+    #endif
+    #ifndef GLM_FORCE_PURE
+        #define GLM_FORCE_PURE
+    #endif
+#endif
+
+
+#include "glm/glm.hpp"
+#include "glm/ext.hpp"
 
 /*
  Macros
@@ -13,12 +30,6 @@
 #define PR_ASSERT(ExpectTrue) if((ExpectTrue) == 0) { __debugbreak(); }
 
 namespace pr {
-    // Constant
-    static const float pi = 3.14159265358979323846f;
-    static const float e  = 2.71828182845904523536f;
-
-    using namespace linalg::aliases;
-
     struct Config {
         int ScreenWidth = 1280;
         int ScreenHeight = 768;
@@ -38,41 +49,6 @@ namespace pr {
       - return true if the window should close
     */
     bool ProcessSystem();
-
-    // Drawing
-    void ClearBackground(float r, float g, float b, float a);
-    void SetDepthTest(bool enabled);
-
-    // Camera
-    struct Camera3D {
-        float3 origin;
-        float3 lookat;
-        float3 up;                // up direction. If it is zero, used (0, 1, 0) vector
-        float fovy     = 0.0f;    // vertical field of view
-        float nearclip = 0.01f;
-        float farclip  = 1000.0f;
-    };
-
-    // Batch Module
-    enum class PrimitiveMode {
-        Points,
-        Lines,
-        LineStrip,
-    };
-    class Primitive {
-    public:
-        void clear();
-        void add(float3 p, byte3 c);
-        void draw(PrimitiveMode mode, float width = 1.0f);
-    private:
-        std::vector<float3> _positions;
-        std::vector<byte3> _colors;
-    };
-
-    // Simple Functions
-    void DrawLine(float3 p0, float3 p1, byte3 c, float lineWidth = 1.0f);
-    void DrawPoint(float3 p, byte3 c, float pointSize = 1.0f);
-    void DrawCircle(float3 o, byte3 c, float radius, int vertexCount, float lineWidth = 1.0f);
 
     // Random Number
     struct IRandom {
@@ -97,6 +73,8 @@ namespace pr {
 
     IRandom *CreateRandomNumberGenerator(uint32_t seed);
 
+    // Math
+
     template <class Real>
     struct LinearTransform {
         LinearTransform() :_a(Real(1.0)), _b(Real(0.0)) {}
@@ -115,4 +93,44 @@ namespace pr {
         Real _a;
         Real _b;
     };
+    float Radians(float degrees);
+    float Degrees(float radians);
+
+    // Drawing
+    void ClearBackground(float r, float g, float b, float a);
+    void SetDepthTest(bool enabled);
+
+    // Camera
+    struct Camera3D {
+        glm::vec3 origin;
+        glm::vec3 lookat;
+        glm::vec3 up = { 0.0f, 1.0f, 0.0f };
+        float fovy     = Radians(45.0f); // vertical field of view
+        float zNear = 0.01f;
+        float zFar  = 1000.0f;
+    };
+    void BeginCamera(Camera3D camera);
+    void EndCamera();
+
+    // Batch Module
+    enum class PrimitiveMode {
+        Points,
+        Lines,
+        LineStrip,
+    };
+    class Primitive {
+    public:
+        void clear();
+        void add(glm::vec3 p, glm::u8vec3 c);
+        void draw(PrimitiveMode mode, float width = 1.0f);
+    private:
+        std::vector<glm::vec3> _positions;
+        std::vector<glm::u8vec3> _colors;
+    };
+
+    // Simple Functions
+    void DrawLine(glm::vec3 p0, glm::vec3 p1, glm::u8vec3 c, float lineWidth = 1.0f);
+    void DrawPoint(glm::vec3 p, glm::u8vec3 c, float pointSize = 1.0f);
+    void DrawCircle(glm::vec3 o, glm::u8vec3 c, float radius, int vertexCount = 32, float lineWidth = 1.0f);
+
 }

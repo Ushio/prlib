@@ -50,6 +50,9 @@ project "prlib"
 
     defines { "_GLFW_WIN32" }
 
+    -- GLM
+    defines { "GLM_FORCE_CTOR_INIT", "GLM_FORCE_PURE" }
+
     -- GLEW
     files {"libs/glew/src/*.c"}
     files {"libs/glew/include/GL/*.h"}

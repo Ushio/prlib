@@ -9,13 +9,24 @@ int main() {
     config.ScreenHeight = 1080;
     Initialize(config);
 
+    Camera3D camera;
+    camera.origin = { 1, 1, 1 };
+    camera.lookat = { 0, 0, 0 };
+
     while (pr::ProcessSystem() == false) {
-        // pr::ClearBackground(0, 0, 0, 1);
+        ClearBackground(0, 0, 0, 1);
+        BeginCamera(camera);
+
+        DrawLine({}, { 1, 0, 0 }, { 255, 0, 0 });
+        DrawLine({}, { 0, 1, 0 }, { 0, 255, 0 });
+        DrawLine({}, { 0, 0, 1 }, { 0, 0, 255 });
+
+        DrawCircle({}, { 255, 0, 0 }, 0.5f);
 
         static Primitive prim;
         static IRandom *random = CreateRandomNumberGenerator(100);
-        for (int i = 0; i < 10000; ++i) {
-            byte3 color = byte3(
+        for (int i = 0; i < 0; ++i) {
+            glm::u8vec3 color = glm::u8vec3(
                 (random->uniform(0, 256)),
                 (random->uniform(0, 256)),
                 (random->uniform(0, 256))
@@ -33,9 +44,12 @@ int main() {
             // prim.add({ random.uniform(-0.9f, 0.9f), random.uniform(-0.9f, 0.9f), 0 }, color);
             // prim.add({ random.uniform(-0.9f, 0.9f), random.uniform(-0.9f, 0.9f), 0 }, color);
         }
+
+        EndCamera();
+
         // prim.draw(PrimitiveMode::Lines);
         prim.clear();
     }
 
-    pr::CleanUp();
+    CleanUp();
 }
