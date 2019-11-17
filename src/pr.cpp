@@ -571,15 +571,9 @@ namespace pr {
         prim.draw(PrimitiveMode::Lines, lineWidth);
         prim.clear();
     }
-    void DrawTube(glm::vec3 p0, glm::vec3 p1, float radius, glm::u8vec3 c, int vertexCount, float lineWidth) {
-        std::vector<glm::vec2> circleVertices(vertexCount);
-        LinearTransform<float> i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
-        for (int i = 0; i < vertexCount; ++i) {
-            float radian = i2rad.evaluate((float)i);
-            circleVertices[i] = radius * glm::vec2 {
-                std::cos(radian),
-                std::sin(radian)
-            };
+    void DrawTube(glm::vec3 p0, glm::vec3 p1, float radius0, float radius1, glm::u8vec3 c, int vertexCount, float lineWidth) {
+        if (radius0 == 0.0f && radius1 == 0.0f) {
+            DrawLine(p0, p1, c, lineWidth);
         }
 
         glm::vec3 T = p1 - p0;
@@ -589,30 +583,60 @@ namespace pr {
         glm::vec3 y;
         getOrthonormalBasis<float>(z, &x, &y);
 
+        std::vector<glm::vec3> circleVertices(vertexCount);
+        LinearTransform<float> i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
+        for (int i = 0; i < vertexCount; ++i) {
+            float radian = i2rad.evaluate((float)i);
+            circleVertices[i] = x * std::sin(radian) + y * std::cos(radian);
+        }
+
         static Primitive prim;
 
         // Body
         for (int i = 0; i < vertexCount; ++i) {
-            glm::vec3 a = p0 + circleVertices[i].x * x + circleVertices[i].y * y;
-            glm::vec3 b = a + T;
+            glm::vec3 a = p0 + radius0 * circleVertices[i];
+            glm::vec3 b = p1 + radius1 * circleVertices[i];
             prim.add(a, c);
             prim.add(b, c);
         }
 
         // Two Circles
-        for (int i = 0; i < vertexCount - 1; ++i) {
-            glm::vec3 a = p0 + circleVertices[i].x * x + circleVertices[i].y * y;
-            glm::vec3 b = p0 + circleVertices[i + 1].x * x + circleVertices[i + 1].y * y;
-            prim.add(a, c);
-            prim.add(b, c);
-            prim.add(a + T, c);
-            prim.add(b + T, c);
+        if (0.0f < radius0) {
+            for (int i = 0; i < vertexCount - 1; ++i) {
+                glm::vec3 a = p0 + radius0 * circleVertices[i];
+                glm::vec3 b = p0 + radius0 * circleVertices[i + 1];
+                prim.add(a, c);
+                prim.add(b, c);
+            }
+        }
+        if (0.0f < radius1) {
+            for (int i = 0; i < vertexCount - 1; ++i) {
+                glm::vec3 a = p1 + radius1 * circleVertices[i];
+                glm::vec3 b = p1 + radius1 * circleVertices[i + 1];
+                prim.add(a, c);
+                prim.add(b, c);
+            }
         }
 
         prim.draw(PrimitiveMode::Lines, lineWidth);
         prim.clear();
     }
+    void DrawArrow(glm::vec3 p0, glm::vec3 p1, float bodyRadius, glm::u8vec3 c, int vertexCount, float lineWidth) {
+        float triR = bodyRadius * 2.5f;
+        float triH = bodyRadius * 7.0f;
+        glm::vec3 T = p1 - p0;
+        float length = glm::length(T);
+        T /= length;
 
+        glm::vec3 triO = p0 + T * (length - triH);
+        DrawTube(p0, triO, bodyRadius, bodyRadius, c, vertexCount, lineWidth);
+        DrawTube(triO, p1, triR, 0.0f, c, vertexCount, lineWidth);
+    }
+    void DrawXYZAxis(float length, float bodyRadius, int vertexCount, float lineWidth) {
+        DrawArrow({}, glm::vec3((float)length, 0, 0), bodyRadius, { 255, 0, 0 }, vertexCount, lineWidth);
+        DrawArrow({}, glm::vec3(0, (float)length, 0), bodyRadius, { 0, 255, 0 }, vertexCount, lineWidth);
+        DrawArrow({}, glm::vec3(0, 0, (float)length), bodyRadius, { 0, 0, 255 }, vertexCount, lineWidth);
+    }
     static void SetupGraphics() {
         glViewport(0, 0, g_config.ScreenWidth, g_config.ScreenHeight);
 
