@@ -699,6 +699,11 @@ namespace pr {
         glfwSetKeyCallback(g_window, KeyCallback);
         glfwSetScrollCallback(g_window, ScrollCallback);
 
+        double cx, cy;
+        glfwGetCursorPos(g_window, &cx, &cy);
+        g_mousePosition.x = (float)cx;
+        g_mousePosition.y = (float)cy;
+
         SetupGraphics();
     }
     void CleanUp() {
