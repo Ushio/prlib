@@ -571,6 +571,47 @@ namespace pr {
         prim.draw(PrimitiveMode::Lines, lineWidth);
         prim.clear();
     }
+    void DrawTube(glm::vec3 p0, glm::vec3 p1, float radius, glm::u8vec3 c, int vertexCount, float lineWidth) {
+        std::vector<glm::vec2> circleVertices(vertexCount);
+        LinearTransform<float> i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
+        for (int i = 0; i < vertexCount; ++i) {
+            float radian = i2rad.evaluate((float)i);
+            circleVertices[i] = radius * glm::vec2 {
+                std::cos(radian),
+                std::sin(radian)
+            };
+        }
+
+        glm::vec3 T = p1 - p0;
+        glm::vec3 z = glm::normalize(T);
+
+        glm::vec3 x;
+        glm::vec3 y;
+        getOrthonormalBasis<float>(z, &x, &y);
+
+        static Primitive prim;
+
+        // Body
+        for (int i = 0; i < vertexCount; ++i) {
+            glm::vec3 a = p0 + circleVertices[i].x * x + circleVertices[i].y * y;
+            glm::vec3 b = a + T;
+            prim.add(a, c);
+            prim.add(b, c);
+        }
+
+        // Two Circles
+        for (int i = 0; i < vertexCount - 1; ++i) {
+            glm::vec3 a = p0 + circleVertices[i].x * x + circleVertices[i].y * y;
+            glm::vec3 b = p0 + circleVertices[i + 1].x * x + circleVertices[i + 1].y * y;
+            prim.add(a, c);
+            prim.add(b, c);
+            prim.add(a + T, c);
+            prim.add(b + T, c);
+        }
+
+        prim.draw(PrimitiveMode::Lines, lineWidth);
+        prim.clear();
+    }
 
     static void SetupGraphics() {
         glViewport(0, 0, g_config.ScreenWidth, g_config.ScreenHeight);

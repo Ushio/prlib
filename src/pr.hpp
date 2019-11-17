@@ -120,6 +120,17 @@ namespace pr {
         Real _a;
         Real _b;
     };
+
+    // Building an Orthonormal Basis, Revisited
+    template <typename Real>
+    inline void getOrthonormalBasis(const glm::tvec3<Real>& zaxis, glm::tvec3<Real> *xaxis, glm::tvec3<Real> *yaxis) {
+        const Real sign = std::copysign(Real(1.0), zaxis.z);
+        const Real a = Real(-1.0) / (sign + zaxis.z);
+        const Real b = zaxis.x * zaxis.y * a;
+        *xaxis = glm::tvec3<Real>(Real(1.0) + sign * zaxis.x * zaxis.x * a, sign * b, -sign * zaxis.x);
+        *yaxis = glm::tvec3<Real>(b, sign + zaxis.y * zaxis.y * a, -zaxis.y);
+    }
+
     float Radians(float degrees);
     float Degrees(float radians);
 
@@ -174,4 +185,5 @@ namespace pr {
         YZ
     };
     void DrawGrid(GridAxis axis, float step, int blockCount, glm::u8vec3 c, float lineWidth = 1.0f);
+    void DrawTube(glm::vec3 p0, glm::vec3 p1, float radius, glm::u8vec3 c, int vertexCount = 16, float lineWidth = 1.0f);
 }

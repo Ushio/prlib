@@ -26,11 +26,15 @@ int main() {
         ClearBackground(0, 0, 0, 1);
         BeginCamera(camera);
 
-        DrawGrid(GridAxis::XZ, 1.0f, 10, { 255, 255, 255 });
+        DrawGrid(GridAxis::XZ, 1.0f, 10, { 128, 128, 128 });
 
         DrawLine({}, { 1, 0, 0 }, { 255, 0, 0 });
         DrawLine({}, { 0, 1, 0 }, { 0, 255, 0 });
         DrawLine({}, { 0, 0, 1 }, { 0, 0, 255 });
+
+        DrawTube({}, { 1, 0, 0 }, 0.01f, { 255, 0, 0 });
+        DrawTube({}, { 0, 1, 0 }, 0.01f, { 0, 255, 0 });
+        DrawTube({}, { 0, 0, 1 }, 0.01f, { 0, 0, 255 });
 
         DrawCircle({}, { 255, 0, 0 }, 0.5f);
 
