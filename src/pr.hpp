@@ -50,6 +50,9 @@ namespace pr {
     */
     bool ProcessSystem();
 
+    // Time
+    double GetElapsedTime();
+
     // Inputs
     extern int MOUSE_BUTTON_LEFT;
     extern int MOUSE_BUTTON_MIDDLE;

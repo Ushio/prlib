@@ -80,6 +80,9 @@ namespace pr {
     // Global Variable (User)
     std::stack<std::unique_ptr<const ICamera>> g_cameraStack;
 
+    // Notes:
+    //     VAO, Shader, FrameBuffer states are changed anywhere
+
     static bool HasCompileError(GLuint shader) {
         GLint success = 0;
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -740,6 +743,10 @@ namespace pr {
             return h;
         }
         return 0;
+    }
+
+    double GetElapsedTime() {
+        return glfwGetTime();
     }
 
     static void HandleInputEvents() {
