@@ -27,8 +27,6 @@ namespace pr {
 
     // MainFrameBuffer
     MSFrameBufferObject *g_frameBuffer = nullptr;
-
-    void *g_current_pipeline = nullptr;
     PrimitivePipeline *g_primitive_pipeline = nullptr;
 
     // Input System
@@ -155,12 +153,6 @@ namespace pr {
         void unbind() {
             glUseProgram(0);
         }
-        void bindAttributeLocation(int location, const char *variable) {
-            glBindAttribLocation(_program, location, variable);
-        }
-        void bindFragLocation(int location, const char *variable) {
-            glBindFragDataLocation(_program, location, variable);
-        }
         void setUniformMatrix(glm::mat4 m, const char *variable) {
             GLint cur_program;
             glGetIntegerv(GL_CURRENT_PROGRAM, &cur_program);
@@ -226,9 +218,6 @@ namespace pr {
         void bind() {
             glBindVertexArray(_vao);
         }
-        void unbind() {
-            glBindVertexArray(0);
-        }
     private:
         GLuint _vao = 0;
     };
@@ -243,9 +232,8 @@ namespace pr {
 
                 uniform mat4 u_vp;
                 
-                in vec3 in_position;
-                in vec3 in_color;
-
+                layout(location = 0) in vec3 in_position;
+                layout(location = 1) in vec3 in_color;
                 out vec3 tofs_color;
 
                 void main() {
@@ -257,16 +245,13 @@ namespace pr {
                 #version 410
 
                 in vec3 tofs_color;
-                out vec4 out_fragColor;
+                layout(location = 0) out vec4 out_fragColor;
 
                 void main() {
                   out_fragColor = vec4(tofs_color, 1.0);
                 }
             )";
             _shader = std::unique_ptr<Shader>(new Shader(vs, fs));
-            _shader->bindAttributeLocation(0, "in_position");
-            _shader->bindAttributeLocation(1, "in_color");
-            _shader->bindFragLocation(0, "out_fragColor");
 
             _positions = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
             _colors    = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
@@ -279,18 +264,12 @@ namespace pr {
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
             _colors->bind();
             glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0, 0);
-
-            _vao->unbind();
         }
         void bind() {
             _shader->bind();
             _vao->bind();
         }
-        void unbind() {
-            _shader->unbind();
-            _vao->unbind();
-        }
-        
+
         // float x 3
         ArrayBuffer *positions() {
             return _positions.get();
@@ -411,7 +390,16 @@ namespace pr {
             return glm::perspectiveFov(_camera.fovy, (float)GetScreenWidth(), (float)GetScreenHeight(), _camera.zNear, _camera.zFar);
         }
         virtual glm::mat4 getViewMatrix() const override {
-            return glm::lookAt(_camera.origin, _camera.lookat, _camera.up);
+            glm::mat4 m = glm::lookAt(_camera.origin, _camera.lookat, _camera.up);
+
+            if (_camera.zUp) {
+                m = glm::rotate(
+                    m,
+                    glm::pi<float>() * 0.5f,
+                    glm::vec3(-1, 0, 0)
+                );
+            }
+            return m;
         }
     private:
         Camera3D _camera;
@@ -469,10 +457,7 @@ namespace pr {
         _colors.emplace_back(c);
     }
     void Primitive::draw(PrimitiveMode mode, float width) {
-        if (g_current_pipeline != g_primitive_pipeline) {
-            g_current_pipeline = g_primitive_pipeline;
-            g_primitive_pipeline->bind();
-        }
+        g_primitive_pipeline->bind();
         PR_ASSERT(_positions.size() == _colors.size());
 
         auto p = g_primitive_pipeline->positions();

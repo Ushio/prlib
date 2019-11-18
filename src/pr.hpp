@@ -149,6 +149,7 @@ namespace pr {
         float fovy     = Radians(45.0f); // vertical field of view
         float zNear = 0.01f;
         float zFar  = 1000.0f;
+        bool zUp = false; // y up by default but you can use z up
     };
     void BeginCamera(Camera3D camera);
     void EndCamera();
