@@ -16,7 +16,12 @@ int main() {
     camera.lookat = { 0, 0, 0 };
     camera.zUp = true;
 
+    double e = GetElapsedTime();
+
     while (pr::ProcessSystem() == false) {
+        double deltaTime = GetElapsedTime() - e;
+        e = GetElapsedTime();
+        printf("fps : %f\n", 1.0 / deltaTime);
         //printf("p=%s, down=%s, up=%s\n", 
         //    IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE) ? "_" : "^",
         //    IsMouseButtonDown(MOUSE_BUTTON_MIDDLE) ? "o" : " ",
@@ -47,8 +52,8 @@ int main() {
         //        DrawArrow(glm::vec3(cx, cy, 0), glm::vec3(cx, cy, 0) + d * 0.1f, 0.005f, { 255, 255, 255 });
         //    }
         //}
+        // PrimBegin(PrimitiveMode::Points, 1);
 
-        static Primitive prim;
         std::unique_ptr<IRandom> random( CreateRandomNumberGenerator(100) );
         for (int i = 0; i < 10000; ++i) {
             float x = random->uniform(-4.0f, 4.0f);
@@ -59,6 +64,8 @@ int main() {
             float ny = random->uniform(-1.0f, 1.0f);
             float nz = random->uniform(-1.0f, 1.0f);
 
+            // PrimVertex({ x, y, z }, { 255, 255, 255 });
+
             DrawArrow(glm::vec3(x,y,z), glm::vec3(x, y, z) + glm::vec3(nx, ny, nz) * 0.1f, 0.005f, { 255, 255, 255 });
 
            // glm::u8vec3 color = glm::u8vec3(
@@ -67,11 +74,11 @@ int main() {
            //     (random->uniform(0, 256))
            // );
 
-           // // DrawLine(
-           // //     { random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f },
-           // //     { random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f },
-           // //     color
-           // // );
+             //DrawLine(
+             //    { random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f },
+             //    { random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f },
+             //    { 255, 255, 255 }
+             //);
            // // DrawPoint({ random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f }, color, random->uniform(0, 10));
            //// DrawPoint({ random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f }, color, 1);
            // DrawCircle({ random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f }, color, 0.01f, 10, 5);
@@ -79,11 +86,9 @@ int main() {
            // // prim.add({ random.uniform(-0.9f, 0.9f), random.uniform(-0.9f, 0.9f), 0 }, color);
            // // prim.add({ random.uniform(-0.9f, 0.9f), random.uniform(-0.9f, 0.9f), 0 }, color);
         }
+        // PrimEnd();
 
         EndCamera();
-
-        // prim.draw(PrimitiveMode::Lines);
-        prim.clear();
     }
 
     CleanUp();

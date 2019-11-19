@@ -21,13 +21,15 @@ namespace pr {
     class PrimitivePipeline;
     class MSFrameBufferObject;
 
-    // Global Variable (Internal)
-    Config g_config;
-    GLFWwindow *g_window = nullptr;
+    namespace {
+        // Global Variable (Internal)
+        Config g_config;
+        GLFWwindow *g_window = nullptr;
 
-    // MainFrameBuffer
-    MSFrameBufferObject *g_frameBuffer = nullptr;
-    PrimitivePipeline *g_primitive_pipeline = nullptr;
+        // MainFrameBuffer
+        MSFrameBufferObject *g_frameBuffer = nullptr;
+        PrimitivePipeline *g_primitive_pipeline = nullptr;
+    }
 
     // Input System
     enum class InputEventType {
@@ -65,20 +67,24 @@ namespace pr {
         Released = 0,
         Pressed  = 1
     };
-    std::queue<InputEvent> g_events;
-
-    std::map<int, ButtonCondition> g_mouseButtonConditions;
-    std::map<int, ButtonCondition> g_mouseButtonConditionsPrevious;
-    glm::vec2 g_mousePosition    = glm::vec2(0, 0);
-    glm::vec2 g_mouseDelta       = glm::vec2(0, 0);
-    glm::vec2 g_mouseScrollDelta = glm::vec2(0, 0);
-
-    std::map<int, ButtonCondition> g_keyConditions;
-    std::map<int, ButtonCondition> g_keyConditionsPrevious;
 
     class ICamera;
-    // Global Variable (User)
-    std::stack<std::unique_ptr<const ICamera>> g_cameraStack;
+
+    namespace {
+        std::queue<InputEvent> g_events;
+
+        std::map<int, ButtonCondition> g_mouseButtonConditions;
+        std::map<int, ButtonCondition> g_mouseButtonConditionsPrevious;
+        glm::vec2 g_mousePosition = glm::vec2(0, 0);
+        glm::vec2 g_mouseDelta = glm::vec2(0, 0);
+        glm::vec2 g_mouseScrollDelta = glm::vec2(0, 0);
+
+        std::map<int, ButtonCondition> g_keyConditions;
+        std::map<int, ButtonCondition> g_keyConditionsPrevious;
+
+        // Global Variable (User)
+        std::stack<std::unique_ptr<const ICamera>> g_cameraStack;
+    }
 
     // Notes:
     //     VAO, Shader, FrameBuffer states are changed anywhere
@@ -171,34 +177,37 @@ namespace pr {
         GLuint _fs = 0;
         GLuint _program = 0;
     };
-    class ArrayBuffer {
+
+    template <int GL_X_BUFFER, int GL_X_BINDING>
+    class Buffer {
     public:
-        ArrayBuffer():_bytes(0) {
+        Buffer() :_bytes(0) {
             glGenBuffers(1, &_buffer);
         }
-        ~ArrayBuffer() {
+        ~Buffer() {
             glDeleteBuffers(1, &_buffer);
         }
-        ArrayBuffer(const ArrayBuffer&) = delete;
-        ArrayBuffer& operator=(const ArrayBuffer&) = delete;
+        Buffer(const Buffer&) = delete;
+        Buffer& operator=(const Buffer&) = delete;
 
         void upload(void *p, int bytes) {
-            glBindBuffer(GL_ARRAY_BUFFER, _buffer);
+            GLint curBuffer = 0;
+            glGetIntegerv(GL_X_BINDING, &curBuffer);
+
+            glBindBuffer(GL_X_BUFFER, _buffer);
 
             if (bytes > _bytes) {
-                glBufferData(GL_ARRAY_BUFFER, bytes, p, GL_DYNAMIC_DRAW);
+                glBufferData(GL_X_BUFFER, bytes, p, GL_DYNAMIC_DRAW);
                 _bytes = bytes;
-            } else {
-                glBufferSubData(GL_ARRAY_BUFFER, 0, bytes, p);
             }
-            
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            else {
+                glBufferSubData(GL_X_BUFFER, 0, bytes, p);
+            }
+
+            glBindBuffer(GL_X_BUFFER, curBuffer);
         }
         void bind() {
-            glBindBuffer(GL_ARRAY_BUFFER, _buffer);
-        }
-        void unbind() {
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindBuffer(GL_X_BUFFER, _buffer);
         }
         int bytes() const {
             return _bytes;
@@ -206,7 +215,12 @@ namespace pr {
     private:
         int _bytes;
         GLuint _buffer;
+
+        int _head = 0;
     };
+    using ArrayBuffer = Buffer<GL_ARRAY_BUFFER, GL_ARRAY_BUFFER_BINDING>;
+    using IndexBuffer = Buffer<GL_ELEMENT_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER_BINDING>;
+
     class VertexArrayObject {
     public:
         VertexArrayObject() {
@@ -258,6 +272,7 @@ namespace pr {
 
             _positions = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
             _colors    = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
+            _indices   = std::unique_ptr<IndexBuffer>(new IndexBuffer());
 
             _vao->bind();
 
@@ -267,6 +282,7 @@ namespace pr {
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
             _colors->bind();
             glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0, 0);
+            _indices->bind();
         }
         void bind() {
             _shader->bind();
@@ -282,6 +298,10 @@ namespace pr {
             return _colors.get();
         }
 
+        IndexBuffer *indices() {
+            return _indices.get();
+        }
+
         void setVP(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
             _shader->setUniformMatrix(projMatrix * viewMatrix, "u_vp");
         }
@@ -290,6 +310,90 @@ namespace pr {
         std::unique_ptr<Shader> _shader;
         std::unique_ptr<ArrayBuffer> _positions;
         std::unique_ptr<ArrayBuffer> _colors;
+        std::unique_ptr<IndexBuffer> _indices;
+    };
+
+    class Primitive {
+    public:
+        void clear() {
+            _positions.clear();
+            _colors.clear();
+            _indices.clear();
+            _maxIndex = 0;
+        }
+        uint32_t addVertex(glm::vec3 p, glm::u8vec3 c) {
+            uint32_t index = (uint32_t)_positions.size();
+            _positions.emplace_back(p);
+            _colors.emplace_back(c);
+            return index;
+        }
+        void addIndex(uint32_t index) {
+            _maxIndex = std::max(_maxIndex, index);
+            _indices.emplace_back(index);
+        }
+        void draw(PrimitiveMode mode, float width) {
+            g_primitive_pipeline->bind();
+            PR_ASSERT(_positions.size() == _colors.size());
+
+            auto p = g_primitive_pipeline->positions();
+            auto c = g_primitive_pipeline->colors();
+            p->upload(_positions.data(), (int)(_positions.size() * sizeof(glm::vec3)));
+            c->upload(_colors.data(), (int)(_colors.size() * sizeof(glm::u8vec3)));
+
+            GLuint indexBufferType = 0;
+            if (_indices.empty() == false) {
+                auto indices = g_primitive_pipeline->indices();
+                if (_maxIndex < std::numeric_limits<uint8_t>::max()) {
+                    _indices8.reserve(_indices.size());
+                    for (auto index : _indices) {
+                        _indices8.emplace_back((uint8_t)index);
+                    }
+                    indices->upload(_indices8.data(), _indices8.size() * sizeof(uint8_t));
+                    indexBufferType = GL_UNSIGNED_BYTE;
+                } else if (_maxIndex < std::numeric_limits<uint16_t>::max()) {
+                    _indices16.reserve(_indices.size());
+                    for (auto index : _indices) {
+                        _indices16.emplace_back((uint16_t)index);
+                    }
+                    indices->upload(_indices16.data(), _indices16.size() * sizeof(uint16_t));
+                    indexBufferType = GL_UNSIGNED_SHORT;
+                }
+                else {
+                    indices->upload(_indices.data(), _indices.size() * sizeof(uint32_t));
+                    indexBufferType = GL_UNSIGNED_INT;
+                }
+            }
+
+            switch (mode) {
+            case PrimitiveMode::Points:
+                glPointSize(width);
+                glDrawArrays(GL_POINTS, 0, (int)_positions.size());
+                break;
+            case PrimitiveMode::Lines:
+                glLineWidth(width);
+                if (_indices.empty()) {
+                    glDrawArrays(GL_LINES, 0, (int)_positions.size());
+                }
+                else {
+                    glDrawElements(GL_LINES, (GLsizei)_indices.size(), indexBufferType, 0);
+                }
+                break;
+            case PrimitiveMode::LineStrip:
+                glLineWidth(width);
+                glDrawArrays(GL_LINE_STRIP, 0, (int)_positions.size());
+                break;
+            }
+        }
+    private:
+        std::vector<glm::vec3> _positions;
+        std::vector<glm::u8vec3> _colors;
+        std::vector<uint32_t> _indices;
+
+        // for upload
+        std::vector<uint8_t> _indices8;
+        std::vector<uint16_t> _indices16;
+
+        uint32_t _maxIndex = 0;
     };
 
     static void KeepFrameBuffer(std::function<void(void)> f) {
@@ -450,57 +554,51 @@ namespace pr {
         g_cameraStack.pop();
         UpdateCurrentMatrix();
     }
-
-    void Primitive::clear() {
-        _positions.clear();
-        _colors.clear();
+    namespace {
+        bool g_primitiveEnabled = false;
+        Primitive g_primitive;
+        PrimitiveMode g_primitiveMode;
+        float g_primitiveWidth = 0.0f;
     }
-    void Primitive::add(glm::vec3 p, glm::u8vec3 c) {
-        _positions.emplace_back(p);
-        _colors.emplace_back(c);
+
+    void PrimBegin(PrimitiveMode mode, float width) {
+        PR_ASSERT(g_primitiveEnabled == false);
+        g_primitiveEnabled = true;
+        g_primitiveMode = mode;
+        g_primitiveWidth = width;
     }
-    void Primitive::draw(PrimitiveMode mode, float width) {
-        g_primitive_pipeline->bind();
-        PR_ASSERT(_positions.size() == _colors.size());
-
-        auto p = g_primitive_pipeline->positions();
-        auto c = g_primitive_pipeline->colors();
-        p->upload(_positions.data(), (int)(_positions.size() * sizeof(glm::vec3)));
-        c->upload(_colors.data(), (int)(_colors.size() * sizeof(glm::u8vec3)));
-
-        switch (mode) {
-        case PrimitiveMode::Points:
-            glPointSize(width);
-            glDrawArrays(GL_POINTS, 0, (int)_positions.size());
-            break;
-        case PrimitiveMode::Lines:
-            glLineWidth(width);
-            glDrawArrays(GL_LINES, 0, (int)_positions.size());
-            break;
-        case PrimitiveMode::LineStrip:
-            glLineWidth(width);
-            glDrawArrays(GL_LINE_STRIP, 0, (int)_positions.size());
-            break;
-        }
+    uint32_t PrimVertex(glm::vec3 p, glm::u8vec3 c) {
+        PR_ASSERT(g_primitiveEnabled);
+        return g_primitive.addVertex(p, c);
+    }
+    void PrimIndex(uint32_t index) {
+        PR_ASSERT(g_primitiveEnabled);
+        return g_primitive.addIndex(index);
+    }
+    void PrimEnd() {
+        PR_ASSERT(g_primitiveEnabled);
+        g_primitive.draw(g_primitiveMode, g_primitiveWidth);
+        g_primitive.clear();
+        g_primitiveEnabled = false;
     }
 
     void DrawLine(glm::vec3 p0, glm::vec3 p1, glm::u8vec3 c, float lineWidth) {
-        static Primitive prim;
-        prim.add(p0, c);
-        prim.add(p1, c);
-        prim.draw(PrimitiveMode::Lines, lineWidth);
-        prim.clear();
+        PrimBegin(PrimitiveMode::Lines, lineWidth);
+        PrimVertex(p0, c);
+        PrimVertex(p1, c);
+        //PrimIndex(0);
+        //PrimIndex(1);
+        PrimEnd();
     }
     void DrawPoint(glm::vec3 p, glm::u8vec3 c, float pointSize) {
-        static Primitive prim;
-        prim.add(p, c);
-        prim.draw(PrimitiveMode::Points, pointSize);
-        prim.clear();
+        PrimBegin(PrimitiveMode::Points, pointSize);
+        PrimVertex(p, c);
+        PrimEnd();
     }
     void DrawCircle(glm::vec3 o, glm::u8vec3 c, float radius, int vertexCount, float lineWidth) {
         LinearTransform<float> i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
 
-        static Primitive prim;
+        PrimBegin(PrimitiveMode::LineStrip, lineWidth);
         for (int i = 0; i < vertexCount; ++i) {
             float radian = i2rad.evaluate((float)i);
             glm::vec3 p = {
@@ -508,10 +606,9 @@ namespace pr {
                 std::sin(radian),
                 0.0f
             };
-            prim.add(o + radius * p, c);
+            PrimVertex(o + radius * p, c);
         }
-        prim.draw(PrimitiveMode::LineStrip, lineWidth);
-        prim.clear();
+        PrimEnd();
     }
     void DrawGrid(GridAxis axis, float step, int blockCount, glm::u8vec3 c, float lineWidth) {
         int hBlockCount = blockCount / 2;
@@ -537,14 +634,14 @@ namespace pr {
             break;
         }
 
-        static Primitive prim;
+        PrimBegin(PrimitiveMode::Lines, lineWidth);
         {
             // u line
             auto L = uaxis * (-hWide);
             auto R = uaxis * (+hWide);
             for (int ui = -hBlockCount; ui <= hBlockCount; ++ui) {
-                prim.add(L + vaxis * (float)ui * step, c);
-                prim.add(R + vaxis * (float)ui * step, c);
+                PrimVertex(L + vaxis * (float)ui * step, c);
+                PrimVertex(R + vaxis * (float)ui * step, c);
             }
         }
         {
@@ -552,12 +649,11 @@ namespace pr {
             auto L = vaxis * (-hWide);
             auto R = vaxis * (+hWide);
             for (int vi = -hBlockCount; vi <= hBlockCount; ++vi) {
-                prim.add(uaxis * (float)vi * step + L, c);
-                prim.add(uaxis * (float)vi * step + R, c);
+                PrimVertex(uaxis * (float)vi * step + L, c);
+                PrimVertex(uaxis * (float)vi * step + R, c);
             }
         }
-        prim.draw(PrimitiveMode::Lines, lineWidth);
-        prim.clear();
+        PrimEnd();
     }
     void DrawTube(glm::vec3 p0, glm::vec3 p1, float radius0, float radius1, glm::u8vec3 c, int vertexCount, float lineWidth) {
         if (radius0 == 0.0f && radius1 == 0.0f) {
@@ -578,14 +674,14 @@ namespace pr {
             circleVertices[i] = x * std::sin(radian) + y * std::cos(radian);
         }
 
-        static Primitive prim;
+        PrimBegin(PrimitiveMode::Lines, lineWidth);
 
         // Body
         for (int i = 0; i < vertexCount; ++i) {
             glm::vec3 a = p0 + radius0 * circleVertices[i];
             glm::vec3 b = p1 + radius1 * circleVertices[i];
-            prim.add(a, c);
-            prim.add(b, c);
+            PrimVertex(a, c);
+            PrimVertex(b, c);
         }
 
         // Two Circles
@@ -593,21 +689,20 @@ namespace pr {
             for (int i = 0; i < vertexCount - 1; ++i) {
                 glm::vec3 a = p0 + radius0 * circleVertices[i];
                 glm::vec3 b = p0 + radius0 * circleVertices[i + 1];
-                prim.add(a, c);
-                prim.add(b, c);
+                PrimVertex(a, c);
+                PrimVertex(b, c);
             }
         }
         if (0.0f < radius1) {
             for (int i = 0; i < vertexCount - 1; ++i) {
                 glm::vec3 a = p1 + radius1 * circleVertices[i];
                 glm::vec3 b = p1 + radius1 * circleVertices[i + 1];
-                prim.add(a, c);
-                prim.add(b, c);
+                PrimVertex(a, c);
+                PrimVertex(b, c);
             }
         }
 
-        prim.draw(PrimitiveMode::Lines, lineWidth);
-        prim.clear();
+        PrimEnd();
     }
     void DrawArrow(glm::vec3 p0, glm::vec3 p1, float bodyRadius, glm::u8vec3 c, int vertexCount, float lineWidth) {
         float triR = bodyRadius * 2.5f;
@@ -629,6 +724,7 @@ namespace pr {
         glViewport(0, 0, g_config.ScreenWidth, g_config.ScreenHeight);
 
         g_primitive_pipeline = new PrimitivePipeline();
+
         g_frameBuffer = new MSFrameBufferObject();
         g_frameBuffer->resize(g_config.ScreenWidth, g_config.ScreenHeight, g_config.NumSamples);
         g_frameBuffer->bind();

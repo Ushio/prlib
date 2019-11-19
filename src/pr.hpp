@@ -165,21 +165,16 @@ namespace pr {
         float shift_sensitivity = 0.0006f
     );
 
-    // Batch Module
+    // Core Primitive Functions
     enum class PrimitiveMode {
         Points,
         Lines,
         LineStrip,
     };
-    class Primitive {
-    public:
-        void clear();
-        void add(glm::vec3 p, glm::u8vec3 c);
-        void draw(PrimitiveMode mode, float width = 1.0f);
-    private:
-        std::vector<glm::vec3> _positions;
-        std::vector<glm::u8vec3> _colors;
-    };
+    void     PrimBegin(PrimitiveMode mode, float width = 1.0f);
+    uint32_t PrimVertex(glm::vec3 p, glm::u8vec3 c);
+    // void     PrimIndex(uint32_t index);
+    void     PrimEnd();
 
     // Simple Functions
     void DrawLine(glm::vec3 p0, glm::vec3 p1, glm::u8vec3 c, float lineWidth = 1.0f);
