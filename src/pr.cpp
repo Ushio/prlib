@@ -221,10 +221,81 @@ namespace pr {
     using ArrayBuffer = Buffer<GL_ARRAY_BUFFER, GL_ARRAY_BUFFER_BINDING>;
     using IndexBuffer = Buffer<GL_ELEMENT_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER_BINDING>;
 
+    class ImmidiateArrayBuffer {
+    public:
+        ImmidiateArrayBuffer() {
+            //glCreateBuffers(BUFFER_COUNT, _buffers);
+            std::fill(_pointers, _pointers + BUFFER_COUNT, nullptr);
+        }
+        ~ImmidiateArrayBuffer() {
+            for (int i = 0; i < BUFFER_COUNT; ++i) {
+                if (_pointers[i]) {
+                    glUnmapNamedBuffer(_buffers[i]);
+                    glDeleteBuffers(1, _buffers + i);
+                }
+            }
+        }
+
+        // return 
+        //     uploaded head byte offset
+        int upload(void *p, int bytes) {
+            if (_bytes - _head < bytes) {
+                // Have to Expand the buffers
+                glFinish();
+
+                // printf("%d -> %d\n", _bytes, std::max(_bytes * 2, bytes));
+                _bytes = std::max(_bytes * 2, bytes);
+
+                GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
+
+                for (int i = 0; i < BUFFER_COUNT; ++i) {
+                    if (_pointers[i]) {
+                        glUnmapNamedBuffer(_buffers[i]);
+                        glDeleteBuffers(1, _buffers + i);
+                    }
+                    glCreateBuffers(1, _buffers + i);
+                    glNamedBufferStorage(_buffers[i], _bytes, nullptr, flags);
+                    _pointers[i] = glMapNamedBufferRange(_buffers[i], 0, _bytes, flags);
+                    PR_ASSERT(_pointers[i]);
+                }
+
+                _head = 0;
+            }
+            
+            int head = _head;
+            void *d = (uint8_t *)_pointers[_index] + _head;
+            memcpy(d, p, bytes);
+            _head += bytes;
+            return head;
+        }
+
+        void swap() {
+            _index = (_index + 1) % BUFFER_COUNT;
+            _head = 0;
+        }
+
+        void bind() {
+            glBindBuffer(GL_ARRAY_BUFFER, _buffers[_index]);
+        }
+        int bytes() const {
+            return _bytes;
+        }
+    private:
+        int _bytes = 0;
+        int _head = 0;
+
+        enum {
+            BUFFER_COUNT = 3
+        };
+        GLuint _buffers [BUFFER_COUNT];
+        void * _pointers[BUFFER_COUNT];
+        int    _index = 0;
+    };
+
     class VertexArrayObject {
     public:
         VertexArrayObject() {
-            glGenVertexArrays(1, &_vao);
+            glCreateVertexArrays(1, &_vao);
         }
         ~VertexArrayObject() {
             glDeleteVertexArrays(1, &_vao);
@@ -234,6 +305,9 @@ namespace pr {
 
         void bind() {
             glBindVertexArray(_vao);
+        }
+        void enable(int index) {
+            glEnableVertexArrayAttrib(_vao, index);
         }
     private:
         GLuint _vao = 0;
@@ -270,31 +344,49 @@ namespace pr {
             )";
             _shader = std::unique_ptr<Shader>(new Shader(vs, fs));
 
-            _positions = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
-            _colors    = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
+            //_positions = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
+            //_colors    = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
+            _positions = std::unique_ptr<ImmidiateArrayBuffer>(new ImmidiateArrayBuffer());
+            _colors    = std::unique_ptr<ImmidiateArrayBuffer>(new ImmidiateArrayBuffer());
+
             _indices   = std::unique_ptr<IndexBuffer>(new IndexBuffer());
 
-            _vao->bind();
+            _vao->enable(0);
+            _vao->enable(1);
 
-            glEnableVertexAttribArray(0);
-            glEnableVertexAttribArray(1);
-            _positions->bind();
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-            _colors->bind();
-            glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0, 0);
-            _indices->bind();
+            //glEnableVertexAttribArray(0);
+            //glEnableVertexAttribArray(1);
+            //_positions->bind();
+            //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+            //_colors->bind();
+            //glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0, 0);
+            //_indices->bind();
         }
         void bind() {
             _shader->bind();
             _vao->bind();
+
+            _positions->bind();
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+            _colors->bind();
+            glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0, 0);
         }
 
+        //// float x 3
+        //ArrayBuffer *positions() {
+        //    return _positions.get();
+        //}
+        //// byte x 3
+        //ArrayBuffer *colors() {
+        //    return _colors.get();
+        //}
+
         // float x 3
-        ArrayBuffer *positions() {
+        ImmidiateArrayBuffer *positions() {
             return _positions.get();
         }
-        // byte x 4
-        ArrayBuffer *colors() {
+        // byte x 3
+        ImmidiateArrayBuffer *colors() {
             return _colors.get();
         }
 
@@ -305,11 +397,24 @@ namespace pr {
         void setVP(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
             _shader->setUniformMatrix(projMatrix * viewMatrix, "u_vp");
         }
+
+        using PositionType = glm::vec3;
+        using ColorType    = glm::u8vec3;
+
+        void finishFrame() {
+            _positions->swap();
+            _colors->swap();
+
+            // TODO Fence
+        }
     private:
         std::unique_ptr<VertexArrayObject> _vao;
         std::unique_ptr<Shader> _shader;
-        std::unique_ptr<ArrayBuffer> _positions;
-        std::unique_ptr<ArrayBuffer> _colors;
+        //std::unique_ptr<ArrayBuffer> _positions;
+        //std::unique_ptr<ArrayBuffer> _colors;
+        std::unique_ptr<ImmidiateArrayBuffer> _positions;
+        std::unique_ptr<ImmidiateArrayBuffer> _colors;
+
         std::unique_ptr<IndexBuffer> _indices;
     };
 
@@ -332,13 +437,18 @@ namespace pr {
             _indices.emplace_back(index);
         }
         void draw(PrimitiveMode mode, float width) {
-            g_primitive_pipeline->bind();
             PR_ASSERT(_positions.size() == _colors.size());
 
             auto p = g_primitive_pipeline->positions();
             auto c = g_primitive_pipeline->colors();
-            p->upload(_positions.data(), (int)(_positions.size() * sizeof(glm::vec3)));
-            c->upload(_colors.data(), (int)(_colors.size() * sizeof(glm::u8vec3)));
+            auto offset_bytes0 = p->upload(_positions.data(), (int)(_positions.size() * sizeof(PrimitivePipeline::PositionType)));
+            auto offset_bytes1 = c->upload(_colors.data(), (int)(_colors.size() * sizeof(PrimitivePipeline::ColorType)));
+
+            PR_ASSERT(
+                offset_bytes0 / sizeof(PrimitivePipeline::PositionType) == offset_bytes1 / sizeof(PrimitivePipeline::ColorType)
+            );
+
+            auto vertexOffset = offset_bytes0 / sizeof(PrimitivePipeline::PositionType);
 
             GLuint indexBufferType = 0;
             if (_indices.empty() == false) {
@@ -364,15 +474,17 @@ namespace pr {
                 }
             }
 
+            g_primitive_pipeline->bind();
+
             switch (mode) {
             case PrimitiveMode::Points:
                 glPointSize(width);
-                glDrawArrays(GL_POINTS, 0, (int)_positions.size());
+                glDrawArrays(GL_POINTS, vertexOffset, (int)_positions.size());
                 break;
             case PrimitiveMode::Lines:
                 glLineWidth(width);
                 if (_indices.empty()) {
-                    glDrawArrays(GL_LINES, 0, (int)_positions.size());
+                    glDrawArrays(GL_LINES, vertexOffset, (int)_positions.size());
                 }
                 else {
                     glDrawElements(GL_LINES, (GLsizei)_indices.size(), indexBufferType, 0);
@@ -380,7 +492,7 @@ namespace pr {
                 break;
             case PrimitiveMode::LineStrip:
                 glLineWidth(width);
-                glDrawArrays(GL_LINE_STRIP, 0, (int)_positions.size());
+                glDrawArrays(GL_LINE_STRIP, vertexOffset, (int)_positions.size());
                 break;
             }
         }
@@ -789,7 +901,7 @@ namespace pr {
         glfwWindowHint(GLFW_STENCIL_BITS, 0);
 
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
         g_window = glfwCreateWindow(config.ScreenWidth, config.ScreenHeight, config.Title.c_str(), NULL, NULL);
         
         glfwMakeContextCurrent(g_window);
@@ -928,6 +1040,8 @@ suspend_event_handle:
     bool ProcessSystem() {
         g_frameBuffer->copyToScreen();
         glfwSwapBuffers(g_window);
+
+        g_primitive_pipeline->finishFrame();
 
         glfwPollEvents();
 
