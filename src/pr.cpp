@@ -221,13 +221,14 @@ namespace pr {
     using ArrayBuffer = Buffer<GL_ARRAY_BUFFER, GL_ARRAY_BUFFER_BINDING>;
     using IndexBuffer = Buffer<GL_ELEMENT_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER_BINDING>;
 
-    class ImmidiateArrayBuffer {
+    class PersistentBuffer {
     public:
-        ImmidiateArrayBuffer() {
-            //glCreateBuffers(BUFFER_COUNT, _buffers);
+        PersistentBuffer() {
+            std::fill(_buffers, _buffers + BUFFER_COUNT, 0);
             std::fill(_pointers, _pointers + BUFFER_COUNT, nullptr);
+            std::fill(_fences, _fences + BUFFER_COUNT, nullptr);
         }
-        ~ImmidiateArrayBuffer() {
+        ~PersistentBuffer() {
             for (int i = 0; i < BUFFER_COUNT; ++i) {
                 if (_pointers[i]) {
                     glUnmapNamedBuffer(_buffers[i]);
@@ -239,12 +240,12 @@ namespace pr {
         // return 
         //     uploaded head byte offset
         int upload(void *p, int bytes) {
-            if (_bytes - _head < bytes) {
+            if (_capacityBytes - _head < bytes) {
                 // Have to Expand the buffers
                 glFinish();
 
                 // printf("%d -> %d\n", _bytes, std::max(_bytes * 2, bytes));
-                _bytes = std::max(_bytes * 2, bytes);
+                _capacityBytes = std::max(_capacityBytes * 2, bytes);
 
                 GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
 
@@ -254,8 +255,8 @@ namespace pr {
                         glDeleteBuffers(1, _buffers + i);
                     }
                     glCreateBuffers(1, _buffers + i);
-                    glNamedBufferStorage(_buffers[i], _bytes, nullptr, flags);
-                    _pointers[i] = glMapNamedBufferRange(_buffers[i], 0, _bytes, flags);
+                    glNamedBufferStorage(_buffers[i], _capacityBytes, nullptr, flags);
+                    _pointers[i] = glMapNamedBufferRange(_buffers[i], 0, _capacityBytes, flags);
                     PR_ASSERT(_pointers[i]);
                 }
 
@@ -270,25 +271,45 @@ namespace pr {
         }
 
         void swap() {
+            PR_ASSERT(_fences[_index] == 0);
+            _fences[_index] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+
             _index = (_index + 1) % BUFFER_COUNT;
+
+            if (_fences[_index]) {
+                GLenum e = glClientWaitSync(_fences[_index], 0, 0xFFFFFFFFFFFFFFFF);
+                if (e == GL_ALREADY_SIGNALED) {
+                    ; // It's ok
+                }
+                else if (e == GL_CONDITION_SATISFIED) {
+                    ; // It's ok
+                }
+                else {
+                    PR_ASSERT(0);
+                }
+                glDeleteSync(_fences[_index]);
+                _fences[_index] = 0;
+            }
+
             _head = 0;
         }
 
-        void bind() {
-            glBindBuffer(GL_ARRAY_BUFFER, _buffers[_index]);
+        GLuint buffer() {
+            return _buffers[_index];
         }
-        int bytes() const {
-            return _bytes;
+        int capacityBytes() const {
+            return _capacityBytes;
         }
     private:
-        int _bytes = 0;
+        int _capacityBytes = 0;
         int _head = 0;
 
         enum {
-            BUFFER_COUNT = 3
+            BUFFER_COUNT = 2
         };
         GLuint _buffers [BUFFER_COUNT];
         void * _pointers[BUFFER_COUNT];
+        GLsync _fences  [BUFFER_COUNT];
         int    _index = 0;
     };
 
@@ -312,6 +333,7 @@ namespace pr {
     private:
         GLuint _vao = 0;
     };
+
 
     class PrimitivePipeline {
     public:
@@ -344,132 +366,99 @@ namespace pr {
             )";
             _shader = std::unique_ptr<Shader>(new Shader(vs, fs));
 
-            //_positions = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
-            //_colors    = std::unique_ptr<ArrayBuffer>(new ArrayBuffer());
-            _positions = std::unique_ptr<ImmidiateArrayBuffer>(new ImmidiateArrayBuffer());
-            _colors    = std::unique_ptr<ImmidiateArrayBuffer>(new ImmidiateArrayBuffer());
-
-            _indices   = std::unique_ptr<IndexBuffer>(new IndexBuffer());
+            _vertices = std::unique_ptr<PersistentBuffer>(new PersistentBuffer());
+            _indices  = std::unique_ptr<PersistentBuffer>(new PersistentBuffer());
 
             _vao->enable(0);
             _vao->enable(1);
-
-            //glEnableVertexAttribArray(0);
-            //glEnableVertexAttribArray(1);
-            //_positions->bind();
-            //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-            //_colors->bind();
-            //glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0, 0);
-            //_indices->bind();
         }
         void bind() {
             _shader->bind();
+
             _vao->bind();
 
-            _positions->bind();
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-            _colors->bind();
-            glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, 0, 0);
+            glBindBuffer(GL_ARRAY_BUFFER, _vertices->buffer());
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, p));
+            glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void *)offsetof(Vertex, c));
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indices->buffer());
         }
 
-        //// float x 3
-        //ArrayBuffer *positions() {
-        //    return _positions.get();
-        //}
-        //// byte x 3
-        //ArrayBuffer *colors() {
-        //    return _colors.get();
-        //}
-
-        // float x 3
-        ImmidiateArrayBuffer *positions() {
-            return _positions.get();
+        PersistentBuffer *vertices() {
+            return _vertices.get();
         }
-        // byte x 3
-        ImmidiateArrayBuffer *colors() {
-            return _colors.get();
-        }
-
-        IndexBuffer *indices() {
+        PersistentBuffer *indices() {
             return _indices.get();
         }
-
         void setVP(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
             _shader->setUniformMatrix(projMatrix * viewMatrix, "u_vp");
         }
-
-        using PositionType = glm::vec3;
-        using ColorType    = glm::u8vec3;
-
         void finishFrame() {
-            _positions->swap();
-            _colors->swap();
-
-            // TODO Fence
+            _vertices->swap();
         }
+        struct Vertex {
+            glm::vec3 p;
+            glm::u8vec3 c;
+        };
     private:
         std::unique_ptr<VertexArrayObject> _vao;
         std::unique_ptr<Shader> _shader;
-        //std::unique_ptr<ArrayBuffer> _positions;
-        //std::unique_ptr<ArrayBuffer> _colors;
-        std::unique_ptr<ImmidiateArrayBuffer> _positions;
-        std::unique_ptr<ImmidiateArrayBuffer> _colors;
-
-        std::unique_ptr<IndexBuffer> _indices;
+        std::unique_ptr<PersistentBuffer> _vertices;
+        std::unique_ptr<PersistentBuffer> _indices;
     };
 
     class Primitive {
     public:
         void clear() {
-            _positions.clear();
-            _colors.clear();
+            _vertices.clear();
             _indices.clear();
             _maxIndex = 0;
         }
         uint32_t addVertex(glm::vec3 p, glm::u8vec3 c) {
-            uint32_t index = (uint32_t)_positions.size();
-            _positions.emplace_back(p);
-            _colors.emplace_back(c);
+            //uint32_t index = (uint32_t)_positions.size();
+            // _positions.emplace_back(p);
+            // _colors.emplace_back(c);
+            uint32_t index = (uint32_t)_vertices.size();
+            PrimitivePipeline::Vertex v = { p, c };
+            _vertices.emplace_back(v);
             return index;
         }
         void addIndex(uint32_t index) {
             _maxIndex = std::max(_maxIndex, index);
             _indices.emplace_back(index);
         }
+
+    private:
+        template <class T>
+        void indexStore(std::vector<T> &storage, const std::vector<uint32_t> &indices) const {
+            storage.clear();
+            storage.reserve(indices.size());
+            for (auto index : indices) {
+                storage.emplace_back((T)index);
+            }
+        }
+    public:
         void draw(PrimitiveMode mode, float width) {
-            PR_ASSERT(_positions.size() == _colors.size());
+            auto vertexBuffer = g_primitive_pipeline->vertices();
+            auto vertexOffsetBytes = vertexBuffer->upload(_vertices.data(), (int)(_vertices.size() * sizeof(PrimitivePipeline::Vertex)));
+            auto vertexOffset = vertexOffsetBytes / sizeof(PrimitivePipeline::Vertex);
 
-            auto p = g_primitive_pipeline->positions();
-            auto c = g_primitive_pipeline->colors();
-            auto offset_bytes0 = p->upload(_positions.data(), (int)(_positions.size() * sizeof(PrimitivePipeline::PositionType)));
-            auto offset_bytes1 = c->upload(_colors.data(), (int)(_colors.size() * sizeof(PrimitivePipeline::ColorType)));
-
-            PR_ASSERT(
-                offset_bytes0 / sizeof(PrimitivePipeline::PositionType) == offset_bytes1 / sizeof(PrimitivePipeline::ColorType)
-            );
-
-            auto vertexOffset = offset_bytes0 / sizeof(PrimitivePipeline::PositionType);
+            auto indexBuffer = g_primitive_pipeline->indices();
+            int indexOffsetBytes = 0;
 
             GLuint indexBufferType = 0;
             if (_indices.empty() == false) {
                 auto indices = g_primitive_pipeline->indices();
                 if (_maxIndex < std::numeric_limits<uint8_t>::max()) {
-                    _indices8.reserve(_indices.size());
-                    for (auto index : _indices) {
-                        _indices8.emplace_back((uint8_t)index);
-                    }
-                    indices->upload(_indices8.data(), _indices8.size() * sizeof(uint8_t));
+                    indexStore(_indices8, _indices);
+                    indexOffsetBytes = indexBuffer->upload(_indices8.data(), (int)(_indices8.size() * sizeof(uint8_t)));
                     indexBufferType = GL_UNSIGNED_BYTE;
                 } else if (_maxIndex < std::numeric_limits<uint16_t>::max()) {
-                    _indices16.reserve(_indices.size());
-                    for (auto index : _indices) {
-                        _indices16.emplace_back((uint16_t)index);
-                    }
-                    indices->upload(_indices16.data(), _indices16.size() * sizeof(uint16_t));
+                    indexStore(_indices16, _indices);
+                    indexOffsetBytes = indices->upload(_indices16.data(), _indices16.size() * sizeof(uint16_t)) / sizeof(uint16_t);
                     indexBufferType = GL_UNSIGNED_SHORT;
                 }
                 else {
-                    indices->upload(_indices.data(), _indices.size() * sizeof(uint32_t));
+                    indexOffsetBytes = indices->upload(_indices.data(), _indices.size() * sizeof(uint32_t));
                     indexBufferType = GL_UNSIGNED_INT;
                 }
             }
@@ -479,26 +468,25 @@ namespace pr {
             switch (mode) {
             case PrimitiveMode::Points:
                 glPointSize(width);
-                glDrawArrays(GL_POINTS, vertexOffset, (int)_positions.size());
+                glDrawArrays(GL_POINTS, vertexOffset, (int)_vertices.size());
                 break;
             case PrimitiveMode::Lines:
                 glLineWidth(width);
                 if (_indices.empty()) {
-                    glDrawArrays(GL_LINES, vertexOffset, (int)_positions.size());
+                    glDrawArrays(GL_LINES, vertexOffset, (int)_vertices.size());
                 }
                 else {
-                    glDrawElements(GL_LINES, (GLsizei)_indices.size(), indexBufferType, 0);
+                    glDrawElementsBaseVertex(GL_LINES, (GLsizei)_indices.size(), indexBufferType, (void *)indexOffsetBytes, vertexOffset);
                 }
                 break;
             case PrimitiveMode::LineStrip:
                 glLineWidth(width);
-                glDrawArrays(GL_LINE_STRIP, vertexOffset, (int)_positions.size());
+                glDrawArrays(GL_LINE_STRIP, vertexOffset, (int)_vertices.size());
                 break;
             }
         }
     private:
-        std::vector<glm::vec3> _positions;
-        std::vector<glm::u8vec3> _colors;
+        std::vector<PrimitivePipeline::Vertex> _vertices;
         std::vector<uint32_t> _indices;
 
         // for upload
@@ -698,8 +686,6 @@ namespace pr {
         PrimBegin(PrimitiveMode::Lines, lineWidth);
         PrimVertex(p0, c);
         PrimVertex(p1, c);
-        //PrimIndex(0);
-        //PrimIndex(1);
         PrimEnd();
     }
     void DrawPoint(glm::vec3 p, glm::u8vec3 c, float pointSize) {
@@ -779,38 +765,35 @@ namespace pr {
         glm::vec3 y;
         getOrthonormalBasis<float>(z, &x, &y);
 
-        std::vector<glm::vec3> circleVertices(vertexCount);
-        LinearTransform<float> i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
+        PrimBegin(PrimitiveMode::Lines, lineWidth);
+
+        std::vector<uint32_t> circleVerticesB(vertexCount);
+        std::vector<uint32_t> circleVerticesT(vertexCount);
+        LinearTransform<float> i2rad(0.0f, (float)(vertexCount), 0.0f, glm::pi<float>() * 2.0f);
         for (int i = 0; i < vertexCount; ++i) {
             float radian = i2rad.evaluate((float)i);
-            circleVertices[i] = x * std::sin(radian) + y * std::cos(radian);
+            glm::vec3 ring = x * std::sin(radian) + y * std::cos(radian);
+            circleVerticesB[i] = PrimVertex(p0 + ring * radius0, c);
+            circleVerticesT[i] = PrimVertex(p1 + ring * radius1, c);
         }
-
-        PrimBegin(PrimitiveMode::Lines, lineWidth);
 
         // Body
         for (int i = 0; i < vertexCount; ++i) {
-            glm::vec3 a = p0 + radius0 * circleVertices[i];
-            glm::vec3 b = p1 + radius1 * circleVertices[i];
-            PrimVertex(a, c);
-            PrimVertex(b, c);
+            PrimIndex(circleVerticesB[i]);
+            PrimIndex(circleVerticesT[i]);
         }
 
         // Two Circles
         if (0.0f < radius0) {
-            for (int i = 0; i < vertexCount - 1; ++i) {
-                glm::vec3 a = p0 + radius0 * circleVertices[i];
-                glm::vec3 b = p0 + radius0 * circleVertices[i + 1];
-                PrimVertex(a, c);
-                PrimVertex(b, c);
+            for (int i = 0; i < vertexCount; ++i) {
+                PrimIndex(circleVerticesB[i]);
+                PrimIndex(circleVerticesB[(i + 1) % vertexCount]);
             }
         }
         if (0.0f < radius1) {
-            for (int i = 0; i < vertexCount - 1; ++i) {
-                glm::vec3 a = p1 + radius1 * circleVertices[i];
-                glm::vec3 b = p1 + radius1 * circleVertices[i + 1];
-                PrimVertex(a, c);
-                PrimVertex(b, c);
+            for (int i = 0; i < vertexCount; ++i) {
+                PrimIndex(circleVerticesT[i]);
+                PrimIndex(circleVerticesT[(i + 1) % vertexCount]);
             }
         }
 

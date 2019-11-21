@@ -173,7 +173,7 @@ namespace pr {
     };
     void     PrimBegin(PrimitiveMode mode, float width = 1.0f);
     uint32_t PrimVertex(glm::vec3 p, glm::u8vec3 c);
-    // void     PrimIndex(uint32_t index);
+    void     PrimIndex(uint32_t index);
     void     PrimEnd();
 
     // Simple Functions

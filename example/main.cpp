@@ -14,7 +14,7 @@ int main() {
     Camera3D camera;
     camera.origin = { 4, 4, 4 };
     camera.lookat = { 0, 0, 0 };
-    camera.zUp = true;
+    camera.zUp = false;
 
     double e = GetElapsedTime();
 
@@ -39,7 +39,8 @@ int main() {
         // DrawTube({}, { 0, 1, 1 }, 0.3f, 0.05f, { 0, 255, 255 });
         // DrawArrow({}, { 1, 0, 1 }, 0.01f, { 0, 255, 255 });
 
-        DrawCircle({}, { 255, 0, 0 }, 0.5f);
+        //DrawCircle({}, { 255, 0, 0 }, 0.5f);
+        //DrawTube({}, { 0, 1, 0 }, 1.0f, 1.0f, { 128, 128, 128 });
 
         //LinearTransform<float> xmap(0, 31, -2, 2);
         //LinearTransform<float> ymap(0, 31, -2, 2);
@@ -66,7 +67,7 @@ int main() {
 
             // PrimVertex({ x, y, z }, { 255, 255, 255 });
 
-            DrawArrow(glm::vec3(x,y,z), glm::vec3(x, y, z) + glm::vec3(nx, ny, nz) * 0.1f, 0.005f, { 255, 255, 255 });
+            DrawArrow(glm::vec3(x,y,z), glm::vec3(x, y, z) + glm::vec3(nx, ny, nz) * 0.1f, 0.005f, { 255, 255, 255 }, 8);
 
            // glm::u8vec3 color = glm::u8vec3(
            //     (random->uniform(0, 256)),
