@@ -496,24 +496,12 @@ namespace pr {
         uint32_t _maxIndex = 0;
     };
 
-    static void KeepFrameBuffer(std::function<void(void)> f) {
-        GLint curDrawFBO = 0;
-        GLint curReadFBO = 0;
-        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &curDrawFBO);
-        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &curReadFBO);
-
-        f();
-
-        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, curDrawFBO);
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, curReadFBO);
-    }
-
     class MSFrameBufferObject {
     public:
         MSFrameBufferObject() {
-            glGenFramebuffers(1, &_fb);
-            glGenRenderbuffers(1, &_color);
-            glGenRenderbuffers(1, &_depth);
+            glCreateFramebuffers(1, &_fb);
+            glCreateRenderbuffers(1, &_color);
+            glCreateRenderbuffers(1, &_depth);
         }
         ~MSFrameBufferObject() {
             glDeleteFramebuffers(1, &_fb);
@@ -526,42 +514,40 @@ namespace pr {
             _height = height;
             _samples = samples;
 
-            glBindRenderbuffer(GL_RENDERBUFFER, _color);
-            glRenderbufferStorageMultisample(GL_RENDERBUFFER, _samples, GL_RGBA8, _width, _height);
-            glBindRenderbuffer(GL_RENDERBUFFER, _depth);
-            glRenderbufferStorageMultisample(GL_RENDERBUFFER, _samples, GL_DEPTH_COMPONENT24, _width, _height);
+            glNamedRenderbufferStorageMultisample(_color, _samples, GL_RGBA8, _width, _height);
+            glNamedRenderbufferStorageMultisample(_depth, _samples, GL_DEPTH_COMPONENT24, _width, _height);
 
-            glBindRenderbuffer(GL_RENDERBUFFER, 0);
+            glNamedFramebufferRenderbuffer(_fb, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, _color);
+            glNamedFramebufferRenderbuffer(_fb, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _depth);
 
-            KeepFrameBuffer([&]() {
-                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fb);
-                glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+            auto status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+            PR_ASSERT(status == GL_FRAMEBUFFER_COMPLETE);
 
-                glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, _color);
-                glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _depth);
-
-                auto status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
-                PR_ASSERT(status == GL_FRAMEBUFFER_COMPLETE);
-
-                glClearColor(0, 0, 0, 0);
-                glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            });
+            float clearColor[4] = { 0.0f, 0, 0, 0 };
+            float clearDepth = 1.0f;
+            glClearNamedFramebufferfv(_fb, GL_COLOR, 0, clearColor);
+            glClearNamedFramebufferfv(_fb, GL_DEPTH, 0, &clearDepth);
+        }
+        void clear(float r, float g, float b, float a, bool depthClear) {
+            float clearColor[4] = { r, g, b, a};
+            glClearNamedFramebufferfv(_fb, GL_COLOR, 0, clearColor);
+            if (depthClear) {
+                float d = 1.0f;
+                glClearNamedFramebufferfv(_fb, GL_DEPTH, 0, &d);
+            }
         }
         void bind() {
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fb);
             glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         }
         void copyToScreen() {
-            KeepFrameBuffer([&]() {
-                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-                glBindFramebuffer(GL_READ_FRAMEBUFFER, _fb);
-
-                glBlitFramebuffer(
-                    0, 0, _width, _height,
-                    0, 0, _width, _height,
-                    GL_COLOR_BUFFER_BIT, GL_NEAREST
-                );
-            });
+            glBlitNamedFramebuffer(
+                _fb, /* read  */
+                0,   /* write */
+                0, 0, _width, _height,
+                0, 0, _width, _height,
+                GL_COLOR_BUFFER_BIT, GL_NEAREST
+            );
         }
     private:
         GLuint _width = 0;
@@ -631,9 +617,7 @@ namespace pr {
      Graphics Core
     */
     void ClearBackground(float r, float g, float b, float a) {
-        glClearColor(r, g, b, a);
-        GLbitfield flag = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
-        glClear(flag);
+        g_frameBuffer->clear(r, g, b, a, true);
     }
     void SetDepthTest(bool enabled) {
         if (enabled) {

@@ -30,7 +30,7 @@ int main() {
         UpdateCameraBlenderLike(&camera);
         SetDepthTest(true);
 
-        ClearBackground(0, 0, 0, 1);
+        ClearBackground(0.1f, 0.1f, 0.1f, 1);
         BeginCamera(camera);
 
         DrawGrid(GridAxis::XY, 1.0f, 10, { 128, 128, 128 });
