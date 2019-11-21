@@ -19,6 +19,7 @@ namespace pr {
     // foward
     class Shader;
     class PrimitivePipeline;
+    class TexturedTrianglePipeline;
     class MSFrameBufferObject;
 
     namespace {
@@ -28,7 +29,8 @@ namespace pr {
 
         // MainFrameBuffer
         MSFrameBufferObject *g_frameBuffer = nullptr;
-        PrimitivePipeline *g_primitive_pipeline = nullptr;
+        PrimitivePipeline *g_primitivePipeline = nullptr;
+        TexturedTrianglePipeline *g_texturedTrianglePipeline = nullptr;
     }
 
     // Input System
@@ -163,63 +165,14 @@ namespace pr {
             glUseProgram(0);
         }
         void setUniformMatrix(glm::mat4 m, const char *variable) {
-            GLint cur_program;
-            glGetIntegerv(GL_CURRENT_PROGRAM, &cur_program);
-
-            glUseProgram(_program);
             auto location = glGetUniformLocation(_program, variable);
-            glUniformMatrix4fv(location, 1, GL_FALSE, (float *)&m);
-
-            glUseProgram(cur_program);
+            glProgramUniformMatrix4fv(_program, location, 1, GL_FALSE, (float *)&m);
         }
     private:
         GLuint _vs = 0;
         GLuint _fs = 0;
         GLuint _program = 0;
     };
-
-    template <int GL_X_BUFFER, int GL_X_BINDING>
-    class Buffer {
-    public:
-        Buffer() :_bytes(0) {
-            glGenBuffers(1, &_buffer);
-        }
-        ~Buffer() {
-            glDeleteBuffers(1, &_buffer);
-        }
-        Buffer(const Buffer&) = delete;
-        Buffer& operator=(const Buffer&) = delete;
-
-        void upload(void *p, int bytes) {
-            GLint curBuffer = 0;
-            glGetIntegerv(GL_X_BINDING, &curBuffer);
-
-            glBindBuffer(GL_X_BUFFER, _buffer);
-
-            if (bytes > _bytes) {
-                glBufferData(GL_X_BUFFER, bytes, p, GL_DYNAMIC_DRAW);
-                _bytes = bytes;
-            }
-            else {
-                glBufferSubData(GL_X_BUFFER, 0, bytes, p);
-            }
-
-            glBindBuffer(GL_X_BUFFER, curBuffer);
-        }
-        void bind() {
-            glBindBuffer(GL_X_BUFFER, _buffer);
-        }
-        int bytes() const {
-            return _bytes;
-        }
-    private:
-        int _bytes;
-        GLuint _buffer;
-
-        int _head = 0;
-    };
-    using ArrayBuffer = Buffer<GL_ARRAY_BUFFER, GL_ARRAY_BUFFER_BINDING>;
-    using IndexBuffer = Buffer<GL_ELEMENT_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER_BINDING>;
 
     class PersistentBuffer {
     public:
@@ -414,9 +367,6 @@ namespace pr {
             _maxIndex = 0;
         }
         uint32_t addVertex(glm::vec3 p, glm::u8vec3 c) {
-            //uint32_t index = (uint32_t)_positions.size();
-            // _positions.emplace_back(p);
-            // _colors.emplace_back(c);
             uint32_t index = (uint32_t)_vertices.size();
             PrimitivePipeline::Vertex v = { p, c };
             _vertices.emplace_back(v);
@@ -438,16 +388,16 @@ namespace pr {
         }
     public:
         void draw(PrimitiveMode mode, float width) {
-            auto vertexBuffer = g_primitive_pipeline->vertices();
+            auto vertexBuffer = g_primitivePipeline->vertices();
             auto vertexOffsetBytes = vertexBuffer->upload(_vertices.data(), (int)(_vertices.size() * sizeof(PrimitivePipeline::Vertex)));
             auto vertexOffset = vertexOffsetBytes / sizeof(PrimitivePipeline::Vertex);
 
-            auto indexBuffer = g_primitive_pipeline->indices();
+            auto indexBuffer = g_primitivePipeline->indices();
             int indexOffsetBytes = 0;
 
             GLuint indexBufferType = 0;
             if (_indices.empty() == false) {
-                auto indices = g_primitive_pipeline->indices();
+                auto indices = g_primitivePipeline->indices();
                 if (_maxIndex < std::numeric_limits<uint8_t>::max()) {
                     indexStore(_indices8, _indices);
                     indexOffsetBytes = indexBuffer->upload(_indices8.data(), (int)(_indices8.size() * sizeof(uint8_t)));
@@ -463,7 +413,7 @@ namespace pr {
                 }
             }
 
-            g_primitive_pipeline->bind();
+            g_primitivePipeline->bind();
 
             switch (mode) {
             case PrimitiveMode::Points:
@@ -494,6 +444,86 @@ namespace pr {
         std::vector<uint16_t> _indices16;
 
         uint32_t _maxIndex = 0;
+    };
+
+    class TexturedTrianglePipeline {
+    public:
+        TexturedTrianglePipeline() {
+            _vao = std::unique_ptr<VertexArrayObject>(new VertexArrayObject());
+
+            const char *vs = R"(
+                #version 450
+
+                uniform mat4 u_vp;
+                
+                layout(location = 0) in vec3 in_position;
+                layout(location = 1) in vec2 in_texcoord;
+                layout(location = 2) in vec3 in_color;
+
+                out vec2 tofs_texcoord;
+                out vec3 tofs_color;
+
+                void main() {
+                    gl_Position = u_vp * vec4(in_position, 1.0);
+                    tofs_texcoord = in_texcoord;
+                    tofs_color = in_color;
+                }
+            )";
+            const char *fs = R"(
+                #version 450
+
+                uniform sampler2D u_image;
+
+                in vec2 tofs_texcoord;
+                in vec3 tofs_color;
+
+                layout(location = 0) out vec4 out_fragColor;
+
+                void main() {
+                  out_fragColor = vec4(tofs_color, 1.0) * texture(u_image, tofs_texcoord);
+                }
+            )";
+            _shader = std::unique_ptr<Shader>(new Shader(vs, fs));
+
+            _vertices = std::unique_ptr<PersistentBuffer>(new PersistentBuffer());
+            _indices = std::unique_ptr<PersistentBuffer>(new PersistentBuffer());
+
+            _vao->enable(0);
+            _vao->enable(1);
+        }
+        void bind() {
+            _shader->bind();
+
+            _vao->bind();
+
+            glBindBuffer(GL_ARRAY_BUFFER, _vertices->buffer());
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, p));
+            glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void *)offsetof(Vertex, c));
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indices->buffer());
+        }
+
+        PersistentBuffer *vertices() {
+            return _vertices.get();
+        }
+        PersistentBuffer *indices() {
+            return _indices.get();
+        }
+        void setVP(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
+            _shader->setUniformMatrix(projMatrix * viewMatrix, "u_vp");
+        }
+        void finishFrame() {
+            _vertices->swap();
+        }
+        struct Vertex {
+            glm::vec3 p;
+            glm::vec2 uv;
+            glm::u8vec3 c;
+        };
+    private:
+        std::unique_ptr<VertexArrayObject> _vao;
+        std::unique_ptr<Shader> _shader;
+        std::unique_ptr<PersistentBuffer> _vertices;
+        std::unique_ptr<PersistentBuffer> _indices;
     };
 
     class MSFrameBufferObject {
@@ -610,7 +640,7 @@ namespace pr {
         auto v = camera->getViewMatrix();
         auto p = camera->getProjectionMatrx();
         auto vp = v * p;
-        g_primitive_pipeline->setVP(camera->getViewMatrix(), camera->getProjectionMatrx());
+        g_primitivePipeline->setVP(camera->getViewMatrix(), camera->getProjectionMatrx());
     }
 
     /*
@@ -799,10 +829,54 @@ namespace pr {
         DrawArrow({}, glm::vec3(0, (float)length, 0), bodyRadius, { 0, 255, 0 }, vertexCount, lineWidth);
         DrawArrow({}, glm::vec3(0, 0, (float)length), bodyRadius, { 0, 0, 255 }, vertexCount, lineWidth);
     }
+
+    static void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const* message, void const* user_param)
+    {
+        auto const src_str = [source]() {
+            switch (source)
+            {
+            case GL_DEBUG_SOURCE_API: return "API";
+            case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "WINDOW SYSTEM";
+            case GL_DEBUG_SOURCE_SHADER_COMPILER: return "SHADER COMPILER";
+            case GL_DEBUG_SOURCE_THIRD_PARTY: return "THIRD PARTY";
+            case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
+            case GL_DEBUG_SOURCE_OTHER: return "OTHER";
+            }
+        }();
+
+        auto const type_str = [type]() {
+            switch (type)
+            {
+            case GL_DEBUG_TYPE_ERROR: return "ERROR";
+            case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEPRECATED_BEHAVIOR";
+            case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "UNDEFINED_BEHAVIOR";
+            case GL_DEBUG_TYPE_PORTABILITY: return "PORTABILITY";
+            case GL_DEBUG_TYPE_PERFORMANCE: return "PERFORMANCE";
+            case GL_DEBUG_TYPE_MARKER: return "MARKER";
+            case GL_DEBUG_TYPE_OTHER: return "OTHER";
+            }
+        }();
+
+        auto const severity_str = [severity]() {
+            switch (severity) {
+            case GL_DEBUG_SEVERITY_NOTIFICATION: return "NOTIFICATION";
+            case GL_DEBUG_SEVERITY_LOW: return "LOW";
+            case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
+            case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
+            }
+        }();
+
+        std::cout << src_str << ", " << type_str << ", " << severity_str << ", " << id << ": " << message << '\n';
+    }
     static void SetupGraphics() {
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(MessageCallback, nullptr);
+
         glViewport(0, 0, g_config.ScreenWidth, g_config.ScreenHeight);
 
-        g_primitive_pipeline = new PrimitivePipeline();
+        g_primitivePipeline = new PrimitivePipeline();
+        g_texturedTrianglePipeline = new TexturedTrianglePipeline();
 
         g_frameBuffer = new MSFrameBufferObject();
         g_frameBuffer->resize(g_config.ScreenWidth, g_config.ScreenHeight, g_config.NumSamples);
@@ -894,11 +968,13 @@ namespace pr {
         SetupGraphics();
     }
     void CleanUp() {
-        delete g_primitive_pipeline;
-        g_primitive_pipeline = nullptr;
+        delete g_primitivePipeline;
+        g_primitivePipeline = nullptr;
 
         delete g_frameBuffer;
         g_frameBuffer = nullptr;
+        delete g_texturedTrianglePipeline;
+        g_texturedTrianglePipeline = nullptr;
 
         glfwDestroyWindow(g_window);
         glfwTerminate();
@@ -1008,7 +1084,7 @@ suspend_event_handle:
         g_frameBuffer->copyToScreen();
         glfwSwapBuffers(g_window);
 
-        g_primitive_pipeline->finishFrame();
+        g_primitivePipeline->finishFrame();
 
         glfwPollEvents();
 
