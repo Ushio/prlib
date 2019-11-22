@@ -55,19 +55,20 @@ int main() {
         //}
         // PrimBegin(PrimitiveMode::Points, 1);
 
-        std::unique_ptr<IRandom> random( CreateRandomNumberGenerator(100) );
-        for (int i = 0; i < 10000; ++i) {
-            float x = random->uniform(-4.0f, 4.0f);
-            float y = random->uniform(-4.0f, 4.0f);
-            float z = random->uniform(-4.0f, 4.0f);
+        Xoshiro128StarStar random;
 
-            float nx = random->uniform(-1.0f, 1.0f);
-            float ny = random->uniform(-1.0f, 1.0f);
-            float nz = random->uniform(-1.0f, 1.0f);
+        for (int i = 0; i < 10000; ++i) {
+            float x = glm::mix(-4.0f, 4.0f, random.uniformf());
+            float y = glm::mix(-4.0f, 4.0f, random.uniformf());
+            float z = glm::mix(-4.0f, 4.0f, random.uniformf());
+
+            float nx = glm::mix(-1.0f, 1.0f, random.uniformf());
+            float ny = glm::mix(-1.0f, 1.0f, random.uniformf());
+            float nz = glm::mix(-1.0f, 1.0f, random.uniformf());
 
             // PrimVertex({ x, y, z }, { 255, 255, 255 });
 
-            DrawArrow(glm::vec3(x,y,z), glm::vec3(x, y, z) + glm::vec3(nx, ny, nz) * 0.1f, 0.005f, { 255, 255, 255 }, 8);
+            // DrawArrow(glm::vec3(x,y,z), glm::vec3(x, y, z) + glm::vec3(nx, ny, nz) * 0.1f, 0.005f, { 255, 255, 255 }, 8);
 
            // glm::u8vec3 color = glm::u8vec3(
            //     (random->uniform(0, 256)),
@@ -75,19 +76,16 @@ int main() {
            //     (random->uniform(0, 256))
            // );
 
-             //DrawLine(
-             //    { random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f },
-             //    { random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f },
-             //    { 255, 255, 255 }
-             //);
+             DrawLine(
+                 GenerateUniformOnSphereLimitedAngle(random.uniformf(), random.uniformf(), -1.0f),
+                 GenerateUniformOnSphereLimitedAngle(random.uniformf(), random.uniformf(), -1.0f),
+                 { 255, 255, 255 }
+             );
            // // DrawPoint({ random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f }, color, random->uniform(0, 10));
            //// DrawPoint({ random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f }, color, 1);
            // DrawCircle({ random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f }, color, 0.01f, 10, 5);
 
-           // // prim.add({ random.uniform(-0.9f, 0.9f), random.uniform(-0.9f, 0.9f), 0 }, color);
-           // // prim.add({ random.uniform(-0.9f, 0.9f), random.uniform(-0.9f, 0.9f), 0 }, color);
         }
-        // PrimEnd();
 
         EndCamera();
     }

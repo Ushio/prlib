@@ -29,6 +29,8 @@
 #include <intrin.h>
 #define PR_ASSERT(ExpectTrue) if((ExpectTrue) == 0) { __debugbreak(); }
 
+#include "prp.hpp"
+
 namespace pr {
     struct Config {
         int ScreenWidth = 1280;
@@ -80,66 +82,6 @@ namespace pr {
     bool IsKeyDown(int button);
     bool IsKeyUp(int button);
 
-    // Random Number
-    struct IRandom {
-        virtual ~IRandom() {}
-
-        // 0.0 <= x < 1.0
-        float uniform();
-
-        // a <= x < b
-        float uniform(float a, float b);
-
-        // a <= x < b
-        int uniform(int a, int b);
-    protected:
-        /* float */
-        // 0.0 <= x < 1.0
-        virtual float uniform_float() = 0;
-
-        /* A large integer enough to ignore modulo bias */
-        virtual uint64_t uniform_integer() = 0;
-    };
-
-    IRandom *CreateRandomNumberGenerator(uint32_t seed);
-
-    // Math
-
-    template <class Real>
-    struct LinearTransform {
-        LinearTransform() :_a(Real(1.0)), _b(Real(0.0)) {}
-        LinearTransform(Real a, Real b) :_a(a), _b(b) {}
-        LinearTransform(Real inputMin, Real inputMax, Real outputMin, Real outputMax) {
-            _a = (outputMax - outputMin) / (inputMax - inputMin);
-            _b = outputMin - _a * inputMin;
-        }
-        Real evaluate(Real x) const {
-            return std::fma(_a, x, _b);
-        }
-        Real operator()(Real x) const {
-            return evaluate(x);
-        }
-        LinearTransform<Real> inverse() const {
-            return LinearTransform(Real(1.0f) / _a, -_b / _a);
-        }
-    private:
-        Real _a;
-        Real _b;
-    };
-
-    // Building an Orthonormal Basis, Revisited
-    template <typename Real>
-    inline void getOrthonormalBasis(const glm::tvec3<Real>& zaxis, glm::tvec3<Real> *xaxis, glm::tvec3<Real> *yaxis) {
-        const Real sign = std::copysign(Real(1.0), zaxis.z);
-        const Real a = Real(-1.0) / (sign + zaxis.z);
-        const Real b = zaxis.x * zaxis.y * a;
-        *xaxis = glm::tvec3<Real>(Real(1.0) + sign * zaxis.x * zaxis.x * a, sign * b, -sign * zaxis.x);
-        *yaxis = glm::tvec3<Real>(b, sign + zaxis.y * zaxis.y * a, -zaxis.y);
-    }
-
-    float Radians(float degrees);
-    float Degrees(float radians);
-
     // Drawing
     void ClearBackground(float r, float g, float b, float a);
     void SetDepthTest(bool enabled);
@@ -149,7 +91,7 @@ namespace pr {
         glm::vec3 origin;
         glm::vec3 lookat;
         glm::vec3 up = { 0.0f, 1.0f, 0.0f };
-        float fovy     = Radians(45.0f); // vertical field of view
+        float fovy     = glm::radians(45.0f); // vertical field of view
         float zNear = 0.01f;
         float zFar  = 1000.0f;
         bool zUp = false; // y up by default but you can use z up

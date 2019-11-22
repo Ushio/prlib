@@ -197,8 +197,9 @@ namespace pr {
                 // Have to Expand the buffers
                 glFinish();
 
-                // printf("%d -> %d\n", _bytes, std::max(_bytes * 2, bytes));
-                _capacityBytes = std::max(_capacityBytes * 2, bytes);
+                int requiredBytes = _head + bytes;
+                // printf("%d -> %d\n", _capacityBytes, std::max(_capacityBytes * 2, requiredBytes));
+                _capacityBytes = std::max(_capacityBytes * 2, requiredBytes);
 
                 GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
 
@@ -212,8 +213,6 @@ namespace pr {
                     _pointers[i] = glMapNamedBufferRange(_buffers[i], 0, _capacityBytes, flags);
                     PR_ASSERT(_pointers[i]);
                 }
-
-                _head = 0;
             }
             
             int head = _head;
@@ -223,7 +222,7 @@ namespace pr {
             return head;
         }
 
-        void swap() {
+        void finishFrame() {
             PR_ASSERT(_fences[_index] == 0);
             _fences[_index] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
 
@@ -346,7 +345,8 @@ namespace pr {
             _shader->setUniformMatrix(projMatrix * viewMatrix, "u_vp");
         }
         void finishFrame() {
-            _vertices->swap();
+            _vertices->finishFrame();
+            _indices->finishFrame();
         }
         struct Vertex {
             glm::vec3 p;
@@ -404,11 +404,11 @@ namespace pr {
                     indexBufferType = GL_UNSIGNED_BYTE;
                 } else if (_maxIndex < std::numeric_limits<uint16_t>::max()) {
                     indexStore(_indices16, _indices);
-                    indexOffsetBytes = indices->upload(_indices16.data(), _indices16.size() * sizeof(uint16_t)) / sizeof(uint16_t);
+                    indexOffsetBytes = indices->upload(_indices16.data(), (int)_indices16.size() * sizeof(uint16_t)) / sizeof(uint16_t);
                     indexBufferType = GL_UNSIGNED_SHORT;
                 }
                 else {
-                    indexOffsetBytes = indices->upload(_indices.data(), _indices.size() * sizeof(uint32_t));
+                    indexOffsetBytes = indices->upload(_indices.data(), (int)_indices.size() * sizeof(uint32_t));
                     indexBufferType = GL_UNSIGNED_INT;
                 }
             }
@@ -418,20 +418,20 @@ namespace pr {
             switch (mode) {
             case PrimitiveMode::Points:
                 glPointSize(width);
-                glDrawArrays(GL_POINTS, vertexOffset, (int)_vertices.size());
+                glDrawArrays(GL_POINTS, (GLint)vertexOffset, (GLsizei)_vertices.size());
                 break;
             case PrimitiveMode::Lines:
                 glLineWidth(width);
                 if (_indices.empty()) {
-                    glDrawArrays(GL_LINES, vertexOffset, (int)_vertices.size());
+                    glDrawArrays(GL_LINES, (GLint)vertexOffset, (GLsizei)_vertices.size());
                 }
                 else {
-                    glDrawElementsBaseVertex(GL_LINES, (GLsizei)_indices.size(), indexBufferType, (void *)indexOffsetBytes, vertexOffset);
+                    glDrawElementsBaseVertex(GL_LINES, (GLsizei)_indices.size(), indexBufferType, (uint8_t *)0 + indexOffsetBytes, (GLint)vertexOffset);
                 }
                 break;
             case PrimitiveMode::LineStrip:
                 glLineWidth(width);
-                glDrawArrays(GL_LINE_STRIP, vertexOffset, (int)_vertices.size());
+                glDrawArrays(GL_LINE_STRIP, (GLint)vertexOffset, (GLsizei)_vertices.size());
                 break;
             }
         }
@@ -512,7 +512,8 @@ namespace pr {
             _shader->setUniformMatrix(projMatrix * viewMatrix, "u_vp");
         }
         void finishFrame() {
-            _vertices->swap();
+            _vertices->finishFrame();
+            _indices->finishFrame();
         }
         struct Vertex {
             glm::vec3 p;
@@ -777,7 +778,7 @@ namespace pr {
 
         glm::vec3 x;
         glm::vec3 y;
-        getOrthonormalBasis<float>(z, &x, &y);
+        GetOrthonormalBasis<float>(z, &x, &y);
 
         PrimBegin(PrimitiveMode::Lines, lineWidth);
 
@@ -832,7 +833,7 @@ namespace pr {
 
     static void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const* message, void const* user_param)
     {
-        auto const src_str = [source]() {
+        std::string src_str = [source]() {
             switch (source)
             {
             case GL_DEBUG_SOURCE_API: return "API";
@@ -842,9 +843,10 @@ namespace pr {
             case GL_DEBUG_SOURCE_APPLICATION: return "APPLICATION";
             case GL_DEBUG_SOURCE_OTHER: return "OTHER";
             }
+            return "";
         }();
 
-        auto const type_str = [type]() {
+        std::string type_str = [type]() {
             switch (type)
             {
             case GL_DEBUG_TYPE_ERROR: return "ERROR";
@@ -855,15 +857,17 @@ namespace pr {
             case GL_DEBUG_TYPE_MARKER: return "MARKER";
             case GL_DEBUG_TYPE_OTHER: return "OTHER";
             }
+            return "";
         }();
 
-        auto const severity_str = [severity]() {
+        std::string severity_str = [severity]() {
             switch (severity) {
             case GL_DEBUG_SEVERITY_NOTIFICATION: return "NOTIFICATION";
             case GL_DEBUG_SEVERITY_LOW: return "LOW";
             case GL_DEBUG_SEVERITY_MEDIUM: return "MEDIUM";
             case GL_DEBUG_SEVERITY_HIGH: return "HIGH";
             }
+            return "";
         }();
 
         std::cout << src_str << ", " << type_str << ", " << severity_str << ", " << id << ": " << message << '\n';
@@ -1142,98 +1146,6 @@ suspend_event_handle:
         return
             g_keyConditions[button] == ButtonCondition::Released &&
             g_keyConditionsPrevious[button] == ButtonCondition::Pressed;
-    }
-
-    // Random Number
-    float IRandom::uniform() {
-        return this->uniform_float();
-    }
-    float IRandom::uniform(float a, float b) {
-        return glm::mix(a, b, uniform_float());
-    }
-    int IRandom::uniform(int a, int b) {
-        int64_t length = (int64_t)b - (int64_t)a;
-        return a + (int)(this->uniform_integer() % length);
-    }
-
-    // http://xoshiro.di.unimi.it/splitmix64.c
-    // for generate seed
-    struct splitmix64 {
-        uint64_t x = 0; /* The state can be seeded with any value. */
-        uint64_t next() {
-            uint64_t z = (x += 0x9e3779b97f4a7c15);
-            z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9;
-            z = (z ^ (z >> 27)) * 0x94d049bb133111eb;
-            return z ^ (z >> 31);
-        }
-    };
-
-    /*
-    http://xoshiro.di.unimi.it/xoshiro128starstar.c
-    */
-    struct Xoshiro128StarStar : public IRandom {
-        Xoshiro128StarStar(uint32_t seed) {
-            splitmix64 sp;
-            sp.x = seed;
-            uint64_t r0 = sp.next();
-            uint64_t r1 = sp.next();
-            s[0] = r0 & 0xFFFFFFFF;
-            s[1] = (r0 >> 32) & 0xFFFFFFFF;
-            s[2] = r1 & 0xFFFFFFFF;
-            s[3] = (r1 >> 32) & 0xFFFFFFFF;
-
-            if (state() == glm::uvec4(0, 0, 0, 0)) {
-                s[0] = 1;
-            }
-        }
-        float uniform_float() {
-            uint32_t x = next();
-            uint32_t bits = (x >> 9) | 0x3f800000;
-            float value = *reinterpret_cast<float *>(&bits) - 1.0f;
-            return value;
-        }
-        uint64_t uniform_integer() {
-            // [0, 2^62-1]
-            uint64_t a = next() >> 1;
-            uint64_t b = next() >> 1;
-            return (a << 31) | b;
-        }
-        glm::uvec4 state() const {
-            return glm::uvec4(s[0], s[1], s[2], s[3]);
-        }
-    private:
-        uint32_t rotl(const uint32_t x, int k) {
-            return (x << k) | (x >> (32 - k));
-        }
-        uint32_t next() {
-            const uint32_t result_starstar = rotl(s[0] * 5, 7) * 9;
-
-            const uint32_t t = s[1] << 9;
-
-            s[2] ^= s[0];
-            s[3] ^= s[1];
-            s[1] ^= s[2];
-            s[0] ^= s[3];
-
-            s[2] ^= t;
-
-            s[3] = rotl(s[3], 11);
-
-            return result_starstar;
-        }
-    private:
-        uint32_t s[4];
-    };
-
-    IRandom *CreateRandomNumberGenerator(uint32_t seed) {
-        return new Xoshiro128StarStar(seed);
-    }
-
-    float Radians(float degrees) {
-        return glm::radians(degrees);
-    }
-    float Degrees(float radians) {
-        return glm::degrees(radians);
     }
 
     // Interactions
