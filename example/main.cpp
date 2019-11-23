@@ -16,6 +16,16 @@ int main() {
     camera.lookat = { 0, 0, 0 };
     camera.zUp = false;
 
+    //Image2DRGBA8 image;
+    //image.allocate(2, 2);
+    //image(0, 0) = glm::u8vec4(255);
+    //image(1, 0) = glm::u8vec4(255);
+    //image(0, 1) = glm::u8vec4(255);
+    //image(1, 1) = glm::u8vec4(255);
+
+    //ITextureRGBA8 *texture = CreateTextureRGBA8();
+    //texture->upload(image);
+
     double e = GetElapsedTime();
 
     while (pr::ProcessSystem() == false) {
@@ -32,6 +42,27 @@ int main() {
 
         ClearBackground(0.1f, 0.1f, 0.1f, 1);
         BeginCamera(camera);
+
+        // xy Z order
+        Image2DRGBA8 image;
+        image.allocate(2, 2);
+        image(0, 0) = glm::u8vec4(255, 0, 0, 255);
+        image(1, 0) = glm::u8vec4(0, 255, 0, 255);
+        image(0, 1) = glm::u8vec4(0, 0, 255, 255);
+        image(1, 1) = glm::u8vec4(255);
+
+        std::unique_ptr<ITextureRGBA8> texture(CreateTextureRGBA8());
+        texture->upload(image);
+
+        TriBegin(texture.get());
+        uint32_t vs[4];
+        vs[0] = TriVertex({ -1.000000, 1.000000, 0.000000 }, { 0.000000, 1.000000 }, { 255, 255, 255, 255 });
+        vs[1] = TriVertex({ 1.000000, 1.000000, 0.000000 }, { 1.000000, 1.000000 }, { 255, 255, 255, 255 });
+        vs[2] = TriVertex({ -1.000000, -1.000000, 0.000000 }, { 0.000000, 0.000000 }, { 255, 255, 255, 255 });
+        vs[3] = TriVertex({ 1.000000, -1.000000, 0.000000 }, { 1.000000, 0.000000 }, { 255, 255, 255, 255 });
+        TriIndex(vs[0]); TriIndex(vs[1]); TriIndex(vs[2]);
+        TriIndex(vs[1]); TriIndex(vs[2]); TriIndex(vs[3]);
+        TriEnd();
 
         DrawGrid(GridAxis::XY, 1.0f, 10, { 128, 128, 128 });
         DrawXYZAxis(1.0f);
@@ -57,7 +88,7 @@ int main() {
 
         Xoshiro128StarStar random;
 
-        for (int i = 0; i < 10000; ++i) {
+        for (int i = 0; i < 0; ++i) {
             float x = glm::mix(-4.0f, 4.0f, random.uniformf());
             float y = glm::mix(-4.0f, 4.0f, random.uniformf());
             float z = glm::mix(-4.0f, 4.0f, random.uniformf());

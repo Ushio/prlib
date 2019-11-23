@@ -132,4 +132,18 @@ namespace pr {
     void DrawTube(glm::vec3 p0, glm::vec3 p1, float radius0, float radius1, glm::u8vec3 c, int vertexCount = 8, float lineWidth = 1.0f);
     void DrawArrow(glm::vec3 p0, glm::vec3 p1, float bodyRadius, glm::u8vec3 c, int vertexCount = 8, float lineWidth = 1.0f);
     void DrawXYZAxis(float length = 1.0f, float bodyRadius = 0.01f, int vertexCount = 8, float lineWidth = 1.0f);
+
+    class ITextureRGBA8 {
+    public:
+        virtual ~ITextureRGBA8() {}
+        virtual void upload(const Image2DRGBA8 &image) = 0;
+        virtual int width() const = 0;
+        virtual int height() const = 0;
+    };
+    ITextureRGBA8 *CreateTextureRGBA8();
+
+    void     TriBegin(ITextureRGBA8 *texture);
+    uint32_t TriVertex(glm::vec3 p, glm::vec2 uv, glm::u8vec4 c);
+    void     TriIndex(uint32_t index);
+    void     TriEnd();
 }

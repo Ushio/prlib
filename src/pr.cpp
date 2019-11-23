@@ -88,6 +88,14 @@ namespace pr {
         std::stack<std::unique_ptr<const ICamera>> g_cameraStack;
     }
 
+    // Texture
+    namespace {
+        class ITextureRGBA8Bind : public ITextureRGBA8 {
+        public:
+            virtual void bind() const = 0;
+        };
+    }
+
     // Notes:
     //     VAO, Shader, FrameBuffer states are changed anywhere
 
@@ -167,6 +175,10 @@ namespace pr {
         void setUniformMatrix(glm::mat4 m, const char *variable) {
             auto location = glGetUniformLocation(_program, variable);
             glProgramUniformMatrix4fv(_program, location, 1, GL_FALSE, (float *)&m);
+        }
+        void setUniformTextureIndex(GLuint index, const char *variable) {
+            auto location = glGetUniformLocation(_program, variable);
+            glProgramUniform1i(_program, location, index);
         }
     private:
         GLuint _vs = 0;
@@ -359,8 +371,10 @@ namespace pr {
         std::unique_ptr<PersistentBuffer> _indices;
     };
 
-    class Primitive {
+    class PrimitiveDam {
     public:
+        using Vertex = PrimitivePipeline::Vertex;
+
         void clear() {
             _vertices.clear();
             _indices.clear();
@@ -368,7 +382,7 @@ namespace pr {
         }
         uint32_t addVertex(glm::vec3 p, glm::u8vec3 c) {
             uint32_t index = (uint32_t)_vertices.size();
-            PrimitivePipeline::Vertex v = { p, c };
+            Vertex v = { p, c };
             _vertices.emplace_back(v);
             return index;
         }
@@ -389,8 +403,8 @@ namespace pr {
     public:
         void draw(PrimitiveMode mode, float width) {
             auto vertexBuffer = g_primitivePipeline->vertices();
-            auto vertexOffsetBytes = vertexBuffer->upload(_vertices.data(), (int)(_vertices.size() * sizeof(PrimitivePipeline::Vertex)));
-            auto vertexOffset = vertexOffsetBytes / sizeof(PrimitivePipeline::Vertex);
+            auto vertexOffsetBytes = vertexBuffer->upload(_vertices.data(), (int)(_vertices.size() * sizeof(Vertex)));
+            auto vertexOffset = vertexOffsetBytes / sizeof(Vertex);
 
             auto indexBuffer = g_primitivePipeline->indices();
             int indexOffsetBytes = 0;
@@ -436,7 +450,7 @@ namespace pr {
             }
         }
     private:
-        std::vector<PrimitivePipeline::Vertex> _vertices;
+        std::vector<Vertex> _vertices;
         std::vector<uint32_t> _indices;
 
         // for upload
@@ -458,10 +472,10 @@ namespace pr {
                 
                 layout(location = 0) in vec3 in_position;
                 layout(location = 1) in vec2 in_texcoord;
-                layout(location = 2) in vec3 in_color;
+                layout(location = 2) in vec4 in_color;
 
                 out vec2 tofs_texcoord;
-                out vec3 tofs_color;
+                out vec4 tofs_color;
 
                 void main() {
                     gl_Position = u_vp * vec4(in_position, 1.0);
@@ -475,21 +489,23 @@ namespace pr {
                 uniform sampler2D u_image;
 
                 in vec2 tofs_texcoord;
-                in vec3 tofs_color;
+                in vec4 tofs_color;
 
                 layout(location = 0) out vec4 out_fragColor;
 
                 void main() {
-                  out_fragColor = vec4(tofs_color, 1.0) * texture(u_image, tofs_texcoord);
+                  out_fragColor = tofs_color * texture(u_image, tofs_texcoord);
                 }
             )";
             _shader = std::unique_ptr<Shader>(new Shader(vs, fs));
+            _shader->setUniformTextureIndex(0, "u_image");
 
             _vertices = std::unique_ptr<PersistentBuffer>(new PersistentBuffer());
             _indices = std::unique_ptr<PersistentBuffer>(new PersistentBuffer());
 
             _vao->enable(0);
             _vao->enable(1);
+            _vao->enable(2);
         }
         void bind() {
             _shader->bind();
@@ -498,7 +514,8 @@ namespace pr {
 
             glBindBuffer(GL_ARRAY_BUFFER, _vertices->buffer());
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, p));
-            glVertexAttribPointer(1, 3, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void *)offsetof(Vertex, c));
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, uv));
+            glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(Vertex), (void *)offsetof(Vertex, c));
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indices->buffer());
         }
 
@@ -518,13 +535,91 @@ namespace pr {
         struct Vertex {
             glm::vec3 p;
             glm::vec2 uv;
-            glm::u8vec3 c;
+            glm::u8vec4 c;
         };
     private:
         std::unique_ptr<VertexArrayObject> _vao;
         std::unique_ptr<Shader> _shader;
         std::unique_ptr<PersistentBuffer> _vertices;
         std::unique_ptr<PersistentBuffer> _indices;
+    };
+
+    class TexturedTriangleDam {
+    public:
+        using Vertex = TexturedTrianglePipeline::Vertex;
+        void clear() {
+            _vertices.clear();
+            _indices.clear();
+            _maxIndex = 0;
+        }
+        uint32_t addVertex(glm::vec3 p, glm::vec2 uv, glm::u8vec4 c) {
+            uint32_t index = (uint32_t)_vertices.size();
+            Vertex v = { p, uv, c };
+            _vertices.emplace_back(v);
+            return index;
+        }
+        void addIndex(uint32_t index) {
+            _maxIndex = std::max(_maxIndex, index);
+            _indices.emplace_back(index);
+        }
+
+    private:
+        template <class T>
+        void indexStore(std::vector<T> &storage, const std::vector<uint32_t> &indices) const {
+            storage.clear();
+            storage.reserve(indices.size());
+            for (auto index : indices) {
+                storage.emplace_back((T)index);
+            }
+        }
+    public:
+        void draw(ITextureRGBA8Bind *texture) {
+            auto vertexBuffer = g_texturedTrianglePipeline->vertices();
+            auto vertexOffsetBytes = vertexBuffer->upload(_vertices.data(), (int)(_vertices.size() * sizeof(Vertex)));
+            auto vertexOffset = vertexOffsetBytes / sizeof(Vertex);
+
+            auto indexBuffer = g_texturedTrianglePipeline->indices();
+            int indexOffsetBytes = 0;
+
+            GLuint indexBufferType = 0;
+            if (_indices.empty() == false) {
+                auto indices = g_texturedTrianglePipeline->indices();
+                if (_maxIndex < std::numeric_limits<uint8_t>::max()) {
+                    indexStore(_indices8, _indices);
+                    indexOffsetBytes = indexBuffer->upload(_indices8.data(), (int)(_indices8.size() * sizeof(uint8_t)));
+                    indexBufferType = GL_UNSIGNED_BYTE;
+                }
+                else if (_maxIndex < std::numeric_limits<uint16_t>::max()) {
+                    indexStore(_indices16, _indices);
+                    indexOffsetBytes = indices->upload(_indices16.data(), (int)_indices16.size() * sizeof(uint16_t)) / sizeof(uint16_t);
+                    indexBufferType = GL_UNSIGNED_SHORT;
+                }
+                else {
+                    indexOffsetBytes = indices->upload(_indices.data(), (int)_indices.size() * sizeof(uint32_t));
+                    indexBufferType = GL_UNSIGNED_INT;
+                }
+            }
+
+            g_texturedTrianglePipeline->bind();
+
+            texture->bind();
+
+            if (_indices.empty()) {
+                glDrawArrays(GL_TRIANGLES, (GLint)vertexOffset, (GLsizei)_vertices.size());
+            }
+            else {
+                glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)_indices.size(), indexBufferType, (uint8_t *)0 + indexOffsetBytes, (GLint)vertexOffset);
+            }
+        }
+    private:
+        std::vector<Vertex> _vertices;
+        std::vector<uint32_t> _indices;
+
+        // for upload
+        std::vector<uint8_t> _indices8;
+        std::vector<uint16_t> _indices16;
+
+        uint32_t _maxIndex = 0;
     };
 
     class MSFrameBufferObject {
@@ -642,6 +737,7 @@ namespace pr {
         auto p = camera->getProjectionMatrx();
         auto vp = v * p;
         g_primitivePipeline->setVP(camera->getViewMatrix(), camera->getProjectionMatrx());
+        g_texturedTrianglePipeline->setVP(camera->getViewMatrix(), camera->getProjectionMatrx());
     }
 
     /*
@@ -671,7 +767,7 @@ namespace pr {
     }
     namespace {
         bool g_primitiveEnabled = false;
-        Primitive g_primitive;
+        PrimitiveDam g_primitiveDam;
         PrimitiveMode g_primitiveMode;
         float g_primitiveWidth = 0.0f;
     }
@@ -684,17 +780,17 @@ namespace pr {
     }
     uint32_t PrimVertex(glm::vec3 p, glm::u8vec3 c) {
         PR_ASSERT(g_primitiveEnabled);
-        return g_primitive.addVertex(p, c);
+        return g_primitiveDam.addVertex(p, c);
     }
     void PrimIndex(uint32_t index) {
         PR_ASSERT(g_primitiveEnabled);
-        return g_primitive.addIndex(index);
+        return g_primitiveDam.addIndex(index);
     }
     void PrimEnd() {
         PR_ASSERT(g_primitiveEnabled);
-        g_primitive.draw(g_primitiveMode, g_primitiveWidth);
-        g_primitive.clear();
         g_primitiveEnabled = false;
+        g_primitiveDam.draw(g_primitiveMode, g_primitiveWidth);
+        g_primitiveDam.clear();
     }
 
     void DrawLine(glm::vec3 p0, glm::vec3 p1, glm::u8vec3 c, float lineWidth) {
@@ -957,6 +1053,9 @@ namespace pr {
             PR_ASSERT(0);
         }
 
+        // Check Extensions
+        PR_ASSERT(GLEW_ARB_bindless_texture);
+
         glfwSwapInterval(config.SwapInterval);
 
         glfwSetMouseButtonCallback(g_window, MouseButtonCallback);
@@ -1089,6 +1188,7 @@ suspend_event_handle:
         glfwSwapBuffers(g_window);
 
         g_primitivePipeline->finishFrame();
+        g_texturedTrianglePipeline->finishFrame();
 
         glfwPollEvents();
 
@@ -1255,5 +1355,71 @@ suspend_event_handle:
             camera->lookat = lookat;
             camera->origin = origin;
         }
+    }
+
+    class TextureRGBA8 : public ITextureRGBA8Bind {
+    public:
+        TextureRGBA8() {
+            glCreateTextures(GL_TEXTURE_2D, 1, &_texture);
+            glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+            glTextureParameteri(_texture, GL_TEXTURE_WRAP_S, GL_CLAMP);
+            glTextureParameteri(_texture, GL_TEXTURE_WRAP_T, GL_CLAMP);
+        }
+        ~TextureRGBA8() {
+            glDeleteTextures(1, &_texture);
+        }
+        void upload(const Image2DRGBA8 &image) {
+            _width = image.width();
+            _height = image.height();
+            glTextureStorage2D(_texture, 1, GL_RGBA8, _width, _height);
+            glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+        }
+        int width() const override {
+            return _width;
+        }
+        int height() const override {
+            return _height;
+        }
+        void bind() const override {
+            glBindTextureUnit(0, _texture);
+        }
+    private:
+        GLuint _texture = 0;
+        int _width = 0;
+        int _height = 0;
+    };
+
+    ITextureRGBA8 *CreateTextureRGBA8() {
+        return new TextureRGBA8();
+    }
+
+    namespace {
+        bool g_triangleEnabled = false;
+        TexturedTriangleDam g_texturedTriangleDam;
+        ITextureRGBA8 *g_texture = nullptr;
+    }
+    void TriBegin(ITextureRGBA8 *texture) {
+        PR_ASSERT(g_triangleEnabled == false);
+        g_triangleEnabled = true;
+        g_texture = texture;
+    }
+    uint32_t TriVertex(glm::vec3 p, glm::vec2 uv, glm::u8vec4 c) {
+        PR_ASSERT(g_triangleEnabled);
+        return g_texturedTriangleDam.addVertex(p, uv, c);
+    }
+    void TriIndex(uint32_t index) {
+        PR_ASSERT(g_triangleEnabled);
+        g_texturedTriangleDam.addIndex(index);
+    }
+    void TriEnd() {
+        PR_ASSERT(g_triangleEnabled);
+        g_triangleEnabled = false;
+
+        ITextureRGBA8Bind *binder = dynamic_cast<ITextureRGBA8Bind *>(g_texture);
+        PR_ASSERT(binder);
+        g_texturedTriangleDam.draw(binder);
+        g_texturedTriangleDam.clear();
+        g_texture = nullptr;
     }
 }

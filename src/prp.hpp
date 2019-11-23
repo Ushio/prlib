@@ -1,5 +1,7 @@
 ﻿#pragma once
 
+#include <vector>
+#include <functional>
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
@@ -75,11 +77,25 @@ namespace pr {
         *yaxis = glm::tvec3<Real>(b, sign + zaxis.y * zaxis.y * a, -zaxis.y);
     }
 
-    //class Image2DRGBAF32 {
-    //public:
-    //    void allocate(int w, int h);
-    //    void load(const char *filename);
-    //private:
+    class Image2DRGBA8 {
+    public:
+        void allocate(int w, int h);
+        void load(const char *filename);
 
-    //};
+        glm::u8vec4 *data();
+        const glm::u8vec4 *data() const;
+
+        glm::u8vec4 &operator()(int x, int y);
+        const glm::u8vec4 &operator()(int x, int y) const;
+
+        glm::u8vec4 &at(int x, int y);
+        const glm::vec4 &at(int x, int y) const;
+
+        int width() const;
+        int height() const;
+    private:
+        int _width = 0;
+        int _height = 0;
+        std::vector<glm::u8vec4> _values;
+    };
 }
