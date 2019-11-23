@@ -84,7 +84,21 @@ namespace pr {
 
     // Drawing
     void ClearBackground(float r, float g, float b, float a);
+
+    // Graphics State
+    void PushGraphicState();
+    void PopGraphicState();
+
     void SetDepthTest(bool enabled);
+
+    enum class BlendMode {
+        None,
+        Alpha,
+        Additive,
+        Multiply,
+        Screen,
+    };
+    void SetBlendMode(BlendMode blendMode);
 
     // Camera
     struct Camera3D {

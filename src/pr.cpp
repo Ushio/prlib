@@ -96,6 +96,47 @@ namespace pr {
         };
     }
 
+    struct GraphicState {
+        bool depthTest = false;
+        BlendMode blendMode = BlendMode::None;
+
+        void apply() {
+            if (depthTest) {
+                glEnable(GL_DEPTH_TEST);
+            } else {
+                glDisable(GL_DEPTH_TEST);
+            }
+            switch (blendMode) {
+            case BlendMode::None:
+                glDisable(GL_BLEND);
+                break;
+            case BlendMode::Alpha:
+                glEnable(GL_BLEND);
+                glBlendEquation(GL_FUNC_ADD);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+                break;
+            case BlendMode::Additive:
+                glEnable(GL_BLEND);
+                glBlendEquation(GL_FUNC_ADD);
+                glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+                break;
+            case BlendMode::Multiply:
+                glEnable(GL_BLEND);
+                glBlendEquation(GL_FUNC_ADD);
+                glBlendFunc(GL_DST_COLOR, GL_ONE_MINUS_SRC_ALPHA /* GL_ZERO or GL_ONE_MINUS_SRC_ALPHA */);
+                break;
+            case BlendMode::Screen:
+                glEnable(GL_BLEND);
+                glBlendEquation(GL_FUNC_ADD);
+                glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
+                break;
+            }
+        }
+    };
+    namespace {
+        std::stack<GraphicState> g_states;
+    }
+
     // Notes:
     //     VAO, Shader, FrameBuffer states are changed anywhere
 
@@ -746,13 +787,26 @@ namespace pr {
     void ClearBackground(float r, float g, float b, float a) {
         g_frameBuffer->clear(r, g, b, a, true);
     }
-    void SetDepthTest(bool enabled) {
-        if (enabled) {
-            glEnable(GL_DEPTH_TEST);
-        } else {
-            glDisable(GL_DEPTH_TEST);
-        }
+    void PushGraphicState() {
+        PR_ASSERT(g_states.empty() == false);
+        g_states.push(g_states.top());
     }
+    void PopGraphicState() {
+        g_states.pop();
+        PR_ASSERT(g_states.empty() == false);
+        g_states.top().apply();
+    }
+    void SetDepthTest(bool enabled) {
+        PR_ASSERT(g_states.empty() == false);
+        g_states.top().depthTest = enabled;
+        g_states.top().apply();
+    }
+    void SetBlendMode(BlendMode blendMode) {
+        PR_ASSERT(g_states.empty() == false);
+        g_states.top().blendMode = blendMode;
+        g_states.top().apply();
+    }
+
     void BeginCamera(Camera3D camera) {
         PR_ASSERT(g_cameraStack.size() <= MAX_CAMERA_STACK_SIZE);
 
@@ -985,6 +1039,9 @@ namespace pr {
         glDisable(GL_BLEND);
 
         UpdateCurrentMatrix();
+
+        g_states.push(GraphicState());
+        g_states.top().apply();
     }
 
     // Event Handling

@@ -38,21 +38,27 @@ int main() {
         //    IsMouseButtonUp(MOUSE_BUTTON_MIDDLE) ? "o" : " ");
 
         UpdateCameraBlenderLike(&camera);
-        SetDepthTest(true);
 
         ClearBackground(0.1f, 0.1f, 0.1f, 1);
         BeginCamera(camera);
+        PushGraphicState();
+        SetDepthTest(true);
+        SetBlendMode(BlendMode::Alpha);
 
         // xy Z order
         Image2DRGBA8 image;
         image.allocate(2, 2);
-        image(0, 0) = glm::u8vec4(255, 0, 0, 255);
-        image(1, 0) = glm::u8vec4(0, 255, 0, 255);
-        image(0, 1) = glm::u8vec4(0, 0, 255, 255);
-        image(1, 1) = glm::u8vec4(255);
+        image(0, 0) = glm::u8vec4(255, 0, 0, 128);
+        image(1, 0) = glm::u8vec4(0, 255, 0, 128);
+        image(0, 1) = glm::u8vec4(0, 0, 255, 128);
+        image(1, 1) = glm::u8vec4(255, 255, 255, 128);
 
         std::unique_ptr<ITextureRGBA8> texture(CreateTextureRGBA8());
         texture->upload(image);
+
+        DrawGrid(GridAxis::XY, 1.0f, 10, { 128, 128, 128 });
+        DrawXYZAxis(1.0f);
+
 
         TriBegin(texture.get());
         uint32_t vs[4];
@@ -63,9 +69,6 @@ int main() {
         TriIndex(vs[0]); TriIndex(vs[1]); TriIndex(vs[2]);
         TriIndex(vs[1]); TriIndex(vs[2]); TriIndex(vs[3]);
         TriEnd();
-
-        DrawGrid(GridAxis::XY, 1.0f, 10, { 128, 128, 128 });
-        DrawXYZAxis(1.0f);
 
         // DrawTube({}, { 0, 1, 1 }, 0.3f, 0.05f, { 0, 255, 255 });
         // DrawArrow({}, { 1, 0, 1 }, 0.01f, { 0, 255, 255 });
@@ -118,6 +121,7 @@ int main() {
 
         }
 
+        PopGraphicState();
         EndCamera();
     }
 
