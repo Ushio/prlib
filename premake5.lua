@@ -59,8 +59,13 @@ project "prlib"
     includedirs { "libs/glew/include" }
     defines { "GLEW_STATIC" }
 
+    -- ImGui
+    includedirs { "libs/imgui" }
+    files {"libs/imgui/*.cpp"}
+
     -- Lib Core
     files {"src/*.cpp", "src/*.h", "src/*.hpp"}
+    includedirs { "src/" }
 
     links { "opengl32" }
     

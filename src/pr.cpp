@@ -4,6 +4,8 @@
 #include "GLFW/glfw3.h"
 #include "GLFW/glfw3native.h"
 
+#include "imgui.h"
+
 #include <iostream>
 #include <vector>
 #include <memory>
@@ -12,6 +14,8 @@
 #include <stack>
 #include <queue>
 #include <map>
+#include <algorithm>
+#include <numeric>
 
 #define MAX_CAMERA_STACK_SIZE 1000
 
@@ -31,6 +35,11 @@ namespace pr {
         MSFrameBufferObject *g_frameBuffer = nullptr;
         PrimitivePipeline *g_primitivePipeline = nullptr;
         TexturedTrianglePipeline *g_texturedTrianglePipeline = nullptr;
+
+        // Time
+        double g_frameTime = 0.0;
+        double g_frameDeltaTime = 0.0;
+        double g_framePerSeconds = 0.0;
     }
 
     // Input System
@@ -99,6 +108,11 @@ namespace pr {
     struct GraphicState {
         bool depthTest = false;
         BlendMode blendMode = BlendMode::None;
+        bool scissorTest = false;
+        int scissorX = 0;
+        int scissorY = 0;
+        int scissorWidth = 0;
+        int scissorHeight = 0;
 
         void apply() {
             if (depthTest) {
@@ -130,6 +144,13 @@ namespace pr {
                 glBlendEquation(GL_FUNC_ADD);
                 glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ONE);
                 break;
+            }
+            if (scissorTest) {
+                glEnable(GL_SCISSOR_TEST);
+                glScissor(scissorX, scissorY, scissorWidth, scissorHeight);
+            }
+            else {
+                glDisable(GL_SCISSOR_TEST);
             }
         }
     };
@@ -615,6 +636,15 @@ namespace pr {
         }
     public:
         void draw(ITextureRGBA8Bind *texture) {
+            if (!_white) {
+                _white = std::unique_ptr<ITextureRGBA8>(CreateTextureRGBA8());
+                uint8_t white[4] = { 255, 255, 255, 255 };
+                _white->upload(white, 1, 1);
+            }
+            if (texture == nullptr) {
+                texture = static_cast<ITextureRGBA8Bind *>(_white.get());
+            }
+
             auto vertexBuffer = g_texturedTrianglePipeline->vertices();
             auto vertexOffsetBytes = vertexBuffer->upload(_vertices.data(), (int)(_vertices.size() * sizeof(Vertex)));
             auto vertexOffset = vertexOffsetBytes / sizeof(Vertex);
@@ -661,6 +691,9 @@ namespace pr {
         std::vector<uint16_t> _indices16;
 
         uint32_t _maxIndex = 0;
+
+        // White Texture
+        std::unique_ptr<ITextureRGBA8> _white;
     };
 
     class MSFrameBufferObject {
@@ -740,6 +773,15 @@ namespace pr {
             return glm::identity<glm::mat4>();
         }
     };
+    class Camera2DCanvas : public ICamera {
+    public:
+        virtual glm::mat4 getProjectionMatrx() const override {
+            return glm::orthoLH<float>(0, GetScreenWidth(), GetScreenHeight(), 0, 1.0f, -1.0f);
+        }
+        virtual glm::mat4 getViewMatrix() const override {
+            return glm::identity<glm::mat4>();
+        }
+    };
 
     class Camera3DObject : public ICamera {
     public:
@@ -777,8 +819,8 @@ namespace pr {
         auto v = camera->getViewMatrix();
         auto p = camera->getProjectionMatrx();
         auto vp = v * p;
-        g_primitivePipeline->setVP(camera->getViewMatrix(), camera->getProjectionMatrx());
-        g_texturedTrianglePipeline->setVP(camera->getViewMatrix(), camera->getProjectionMatrx());
+        g_primitivePipeline->setVP(v, p);
+        g_texturedTrianglePipeline->setVP(v, p);
     }
 
     /*
@@ -806,11 +848,31 @@ namespace pr {
         g_states.top().blendMode = blendMode;
         g_states.top().apply();
     }
+    void SetScissor(bool enabled) {
+        PR_ASSERT(g_states.empty() == false);
+        g_states.top().scissorTest = enabled;
+        g_states.top().apply();
+    }
+    void SetScissorRect(float x, float y, float width, float height) {
+        PR_ASSERT(g_states.empty() == false);
+        GraphicState &s = g_states.top();
+        s.scissorX = x;
+        s.scissorY = y;
+        s.scissorWidth  = width;
+        s.scissorHeight = height;
+        g_states.top().apply();
+    }
 
     void BeginCamera(Camera3D camera) {
         PR_ASSERT(g_cameraStack.size() <= MAX_CAMERA_STACK_SIZE);
 
         g_cameraStack.push(std::unique_ptr<const ICamera>(new Camera3DObject(camera)));
+        UpdateCurrentMatrix();
+    }
+    void BeginCamera2DCanvas() {
+        PR_ASSERT(g_cameraStack.size() <= MAX_CAMERA_STACK_SIZE);
+
+        g_cameraStack.push(std::unique_ptr<const ICamera>(new Camera2DCanvas()));
         UpdateCurrentMatrix();
     }
     void EndCamera() {
@@ -1022,6 +1084,7 @@ namespace pr {
 
         std::cout << src_str << ", " << type_str << ", " << severity_str << ", " << id << ": " << message << '\n';
     }
+
     static void SetupGraphics() {
         glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -1043,7 +1106,233 @@ namespace pr {
         g_states.push(GraphicState());
         g_states.top().apply();
     }
+    static void CleanUpGraphics() {
+        delete g_primitivePipeline;
+        g_primitivePipeline = nullptr;
 
+        delete g_texturedTrianglePipeline;
+        g_texturedTrianglePipeline = nullptr;
+
+        delete g_frameBuffer;
+        g_frameBuffer = nullptr;
+    }
+
+    // ImGui Data
+    namespace {
+        ITextureRGBA8 *g_fontTexture = nullptr;
+    }
+    static void SetupImGui() {
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        io.FontGlobalScale = 2;
+        io.IniFilename = nullptr;
+
+        io.BackendRendererName = "prlib";
+
+        io.KeyMap[ImGuiKey_Tab] = KEY_TAB;
+        io.KeyMap[ImGuiKey_LeftArrow] = KEY_LEFT;
+        io.KeyMap[ImGuiKey_RightArrow] = KEY_RIGHT;
+        io.KeyMap[ImGuiKey_UpArrow] = KEY_UP;
+        io.KeyMap[ImGuiKey_DownArrow] = KEY_DOWN;
+        io.KeyMap[ImGuiKey_PageUp] = KEY_PAGE_UP;
+        io.KeyMap[ImGuiKey_PageDown] = KEY_PAGE_DOWN;
+        io.KeyMap[ImGuiKey_Home] = KEY_HOME;
+        io.KeyMap[ImGuiKey_End] = KEY_END;
+        io.KeyMap[ImGuiKey_Insert] = KEY_INSERT;
+        io.KeyMap[ImGuiKey_Delete] = KEY_DELETE;
+        io.KeyMap[ImGuiKey_Backspace] = KEY_BACKSPACE;
+        io.KeyMap[ImGuiKey_Space] = KEY_SPACE;
+        io.KeyMap[ImGuiKey_Enter] = KEY_ENTER;
+        io.KeyMap[ImGuiKey_Escape] = KEY_ESCAPE;
+        io.KeyMap[ImGuiKey_KeyPadEnter] = KEY_KP_ENTER;
+        io.KeyMap[ImGuiKey_A] = KEY_A;
+        io.KeyMap[ImGuiKey_C] = KEY_C;
+        io.KeyMap[ImGuiKey_V] = KEY_V;
+        io.KeyMap[ImGuiKey_X] = KEY_X;
+        io.KeyMap[ImGuiKey_Y] = KEY_Y;
+        io.KeyMap[ImGuiKey_Z] = KEY_Z;
+
+        
+        io.SetClipboardTextFn = [](void* user_data, const char* text) { glfwSetClipboardString(g_window, text); };
+        io.GetClipboardTextFn = [](void* user_data) { return glfwGetClipboardString(g_window); };
+
+        static GLFWcharfun charcallback_previous = nullptr;
+        charcallback_previous = glfwSetCharCallback(g_window, [](GLFWwindow* window, unsigned int c) {
+            if (charcallback_previous)
+            {
+                charcallback_previous(window, c);
+            }
+
+            ImGuiIO& io = ImGui::GetIO();
+            io.AddInputCharacter(c);
+        });
+
+        ImGui::StyleColorsDark();
+
+        // Build texture atlas
+        unsigned char* pixels;
+        int width, height;
+        io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);   // Load as RGBA 32-bits (75% of the memory is wasted, but default font is so small) because it is more likely to be compatible with user's existing shaders. If your ImTextureId represent a higher-level concept than just a GL texture id, consider calling GetTexDataAsAlpha8() instead to save on GPU memory.
+
+        g_fontTexture = CreateTextureRGBA8();
+        g_fontTexture->upload(pixels, width, height);
+        io.Fonts->TexID = (ImTextureID)g_fontTexture;
+    }
+    static void CleanUpImGui() {
+        delete g_fontTexture;
+        g_fontTexture = nullptr;
+        ImGui::DestroyContext();
+    }
+    void BeginImGui() {
+        ImGuiIO& io = ImGui::GetIO();
+
+        // Setup display size (every frame to accommodate for window resizing)
+        io.DisplaySize = ImVec2((float)GetScreenWidth(), (float)GetScreenHeight());
+        io.DisplayFramebufferScale = ImVec2(1, 1);
+
+        // Setup time step
+        io.DeltaTime = GetFrameDeltaTime();
+        io.MousePos = ImVec2(GetMousePosition().x, GetMousePosition().y);
+
+        io.MouseDown[0] = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
+        io.MouseDown[1] = IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
+        io.MouseDown[2] = IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE);
+
+        io.MouseWheelH += GetMouseScrollDelta().x;
+        io.MouseWheel  += GetMouseScrollDelta().y;
+
+        static const int imkeys[] = {
+            KEY_TAB,
+            KEY_LEFT,
+            KEY_RIGHT,
+            KEY_UP,
+            KEY_DOWN,
+            KEY_PAGE_UP,
+            KEY_PAGE_DOWN,
+            KEY_HOME,
+            KEY_END,
+            KEY_INSERT,
+            KEY_DELETE,
+            KEY_BACKSPACE,
+            KEY_SPACE,
+            KEY_ENTER,
+            KEY_ESCAPE,
+            KEY_KP_ENTER,
+            KEY_A,
+            KEY_C,
+            KEY_V,
+            KEY_X,
+            KEY_Y,
+            KEY_Z,
+            KEY_LEFT_CONTROL,
+            KEY_RIGHT_CONTROL,
+            KEY_LEFT_SHIFT,
+            KEY_RIGHT_SHIFT,
+            KEY_LEFT_ALT,
+            KEY_RIGHT_ALT,
+            KEY_LEFT_SUPER,
+            KEY_RIGHT_SUPER,
+        };
+        for (int key : imkeys) {
+            if (IsKeyPressed(key)) {
+                io.KeysDown[key] = true;
+            }
+            if (IsKeyUp(key)) {
+                io.KeysDown[key] = false;
+            }
+        }
+
+        io.KeyCtrl = IsKeyPressed(KEY_LEFT_CONTROL) || IsKeyPressed(KEY_RIGHT_CONTROL);
+        io.KeyShift = IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT);
+        io.KeyAlt = IsKeyPressed(KEY_LEFT_ALT) || IsKeyPressed(KEY_RIGHT_ALT);
+        io.KeySuper = IsKeyPressed(KEY_LEFT_SUPER) || IsKeyPressed(KEY_RIGHT_SUPER);
+
+        ImGui::NewFrame();
+    }
+    void SetupState(int fb_width, int fb_height) {
+
+    }
+    static glm::u8vec4 color_cvt(ImU32 in) {
+        return {
+            ((in >> IM_COL32_R_SHIFT) & 0xFF),
+            ((in >> IM_COL32_G_SHIFT) & 0xFF),
+            ((in >> IM_COL32_B_SHIFT) & 0xFF),
+            ((in >> IM_COL32_A_SHIFT) & 0xFF)
+        };
+    }
+    void EndImGui() {
+        ImGui::Render();
+
+        ImDrawData *draw_data = ImGui::GetDrawData();
+        int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
+        int fb_height = (int)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
+        if (fb_width == 0 || fb_height == 0) {
+            return;
+        }
+
+        // Will project scissor/clipping rectangles into framebuffer space
+        ImVec2 clip_off = draw_data->DisplayPos;         // (0,0) unless using multi-viewports
+        ImVec2 clip_scale = draw_data->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+
+        BeginCamera2DCanvas();
+        PushGraphicState();
+        SetBlendMode(BlendMode::Alpha);
+        SetDepthTest(false);
+        SetScissor(true);
+        SetScissorRect(0, 0, fb_width, fb_height);
+
+        // Render command lists
+        for (int n = 0; n < draw_data->CmdListsCount; n++)
+        {
+            const ImDrawList* cmd_list = draw_data->CmdLists[n];
+            const ImDrawVert* vtx_buffer = cmd_list->VtxBuffer.Data;
+            const ImDrawIdx* idx_buffer = cmd_list->IdxBuffer.Data;
+
+            for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++)
+            {
+                const ImDrawCmd* pcmd = &cmd_list->CmdBuffer[cmd_i];
+
+                // Not Supported
+                PR_ASSERT(pcmd->UserCallback == 0);
+                PR_ASSERT(pcmd->VtxOffset == 0); 
+
+                // Project scissor/clipping rectangles into framebuffer space
+                ImVec4 clip_rect;
+                clip_rect.x = (pcmd->ClipRect.x - clip_off.x) * clip_scale.x;
+                clip_rect.y = (pcmd->ClipRect.y - clip_off.y) * clip_scale.y;
+                clip_rect.z = (pcmd->ClipRect.z - clip_off.x) * clip_scale.x;
+                clip_rect.w = (pcmd->ClipRect.w - clip_off.y) * clip_scale.y;
+
+                if (clip_rect.x < fb_width && clip_rect.y < fb_height && clip_rect.z >= 0.0f && clip_rect.w >= 0.0f)
+                {
+                    // Apply scissor/clipping rectangle
+                    SetScissorRect(
+                        (int)clip_rect.x, (int)(fb_height - clip_rect.w), 
+                        (int)(clip_rect.z - clip_rect.x), (int)(clip_rect.w - clip_rect.y)
+                    );
+
+                    TriBegin((ITextureRGBA8 *)pcmd->TextureId);
+                    for (int i = 0; i < pcmd->ElemCount; i++) {
+                        ImDrawVert v = vtx_buffer[idx_buffer[i]];
+                        glm::vec3 p(v.pos.x, v.pos.y, 0.0f);
+                        glm::vec2 uv(v.uv.x, v.uv.y);
+                        glm::u8vec4 c = color_cvt(v.col);
+                        TriVertex(p, uv, c);
+                    }
+                    TriEnd();
+                }
+                
+                idx_buffer += pcmd->ElemCount;
+            }
+        }
+
+        PopGraphicState();
+        EndCamera();
+    }
+    bool IsImGuiUsingMouse() {
+        ImGuiIO& io = ImGui::GetIO();
+        return io.WantCaptureMouse;
+    }
     // Event Handling
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
     {
@@ -1126,15 +1415,12 @@ namespace pr {
         g_mousePosition.y = (float)cy;
 
         SetupGraphics();
+        SetupImGui();
     }
-    void CleanUp() {
-        delete g_primitivePipeline;
-        g_primitivePipeline = nullptr;
 
-        delete g_frameBuffer;
-        g_frameBuffer = nullptr;
-        delete g_texturedTrianglePipeline;
-        g_texturedTrianglePipeline = nullptr;
+    void CleanUp() {
+        CleanUpImGui();
+        CleanUpGraphics();
 
         glfwDestroyWindow(g_window);
         glfwTerminate();
@@ -1158,6 +1444,15 @@ namespace pr {
 
     double GetElapsedTime() {
         return glfwGetTime();
+    }
+    double GetFrameTime() {
+        return g_frameTime;
+    }
+    double GetFrameDeltaTime() {
+        return g_frameDeltaTime;
+    }
+    double GetFrameRate() {
+        return g_framePerSeconds;
     }
 
     static void HandleInputEvents() {
@@ -1257,6 +1552,20 @@ suspend_event_handle:
 
         glViewport(0, 0, width, height);
 
+        // update frame time
+        double previousFrameTime = g_frameTime;
+        g_frameTime = GetElapsedTime();
+        g_frameDeltaTime = g_frameTime - previousFrameTime;
+
+        // calculate framerate
+        static std::vector<double> frameDeltas;
+        frameDeltas.push_back(g_frameDeltaTime);
+        if (30 < frameDeltas.size()) {
+            double avg_delta = std::accumulate(frameDeltas.begin(), frameDeltas.end(), 0.0, std::plus<double>()) / (double)frameDeltas.size();
+            g_framePerSeconds = 1.0 / avg_delta;
+            frameDeltas.clear();
+        }
+
         return glfwWindowShouldClose(g_window);
     }
 
@@ -1287,8 +1596,37 @@ suspend_event_handle:
             g_mouseButtonConditionsPrevious[button] == ButtonCondition::Pressed;
     }
 
-    extern int KEY_LEFT_SHIFT = GLFW_KEY_LEFT_SHIFT;
-    extern int KEY_RIGHT_SHIFT = GLFW_KEY_RIGHT_SHIFT;
+    const int KEY_TAB = GLFW_KEY_TAB;
+    const int KEY_LEFT = GLFW_KEY_LEFT;
+    const int KEY_RIGHT = GLFW_KEY_RIGHT;
+    const int KEY_UP = GLFW_KEY_UP;
+    const int KEY_DOWN = GLFW_KEY_DOWN;
+    const int KEY_PAGE_UP = GLFW_KEY_PAGE_UP;
+    const int KEY_PAGE_DOWN = GLFW_KEY_PAGE_DOWN;
+    const int KEY_HOME = GLFW_KEY_HOME;
+    const int KEY_END = GLFW_KEY_END;
+    const int KEY_INSERT = GLFW_KEY_INSERT;
+    const int KEY_DELETE = GLFW_KEY_DELETE;
+    const int KEY_BACKSPACE = GLFW_KEY_BACKSPACE;
+    const int KEY_SPACE = GLFW_KEY_SPACE;
+    const int KEY_ENTER = GLFW_KEY_ENTER;
+    const int KEY_ESCAPE = GLFW_KEY_ESCAPE;
+    const int KEY_KP_ENTER = GLFW_KEY_KP_ENTER;
+    const int KEY_A = GLFW_KEY_A;
+    const int KEY_C = GLFW_KEY_C;
+    const int KEY_V = GLFW_KEY_V;
+    const int KEY_X = GLFW_KEY_X;
+    const int KEY_Y = GLFW_KEY_Y;
+    const int KEY_Z = GLFW_KEY_Z;
+
+    const int KEY_LEFT_CONTROL = GLFW_KEY_LEFT_CONTROL;
+    const int KEY_RIGHT_CONTROL = GLFW_KEY_RIGHT_CONTROL;
+    const int KEY_LEFT_SHIFT = GLFW_KEY_LEFT_SHIFT;
+    const int KEY_RIGHT_SHIFT = GLFW_KEY_RIGHT_SHIFT;
+    const int KEY_LEFT_ALT = GLFW_KEY_LEFT_ALT;
+    const int KEY_RIGHT_ALT = GLFW_KEY_RIGHT_ALT;
+    const int KEY_LEFT_SUPER = GLFW_KEY_LEFT_SUPER;
+    const int KEY_RIGHT_SUPER = GLFW_KEY_RIGHT_SUPER;
 
     bool IsKeyPressed(int button) {
         return g_keyConditions[button] == ButtonCondition::Pressed;
@@ -1431,6 +1769,12 @@ suspend_event_handle:
             _height = image.height();
             glTextureStorage2D(_texture, 1, GL_RGBA8, _width, _height);
             glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+        }
+        virtual void upload(const uint8_t *rgba, int width, int height) {
+            _width = width;
+            _height = height;
+            glTextureStorage2D(_texture, 1, GL_RGBA8, _width, _height);
+            glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
         }
         int width() const override {
             return _width;

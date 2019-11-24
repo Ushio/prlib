@@ -29,20 +29,16 @@ int main() {
     double e = GetElapsedTime();
 
     while (pr::ProcessSystem() == false) {
-        double deltaTime = GetElapsedTime() - e;
-        e = GetElapsedTime();
-        printf("fps : %f\n", 1.0 / deltaTime);
-        //printf("p=%s, down=%s, up=%s\n", 
-        //    IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE) ? "_" : "^",
-        //    IsMouseButtonDown(MOUSE_BUTTON_MIDDLE) ? "o" : " ",
-        //    IsMouseButtonUp(MOUSE_BUTTON_MIDDLE) ? "o" : " ");
-
-        UpdateCameraBlenderLike(&camera);
+        if (IsImGuiUsingMouse() == false) {
+            UpdateCameraBlenderLike(&camera);
+        }
 
         ClearBackground(0.1f, 0.1f, 0.1f, 1);
+
         BeginCamera(camera);
+
         PushGraphicState();
-        SetDepthTest(true);
+        SetDepthTest(false);
         SetBlendMode(BlendMode::Alpha);
 
         // xy Z order
@@ -59,7 +55,6 @@ int main() {
         DrawGrid(GridAxis::XY, 1.0f, 10, { 128, 128, 128 });
         DrawXYZAxis(1.0f);
 
-
         TriBegin(texture.get());
         uint32_t vs[4];
         vs[0] = TriVertex({ -1.000000, 1.000000, 0.000000 }, { 0.000000, 1.000000 }, { 255, 255, 255, 255 });
@@ -69,6 +64,8 @@ int main() {
         TriIndex(vs[0]); TriIndex(vs[1]); TriIndex(vs[2]);
         TriIndex(vs[1]); TriIndex(vs[2]); TriIndex(vs[3]);
         TriEnd();
+
+        DrawCircle({100, 100, 0}, { 255, 0, 0 }, 50.0f);
 
         // DrawTube({}, { 0, 1, 1 }, 0.3f, 0.05f, { 0, 255, 255 });
         // DrawArrow({}, { 1, 0, 1 }, 0.01f, { 0, 255, 255 });
@@ -91,7 +88,7 @@ int main() {
 
         Xoshiro128StarStar random;
 
-        for (int i = 0; i < 0; ++i) {
+        for (int i = 0; i < 10000; ++i) {
             float x = glm::mix(-4.0f, 4.0f, random.uniformf());
             float y = glm::mix(-4.0f, 4.0f, random.uniformf());
             float z = glm::mix(-4.0f, 4.0f, random.uniformf());
@@ -109,20 +106,20 @@ int main() {
            //     (random->uniform(0, 256)),
            //     (random->uniform(0, 256))
            // );
-
-             DrawLine(
-                 GenerateUniformOnSphereLimitedAngle(random.uniformf(), random.uniformf(), -1.0f),
-                 GenerateUniformOnSphereLimitedAngle(random.uniformf(), random.uniformf(), -1.0f),
-                 { 255, 255, 255 }
-             );
-           // // DrawPoint({ random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f }, color, random->uniform(0, 10));
-           //// DrawPoint({ random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f }, color, 1);
-           // DrawCircle({ random->uniform(-0.9f, 0.9f), random->uniform(-0.9f, 0.9f), 0.0f }, color, 0.01f, 10, 5);
-
         }
 
         PopGraphicState();
         EndCamera();
+
+        BeginImGui();
+
+        ImGui::SetNextWindowSize({ 500, 800 }, ImGuiCond_Once);
+        ImGui::Begin("Panel");
+        ImGui::Text("fps = %f", GetFrameRate());
+        ImGui::End();
+
+        ImGui::ShowDemoWindow();
+        EndImGui();
     }
 
     CleanUp();
