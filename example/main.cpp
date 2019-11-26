@@ -14,7 +14,7 @@ int main() {
     Camera3D camera;
     camera.origin = { 4, 4, 4 };
     camera.lookat = { 0, 0, 0 };
-    camera.zUp = false;
+    camera.zUp = true;
 
     //Image2DRGBA8 image;
     //image.allocate(2, 2);
@@ -55,6 +55,7 @@ int main() {
         DrawGrid(GridAxis::XY, 1.0f, 10, { 128, 128, 128 });
         DrawXYZAxis(1.0f);
 
+        // Rectangle
         TriBegin(texture.get());
         uint32_t vs[4];
         vs[0] = TriVertex({ -1.000000, 1.000000, 0.000000 }, { 0.000000, 1.000000 }, { 255, 255, 255, 255 });
@@ -65,30 +66,9 @@ int main() {
         TriIndex(vs[1]); TriIndex(vs[2]); TriIndex(vs[3]);
         TriEnd();
 
-        DrawCircle({100, 100, 0}, { 255, 0, 0 }, 50.0f);
-
-        // DrawTube({}, { 0, 1, 1 }, 0.3f, 0.05f, { 0, 255, 255 });
-        // DrawArrow({}, { 1, 0, 1 }, 0.01f, { 0, 255, 255 });
-
-        //DrawCircle({}, { 255, 0, 0 }, 0.5f);
-        //DrawTube({}, { 0, 1, 0 }, 1.0f, 1.0f, { 128, 128, 128 });
-
-        //LinearTransform<float> xmap(0, 31, -2, 2);
-        //LinearTransform<float> ymap(0, 31, -2, 2);
-        //for (int x = 0; x < 32; ++x) {
-        //    for (int y = 0; y < 32; ++y) {
-        //        float cx = xmap((float)x);
-        //        float cy = ymap((float)y);
-
-        //        auto d = glm::normalize(glm::vec3(-cy, cx, 0));
-        //        DrawArrow(glm::vec3(cx, cy, 0), glm::vec3(cx, cy, 0) + d * 0.1f, 0.005f, { 255, 255, 255 });
-        //    }
-        //}
-        // PrimBegin(PrimitiveMode::Points, 1);
-
         Xoshiro128StarStar random;
 
-        for (int i = 0; i < 10000; ++i) {
+        for (int i = 0; i < 0; ++i) {
             float x = glm::mix(-4.0f, 4.0f, random.uniformf());
             float y = glm::mix(-4.0f, 4.0f, random.uniformf());
             float z = glm::mix(-4.0f, 4.0f, random.uniformf());
@@ -99,7 +79,7 @@ int main() {
 
             // PrimVertex({ x, y, z }, { 255, 255, 255 });
 
-            // DrawArrow(glm::vec3(x,y,z), glm::vec3(x, y, z) + glm::vec3(nx, ny, nz) * 0.1f, 0.005f, { 255, 255, 255 }, 8);
+            DrawArrow(glm::vec3(x,y,z), glm::vec3(x, y, z) + glm::vec3(nx, ny, nz) * 0.1f, 0.005f, { 255, 255, 255 }, 8);
 
            // glm::u8vec3 color = glm::u8vec3(
            //     (random->uniform(0, 256)),
@@ -107,6 +87,19 @@ int main() {
            //     (random->uniform(0, 256))
            // );
         }
+
+        static glm::vec3 dir = {0, 0, 1};
+        DrawLine(glm::vec3(), dir, { 255, 255, 255 });
+
+        glm::vec3 u, v;
+        GetOrthonormalBasis(dir, &u, &v);
+
+        PrimBegin(PrimitiveMode::Points);
+        for (int i = 0; i < 10000; ++i) {
+            glm::vec3 p = GenerateUniformOnSphereLimitedAngle(random.uniformf(), random.uniformf(), 0.999999f);
+            PrimVertex(u * p.x + v * p.y + dir * p.z, { 255, 255, 255 });
+        }
+        PrimEnd();
 
         PopGraphicState();
         EndCamera();
@@ -116,6 +109,9 @@ int main() {
         ImGui::SetNextWindowSize({ 500, 800 }, ImGuiCond_Once);
         ImGui::Begin("Panel");
         ImGui::Text("fps = %f", GetFrameRate());
+
+        SliderDirection("dir", &dir);
+
         ImGui::End();
 
         ImGui::ShowDemoWindow();

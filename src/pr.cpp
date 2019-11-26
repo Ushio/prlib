@@ -921,7 +921,7 @@ namespace pr {
         PrimEnd();
     }
     void DrawCircle(glm::vec3 o, glm::u8vec3 c, float radius, int vertexCount, float lineWidth) {
-        LinearTransform<float> i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
+        LinearTransform i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
 
         PrimBegin(PrimitiveMode::LineStrip, lineWidth);
         for (int i = 0; i < vertexCount; ++i) {
@@ -990,13 +990,13 @@ namespace pr {
 
         glm::vec3 x;
         glm::vec3 y;
-        GetOrthonormalBasis<float>(z, &x, &y);
+        GetOrthonormalBasis(z, &x, &y);
 
         PrimBegin(PrimitiveMode::Lines, lineWidth);
 
         std::vector<uint32_t> circleVerticesB(vertexCount);
         std::vector<uint32_t> circleVerticesT(vertexCount);
-        LinearTransform<float> i2rad(0.0f, (float)(vertexCount), 0.0f, glm::pi<float>() * 2.0f);
+        LinearTransform i2rad(0.0f, (float)(vertexCount), 0.0f, glm::pi<float>() * 2.0f);
         for (int i = 0; i < vertexCount; ++i) {
             float radian = i2rad.evaluate((float)i);
             glm::vec3 ring = x * std::sin(radian) + y * std::cos(radian);
@@ -1332,6 +1332,30 @@ namespace pr {
     bool IsImGuiUsingMouse() {
         ImGuiIO& io = ImGui::GetIO();
         return io.WantCaptureMouse;
+    }
+    void SliderDirection(const char *label, glm::vec3 *dir, float minTheta, float maxTheta) {
+        ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode(label)) {
+            char thetaLabel[128];
+            sprintf(thetaLabel, "theta##%s", label);
+            char phiLabel[128];
+            sprintf(phiLabel, "phi##%s", label);
+
+            float theta, phi;
+            GetSpherical(*dir, &theta, &phi);
+            bool editted = false;
+            if (ImGui::SliderFloat(thetaLabel, &theta, minTheta, maxTheta)) {
+                editted = true;
+            }
+            if (ImGui::SliderFloat(phiLabel, &phi, -glm::pi<float>(), glm::pi<float>()))
+            {
+                editted = true;
+            }
+            if (editted) {
+                *dir = GetCartesian(theta, phi);
+            }
+            ImGui::TreePop();
+        }
     }
     // Event Handling
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -1823,4 +1847,5 @@ suspend_event_handle:
         g_texturedTriangleDam.clear();
         g_texture = nullptr;
     }
+
 }

@@ -85,6 +85,34 @@ namespace pr {
         return glm::vec3(x, y, z);
     }
 
+    // Building an Orthonormal Basis, Revisited
+    void GetOrthonormalBasis(glm::vec3 zaxis, glm::vec3 *xaxis, glm::vec3 *yaxis) {
+        const float sign = std::copysign(1.0f, zaxis.z);
+        const float a = -1.0f / (sign + zaxis.z);
+        const float b = zaxis.x * zaxis.y * a;
+        *xaxis = glm::vec3(1.0f + sign * zaxis.x * zaxis.x * a, sign * b, -sign * zaxis.x);
+        *yaxis = glm::vec3(b, sign + zaxis.y * zaxis.y * a, -zaxis.y);
+    }
+    glm::vec3 GetCartesian(float theta, float phi) {
+        float sinTheta = std::sin(theta);
+        return glm::vec3(
+            sinTheta * std::cos(phi),
+            sinTheta * std::sin(phi),
+            std::cos(theta)
+        );
+    }
+    void GetSpherical(glm::vec3 direction, float *theta, float *phi) {
+        if (direction.x == 0.0f && direction.y == 0.0f) {
+            *theta = 0.0f;
+            *phi = 0.0f;
+            return;
+        }
+
+        float r_xy = std::hypot(direction.x, direction.y);
+        *theta = std::atan2(r_xy, direction.z);
+        *phi = std::atan2(direction.y, direction.x);
+    }
+
     void Image2DRGBA8::allocate(int w, int h) {
         _width = w;
         _height = h;
