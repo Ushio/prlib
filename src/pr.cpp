@@ -853,7 +853,7 @@ namespace pr {
         g_states.top().scissorTest = enabled;
         g_states.top().apply();
     }
-    void SetScissorRect(float x, float y, float width, float height) {
+    void SetScissorRect(int x, int y, int width, int height) {
         PR_ASSERT(g_states.empty() == false);
         GraphicState &s = g_states.top();
         s.scissorX = x;
@@ -920,17 +920,17 @@ namespace pr {
         PrimVertex(p, c);
         PrimEnd();
     }
-    void DrawCircle(glm::vec3 o, glm::u8vec3 c, float radius, int vertexCount, float lineWidth) {
+    void DrawCircle(glm::vec3 o, glm::vec3 dir, glm::u8vec3 c, float radius, int vertexCount, float lineWidth) {
         LinearTransform i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
+
+        glm::vec3 x;
+        glm::vec3 y;
+        GetOrthonormalBasis(dir, &x, &y);
 
         PrimBegin(PrimitiveMode::LineStrip, lineWidth);
         for (int i = 0; i < vertexCount; ++i) {
             float radian = i2rad.evaluate((float)i);
-            glm::vec3 p = {
-                std::cos(radian),
-                std::sin(radian),
-                0.0f
-            };
+            glm::vec3 p = x * std::cos(radian) + y * std::sin(radian);
             PrimVertex(o + radius * p, c);
         }
         PrimEnd();
@@ -1191,7 +1191,7 @@ namespace pr {
         io.DisplayFramebufferScale = ImVec2(1, 1);
 
         // Setup time step
-        io.DeltaTime = GetFrameDeltaTime();
+        io.DeltaTime = (float)GetFrameDeltaTime();
         io.MousePos = ImVec2(GetMousePosition().x, GetMousePosition().y);
 
         io.MouseDown[0] = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
@@ -1675,6 +1675,8 @@ suspend_event_handle:
         float rotate_sensitivity,
         float shift_sensitivity
     ) {
+        const float camera_near_limit = 0.000001f;
+
         glm::vec2 mousePositionDelta = GetMouseDelta();
 
         bool shift = IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT);
@@ -1689,7 +1691,7 @@ suspend_event_handle:
 
             float d = glm::distance(lookat, origin);
             d -= d * deltaWheel * wheel_sensitivity;
-            d = std::max(0.01f, d);
+            d = std::max(camera_near_limit, d);
 
             auto dir = glm::normalize(origin - lookat);
             origin = lookat + dir * d;
@@ -1701,7 +1703,7 @@ suspend_event_handle:
 
                 float d = glm::distance(lookat, origin);
                 d -= d * mousePositionDelta.y * zoom_mouse_sensitivity;
-                d = std::max(0.1f, d);
+                d = std::max(camera_near_limit, d);
 
                 auto dir = glm::normalize(origin - lookat);
                 origin = lookat + dir * d;

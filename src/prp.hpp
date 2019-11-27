@@ -40,8 +40,12 @@ namespace pr {
         uint32_t s[4];
     };
 
+    glm::vec2 GenerateUniformInCircle(float u0, float u1);
     glm::vec3 GenerateUniformOnSphere(float u0, float u1);
     glm::vec3 GenerateUniformOnHemisphere(float u0, float u1);
+
+    // notes:
+    //     this cause numerical error at limitedCosTheta is too small.
     glm::vec3 GenerateUniformOnSphereLimitedAngle(float u0, float u1, float limitedCosTheta);
 
     // Math 

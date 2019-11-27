@@ -13,7 +13,8 @@ int main() {
 
     Camera3D camera;
     camera.origin = { 4, 4, 4 };
-    camera.lookat = { 0, 0, 0 };
+    camera.lookat = { 0, 1, 0 };
+    camera.zNear = 0.0001f;
     camera.zUp = true;
 
     //Image2DRGBA8 image;
@@ -56,37 +57,17 @@ int main() {
         DrawXYZAxis(1.0f);
 
         // Rectangle
-        TriBegin(texture.get());
-        uint32_t vs[4];
-        vs[0] = TriVertex({ -1.000000, 1.000000, 0.000000 }, { 0.000000, 1.000000 }, { 255, 255, 255, 255 });
-        vs[1] = TriVertex({ 1.000000, 1.000000, 0.000000 }, { 1.000000, 1.000000 }, { 255, 255, 255, 255 });
-        vs[2] = TriVertex({ -1.000000, -1.000000, 0.000000 }, { 0.000000, 0.000000 }, { 255, 255, 255, 255 });
-        vs[3] = TriVertex({ 1.000000, -1.000000, 0.000000 }, { 1.000000, 0.000000 }, { 255, 255, 255, 255 });
-        TriIndex(vs[0]); TriIndex(vs[1]); TriIndex(vs[2]);
-        TriIndex(vs[1]); TriIndex(vs[2]); TriIndex(vs[3]);
-        TriEnd();
+        //TriBegin(texture.get());
+        //uint32_t vs[4];
+        //vs[0] = TriVertex({ -1.000000, 1.000000, 0.000000 }, { 0.000000, 1.000000 }, { 255, 255, 255, 255 });
+        //vs[1] = TriVertex({ 1.000000, 1.000000, 0.000000 }, { 1.000000, 1.000000 }, { 255, 255, 255, 255 });
+        //vs[2] = TriVertex({ -1.000000, -1.000000, 0.000000 }, { 0.000000, 0.000000 }, { 255, 255, 255, 255 });
+        //vs[3] = TriVertex({ 1.000000, -1.000000, 0.000000 }, { 1.000000, 0.000000 }, { 255, 255, 255, 255 });
+        //TriIndex(vs[0]); TriIndex(vs[1]); TriIndex(vs[2]);
+        //TriIndex(vs[1]); TriIndex(vs[2]); TriIndex(vs[3]);
+        //TriEnd();
 
         Xoshiro128StarStar random;
-
-        for (int i = 0; i < 0; ++i) {
-            float x = glm::mix(-4.0f, 4.0f, random.uniformf());
-            float y = glm::mix(-4.0f, 4.0f, random.uniformf());
-            float z = glm::mix(-4.0f, 4.0f, random.uniformf());
-
-            float nx = glm::mix(-1.0f, 1.0f, random.uniformf());
-            float ny = glm::mix(-1.0f, 1.0f, random.uniformf());
-            float nz = glm::mix(-1.0f, 1.0f, random.uniformf());
-
-            // PrimVertex({ x, y, z }, { 255, 255, 255 });
-
-            DrawArrow(glm::vec3(x,y,z), glm::vec3(x, y, z) + glm::vec3(nx, ny, nz) * 0.1f, 0.005f, { 255, 255, 255 }, 8);
-
-           // glm::u8vec3 color = glm::u8vec3(
-           //     (random->uniform(0, 256)),
-           //     (random->uniform(0, 256)),
-           //     (random->uniform(0, 256))
-           // );
-        }
 
         static glm::vec3 dir = {0, 0, 1};
         DrawLine(glm::vec3(), dir, { 255, 255, 255 });
@@ -94,12 +75,22 @@ int main() {
         glm::vec3 u, v;
         GetOrthonormalBasis(dir, &u, &v);
 
+        float cosTheta = 1.0f - FLT_EPSILON * 5;
+        double tanTheta = 0.75 * std::sqrt(1.0 - (double)cosTheta * (double)cosTheta) / (double)cosTheta;
+
         PrimBegin(PrimitiveMode::Points);
-        for (int i = 0; i < 10000; ++i) {
-            glm::vec3 p = GenerateUniformOnSphereLimitedAngle(random.uniformf(), random.uniformf(), 0.999999f);
-            PrimVertex(u * p.x + v * p.y + dir * p.z, { 255, 255, 255 });
+        for (int i = 0; i < 500; ++i) {
+            // glm::vec3 p = GenerateUniformOnSphereLimitedAngle(random.uniformf(), random.uniformf(), cosTheta);
+            
+            glm::vec2 circle = GenerateUniformInCircle(random.uniformf(), random.uniformf());
+            glm::vec3 p = glm::vec3(tanTheta * circle.x, tanTheta * circle.y, 1.0f);
+            glm::vec3 sp = glm::normalize(u * p.x + v * p.y + dir * p.z);
+            PrimVertex(sp, { 255, 255, 255 });
         }
         PrimEnd();
+
+        double r = std::sqrt(1.0 - (double)cosTheta * (double)cosTheta) / (double)cosTheta;
+        DrawCircle(dir, dir, { 255, 0, 0 }, r);
 
         PopGraphicState();
         EndCamera();

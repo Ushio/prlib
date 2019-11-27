@@ -137,7 +137,7 @@ namespace pr {
     };
     void SetBlendMode(BlendMode blendMode);
     void SetScissor(bool enabled);
-    void SetScissorRect(float x, float y, float width, float height);
+    void SetScissorRect(int x, int y, int width, int height);
 
     // Camera
     struct Camera3D {
@@ -147,7 +147,7 @@ namespace pr {
         float fovy     = glm::radians(45.0f); // vertical field of view
         float zNear = 0.01f;
         float zFar  = 1000.0f;
-        bool zUp = false; // y up by default but you can use z up
+        bool zUp = false; // y up by default but you can use z up.  But be careful, the camera parameter is always y up.
     };
     void BeginCamera(Camera3D camera);
     void BeginCamera2DCanvas();
@@ -175,7 +175,7 @@ namespace pr {
     // Simple Functions
     void DrawLine(glm::vec3 p0, glm::vec3 p1, glm::u8vec3 c, float lineWidth = 1.0f);
     void DrawPoint(glm::vec3 p, glm::u8vec3 c, float pointSize = 1.0f);
-    void DrawCircle(glm::vec3 o, glm::u8vec3 c, float radius, int vertexCount = 32, float lineWidth = 1.0f);
+    void DrawCircle(glm::vec3 o, glm::vec3 dir, glm::u8vec3 c, float radius, int vertexCount = 32, float lineWidth = 1.0f);
 
     enum class GridAxis {
         XY,

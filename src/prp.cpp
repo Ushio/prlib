@@ -70,12 +70,20 @@ namespace pr {
     }
 
     // Random Number Helper
+    glm::vec2 GenerateUniformInCircle(float u0, float u1) {
+        float r = std::sqrt(u0);
+        float theta = u1 * glm::pi<float>() * 2.0f;
+        float x = r * cos(theta);
+        float y = r * sin(theta);
+        return { x, y };
+    }
     glm::vec3 GenerateUniformOnSphere(float u0, float u1) {
         return GenerateUniformOnSphereLimitedAngle(u0, u1, -1.0f);
     }
     glm::vec3 GenerateUniformOnHemisphere(float u0, float u1) {
         return GenerateUniformOnSphereLimitedAngle(u0, u1, 0.0f);
     }
+
     glm::vec3 GenerateUniformOnSphereLimitedAngle(float u0, float u1, float limitedCosTheta) {
         float phi = u0 * glm::pi<float>() * 2.0f;
         float z = glm::mix(1.0f, limitedCosTheta, u1);
