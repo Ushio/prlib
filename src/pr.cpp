@@ -1559,7 +1559,7 @@ suspend_event_handle:
 
         g_mouseDelta = g_mousePosition - previousMousePosition;
     }
-    bool ProcessSystem() {
+    bool NextFrame() {
         g_frameBuffer->copyToScreen();
         glfwSwapBuffers(g_window);
 

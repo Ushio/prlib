@@ -52,7 +52,7 @@ namespace pr {
       - Process Window Event
       - return true if the window should close
     */
-    bool ProcessSystem();
+    bool NextFrame();
 
     // Realtime clock
     double GetElapsedTime();

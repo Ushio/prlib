@@ -28,7 +28,7 @@ int main() {
 
     double e = GetElapsedTime();
 
-    while (pr::ProcessSystem() == false) {
+    while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {
             UpdateCameraBlenderLike(&camera);
         }
