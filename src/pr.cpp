@@ -24,6 +24,7 @@ namespace pr {
     class Shader;
     class PrimitivePipeline;
     class TexturedTrianglePipeline;
+    class FontPipeline;
     class MSFrameBufferObject;
 
     namespace {
@@ -32,9 +33,10 @@ namespace pr {
         GLFWwindow *g_window = nullptr;
 
         // MainFrameBuffer
-        MSFrameBufferObject *g_frameBuffer = nullptr;
-        PrimitivePipeline *g_primitivePipeline = nullptr;
+        MSFrameBufferObject      *g_frameBuffer = nullptr;
+        PrimitivePipeline        *g_primitivePipeline = nullptr;
         TexturedTrianglePipeline *g_texturedTrianglePipeline = nullptr;
+        FontPipeline             *g_fontPipeline = nullptr;
 
         // Time
         double g_frameTime = 0.0;
@@ -99,7 +101,7 @@ namespace pr {
 
     // Texture
     namespace {
-        class ITextureRGBA8Bind : public ITextureRGBA8 {
+        class ITextureBindable : public ITextureRGBA8 {
         public:
             virtual void bind() const = 0;
         };
@@ -635,14 +637,14 @@ namespace pr {
             }
         }
     public:
-        void draw(ITextureRGBA8Bind *texture) {
+        void draw(ITextureBindable *texture) {
             if (!_white) {
                 _white = std::unique_ptr<ITextureRGBA8>(CreateTextureRGBA8());
                 uint8_t white[4] = { 255, 255, 255, 255 };
                 _white->upload(white, 1, 1);
             }
             if (texture == nullptr) {
-                texture = static_cast<ITextureRGBA8Bind *>(_white.get());
+                texture = static_cast<ITextureBindable *>(_white.get());
             }
 
             auto vertexBuffer = g_texturedTrianglePipeline->vertices();
@@ -695,6 +697,181 @@ namespace pr {
         // White Texture
         std::unique_ptr<ITextureRGBA8> _white;
     };
+
+    class FontPipeline {
+    public:
+        FontPipeline() {
+            _vao = std::unique_ptr<VertexArrayObject>(new VertexArrayObject());
+
+            const char *vs = R"(
+                #version 450
+
+                uniform mat4 u_vp;
+                
+                layout(location = 0) in vec2 in_position;
+                layout(location = 1) in vec2 in_texcoord;
+
+                out vec2 tofs_texcoord;
+
+                void main() {
+                    gl_Position = u_vp * vec4(in_position, 0.0, 1.0);
+                    tofs_texcoord = in_texcoord;
+                }
+            )";
+            const char *fs = R"(
+                #version 450
+
+                uniform sampler2D u_image;
+
+                in vec2 tofs_texcoord;
+
+                layout(location = 0) out vec4 out_fragColor;
+
+                void main() {
+                  out_fragColor = texture(u_image, tofs_texcoord);
+                }
+            )";
+            _shader = std::unique_ptr<Shader>(new Shader(vs, fs));
+            _shader->setUniformTextureIndex(0, "u_image");
+
+            _vertices = std::unique_ptr<PersistentBuffer>(new PersistentBuffer());
+
+            _vao->enable(0);
+            _vao->enable(1);
+        }
+        void bind() {
+            _shader->bind();
+
+            _vao->bind();
+
+            glBindBuffer(GL_ARRAY_BUFFER, _vertices->buffer());
+            glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, p));
+            glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, uv));
+        }
+
+        PersistentBuffer *vertices() {
+            return _vertices.get();
+        }
+        void setVP(glm::mat4 viewMatrix, glm::mat4 projMatrix) {
+            _shader->setUniformMatrix(projMatrix * viewMatrix, "u_vp");
+        }
+        void finishFrame() {
+            _vertices->finishFrame();
+        }
+        struct Vertex {
+            glm::vec2 p;
+            glm::vec2 uv;
+        };
+    private:
+        std::unique_ptr<VertexArrayObject> _vao;
+        std::unique_ptr<Shader> _shader;
+        std::unique_ptr<PersistentBuffer> _vertices;
+    };
+
+    namespace {
+        // https://evanw.github.io/font-texture-generator/
+        typedef struct Character {
+            int codePoint, x, y, width, height, originX, originY;
+        } Character;
+
+        static Character characters_Helvetica[] = {
+          {' ', 435, 245, 12, 12, 6, 6},
+          {'!', 61, 187, 20, 58, 1, 52},
+          {'"', 201, 245, 29, 28, 3, 52},
+          {'#', 709, 0, 46, 59, 5, 52},
+          {'$', 282, 0, 43, 68, 4, 56},
+          {'%', 382, 0, 62, 59, 2, 52},
+          {'&', 609, 0, 51, 59, 3, 52},
+          {'\'', 230, 245, 19, 28, 3, 52},
+          {'(', 134, 0, 28, 71, 2, 52},
+          {')', 162, 0, 28, 71, 2, 52},
+          {'*', 168, 245, 33, 31, 4, 52},
+          {'+', 43, 245, 43, 42, 3, 43},
+          {',', 249, 245, 19, 27, 1, 12},
+          {'-', 355, 245, 30, 17, 4, 25},
+          {'.', 336, 245, 19, 18, 0, 12},
+          {'/', 797, 0, 30, 59, 6, 52},
+          {'0', 349, 129, 42, 58, 3, 52},
+          {'1', 32, 187, 29, 58, -1, 52},
+          {'2', 91, 129, 43, 58, 4, 52},
+          {'3', 391, 129, 42, 58, 3, 52},
+          {'4', 47, 129, 44, 58, 5, 52},
+          {'5', 134, 129, 43, 58, 3, 51},
+          {'6', 177, 129, 43, 58, 4, 52},
+          {'7', 136, 187, 42, 57, 3, 51},
+          {'8', 220, 129, 43, 58, 4, 52},
+          {'9', 433, 129, 42, 58, 3, 52},
+          {':', 791, 187, 19, 45, 0, 39},
+          {';', 207, 187, 19, 54, 1, 39},
+          {'<', 810, 187, 43, 43, 3, 44},
+          {'=', 125, 245, 43, 31, 3, 38},
+          {'>', 0, 245, 43, 43, 3, 44},
+          {'?', 475, 129, 42, 58, 3, 52},
+          {'@', 0, 0, 72, 71, 3, 52},
+          {'A', 127, 71, 55, 58, 6, 52},
+          {'B', 790, 71, 47, 58, 1, 52},
+          {'C', 556, 0, 53, 59, 3, 52},
+          {'D', 397, 71, 50, 58, 1, 52},
+          {'E', 0, 129, 47, 58, 1, 52},
+          {'F', 263, 129, 43, 58, 1, 52},
+          {'G', 501, 0, 55, 59, 3, 52},
+          {'H', 497, 71, 49, 58, 1, 52},
+          {'I', 81, 187, 19, 58, 0, 52},
+          {'J', 801, 129, 38, 58, 4, 52},
+          {'K', 447, 71, 50, 58, 1, 52},
+          {'L', 517, 129, 41, 58, 1, 52},
+          {'M', 71, 71, 56, 58, 1, 52},
+          {'N', 546, 71, 49, 58, 1, 52},
+          {'O', 444, 0, 57, 59, 3, 52},
+          {'P', 742, 71, 48, 58, 1, 52},
+          {'Q', 325, 0, 57, 62, 3, 52},
+          {'R', 344, 71, 53, 58, 1, 52},
+          {'S', 660, 0, 49, 59, 3, 52},
+          {'T', 595, 71, 49, 58, 5, 52},
+          {'U', 644, 71, 49, 58, 1, 52},
+          {'V', 182, 71, 54, 58, 6, 52},
+          {'W', 0, 71, 71, 58, 5, 52},
+          {'X', 236, 71, 54, 58, 6, 52},
+          {'Y', 290, 71, 54, 58, 6, 52},
+          {'Z', 693, 71, 49, 58, 5, 52},
+          {'[', 232, 0, 25, 70, 2, 52},
+          {'\\', 827, 0, 30, 59, 6, 52},
+          {']', 257, 0, 25, 70, 5, 52},
+          {'^', 86, 245, 39, 37, 4, 52},
+          {'_', 385, 245, 50, 16, 7, -3},
+          {'`', 312, 245, 24, 21, 3, 52},
+          {'a', 327, 187, 43, 46, 4, 40},
+          {'b', 558, 129, 41, 58, 2, 52},
+          {'c', 413, 187, 42, 46, 4, 40},
+          {'d', 599, 129, 41, 58, 4, 52},
+          {'e', 370, 187, 43, 46, 4, 40},
+          {'f', 0, 187, 32, 58, 6, 52},
+          {'g', 755, 0, 42, 59, 4, 40},
+          {'h', 762, 129, 39, 58, 2, 52},
+          {'i', 100, 187, 18, 58, 2, 52},
+          {'j', 190, 0, 25, 71, 9, 52},
+          {'k', 722, 129, 40, 58, 2, 52},
+          {'l', 118, 187, 18, 58, 2, 52},
+          {'m', 226, 187, 57, 46, 2, 40},
+          {'n', 535, 187, 39, 46, 2, 40},
+          {'o', 283, 187, 44, 46, 4, 40},
+          {'p', 640, 129, 41, 58, 2, 40},
+          {'q', 681, 129, 41, 58, 4, 40},
+          {'r', 574, 187, 30, 46, 2, 40},
+          {'s', 455, 187, 40, 46, 4, 40},
+          {'t', 178, 187, 29, 57, 5, 51},
+          {'u', 495, 187, 40, 46, 2, 39},
+          {'v', 706, 187, 43, 45, 5, 39},
+          {'w', 604, 187, 58, 45, 6, 39},
+          {'x', 662, 187, 44, 45, 6, 39},
+          {'y', 306, 129, 43, 58, 5, 39},
+          {'z', 749, 187, 42, 45, 5, 39},
+          {'{', 72, 0, 31, 71, 4, 52},
+          {'|', 215, 0, 17, 71, 0, 52},
+          {'}', 103, 0, 31, 71, 5, 52},
+          {'~', 268, 245, 44, 22, 3, 33},
+        };
+    }
 
     class MSFrameBufferObject {
     public:
@@ -1094,6 +1271,7 @@ namespace pr {
 
         g_primitivePipeline = new PrimitivePipeline();
         g_texturedTrianglePipeline = new TexturedTrianglePipeline();
+        g_fontPipeline = new FontPipeline();
 
         g_frameBuffer = new MSFrameBufferObject();
         g_frameBuffer->resize(g_config.ScreenWidth, g_config.ScreenHeight, g_config.NumSamples);
@@ -1112,6 +1290,9 @@ namespace pr {
 
         delete g_texturedTrianglePipeline;
         g_texturedTrianglePipeline = nullptr;
+
+        delete g_fontPipeline;
+        g_fontPipeline = nullptr;
 
         delete g_frameBuffer;
         g_frameBuffer = nullptr;
@@ -1778,7 +1959,7 @@ suspend_event_handle:
         }
     }
 
-    class TextureRGBA8 : public ITextureRGBA8Bind {
+    class TextureRGBA8 : public ITextureBindable {
     public:
         TextureRGBA8() {
             glCreateTextures(GL_TEXTURE_2D, 1, &_texture);
@@ -1843,7 +2024,7 @@ suspend_event_handle:
         PR_ASSERT(g_triangleEnabled);
         g_triangleEnabled = false;
 
-        ITextureRGBA8Bind *binder = dynamic_cast<ITextureRGBA8Bind *>(g_texture);
+        ITextureBindable *binder = dynamic_cast<ITextureBindable *>(g_texture);
         PR_ASSERT(binder);
         g_texturedTriangleDam.draw(binder);
         g_texturedTriangleDam.clear();

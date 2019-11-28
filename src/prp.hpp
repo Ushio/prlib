@@ -95,4 +95,10 @@ namespace pr {
 
     glm::vec3 GetCartesian(float theta, float phi);
     void GetSpherical(glm::vec3 direction, float *theta, float *phi);
+
+    void        SetDataDir(std::string dir);
+    std::string NormalizePath(std::string path);
+    std::string ExecutableDir();
+    std::string JoinPath(std::string a, std::string b);
+    std::string GetDataPath(std::string filename);
 }

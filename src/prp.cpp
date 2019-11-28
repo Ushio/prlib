@@ -1,7 +1,19 @@
 ﻿#include "prp.hpp"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
+extern "C" {
+#include "cwalk.h"
+}
+
 #include <algorithm>
 
 namespace pr {
+    namespace {
+        std::string g_dataPath;
+    }
+
     // http://xoshiro.di.unimi.it/splitmix64.c
     // for generate seed
     struct splitmix64 {
@@ -127,6 +139,12 @@ namespace pr {
         _values.clear();
         _values.resize(_width * _height);
     }
+    void Image2DRGBA8::load(const char *filename) {
+        stbi_uc *pixels = stbi_load(GetDataPath(filename).c_str(), &_width, &_height, 0, 4);
+        _values.resize(_width * _height);
+        memcpy(_values.data(), pixels, _width * _height * 4);
+        stbi_image_free(pixels);
+    }
     glm::u8vec4 *Image2DRGBA8::data() {
         return _values.data();
     }
@@ -162,5 +180,36 @@ namespace pr {
     }
     int Image2DRGBA8::height() const {
         return _height;
+    }
+
+    std::string NormalizePath(std::string path) {
+        std::size_t normLength = cwk_path_normalize(path.data(), 0, 0);
+        std::vector<char> normname(normLength + 1);
+        cwk_path_normalize(path.data(), normname.data(), normname.size());
+        return normname.data();
+    }
+    std::string ExecutableDir() {
+        char *p;
+        _get_pgmptr(&p);
+
+        std::size_t dirLength;
+        cwk_path_get_dirname(p, &dirLength);
+
+        std::vector<char> dirname(dirLength + 1);
+        memcpy(dirname.data(), p, dirLength);
+
+        return NormalizePath(dirname.data());
+    }
+    std::string JoinPath(std::string a, std::string b) {
+        std::size_t joinLength = cwk_path_join(a.c_str(), b.c_str(), 0, 0);
+        std::vector<char> joined(joinLength + 1);
+        cwk_path_join(a.c_str(), b.c_str(), joined.data(), joined.size());
+        return NormalizePath(joined.data());
+    }
+    void SetDataDir(std::string dir) {
+        g_dataPath = NormalizePath(dir);
+    }
+    std::string GetDataPath(std::string filename) {
+        return NormalizePath(JoinPath(g_dataPath, filename));
     }
 }

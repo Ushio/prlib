@@ -3,7 +3,13 @@
 #include <memory>
 
 int main() {
+    
     using namespace pr;
+
+    SetDataDir(JoinPath(ExecutableDir(), "../data"));
+
+    Image2DRGBA8 image;
+    image.load("font.png");
 
     Config config;
     config.ScreenWidth = 1920;

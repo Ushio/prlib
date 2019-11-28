@@ -59,9 +59,17 @@ project "prlib"
     includedirs { "libs/glew/include" }
     defines { "GLEW_STATIC" }
 
+    -- cwalk
+    files {"libs/cwalk/*.c"}
+    files {"libs/cwalk/*.h"}
+    includedirs { "libs/cwalk" }
+
     -- ImGui
     includedirs { "libs/imgui" }
     files {"libs/imgui/*.cpp"}
+
+    -- lib
+    includedirs { "libs/stb" }
 
     -- Lib Core
     files {"src/*.cpp", "src/*.h", "src/*.hpp"}
@@ -100,10 +108,35 @@ project "prlib_example"
 
     filter {"Debug"}
         runtime "Debug"
-        targetname ("Main_Debug")
+        targetname ("prlib_example_Debug")
         optimize "Off"
     filter {"Release"}
         runtime "Release"
-        targetname ("Main")
+        targetname ("prlib_example")
+        optimize "Full"
+    filter{}
+
+project "fontbuilder"
+    kind "ConsoleApp"
+    language "C++"
+    targetdir "bin/"
+    systemversion "latest"
+    flags { "MultiProcessorCompile", "NoPCH" }
+
+    -- Src
+    files { "fontbuilder/main.cpp" }
+
+    -- lib
+    includedirs { "libs/stb" }
+
+    symbols "On"
+
+    filter {"Debug"}
+        runtime "Debug"
+        targetname ("fontbuilder_Debug")
+        optimize "Off"
+    filter {"Release"}
+        runtime "Release"
+        targetname ("fontbuilder")
         optimize "Full"
     filter{}
