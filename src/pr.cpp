@@ -101,7 +101,7 @@ namespace pr {
 
     // Texture
     namespace {
-        class ITextureBindable : public ITextureRGBA8 {
+        class ITextureBindable : public ITexture {
         public:
             virtual void bind() const = 0;
         };
@@ -639,9 +639,9 @@ namespace pr {
     public:
         void draw(ITextureBindable *texture) {
             if (!_white) {
-                _white = std::unique_ptr<ITextureRGBA8>(CreateTextureRGBA8());
+                _white = std::unique_ptr<ITexture>(CreateTexture());
                 uint8_t white[4] = { 255, 255, 255, 255 };
-                _white->upload(white, 1, 1);
+                _white->uploadAsRGBA8(white, 1, 1);
             }
             if (texture == nullptr) {
                 texture = static_cast<ITextureBindable *>(_white.get());
@@ -695,7 +695,7 @@ namespace pr {
         uint32_t _maxIndex = 0;
 
         // White Texture
-        std::unique_ptr<ITextureRGBA8> _white;
+        std::unique_ptr<ITexture> _white;
     };
 
     class FontPipeline {
@@ -953,7 +953,7 @@ namespace pr {
     class Camera2DCanvas : public ICamera {
     public:
         virtual glm::mat4 getProjectionMatrx() const override {
-            return glm::orthoLH<float>(0, GetScreenWidth(), GetScreenHeight(), 0, 1.0f, -1.0f);
+            return glm::orthoLH<float>(0.0f, (float)GetScreenWidth(), (float)GetScreenHeight(), 0.0f, 1.0f, -1.0f);
         }
         virtual glm::mat4 getViewMatrix() const override {
             return glm::identity<glm::mat4>();
@@ -1300,7 +1300,7 @@ namespace pr {
 
     // ImGui Data
     namespace {
-        ITextureRGBA8 *g_fontTexture = nullptr;
+        ITexture *g_fontTexture = nullptr;
     }
     static void SetupImGui() {
         ImGui::CreateContext();
@@ -1355,8 +1355,8 @@ namespace pr {
         int width, height;
         io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);   // Load as RGBA 32-bits (75% of the memory is wasted, but default font is so small) because it is more likely to be compatible with user's existing shaders. If your ImTextureId represent a higher-level concept than just a GL texture id, consider calling GetTexDataAsAlpha8() instead to save on GPU memory.
 
-        g_fontTexture = CreateTextureRGBA8();
-        g_fontTexture->upload(pixels, width, height);
+        g_fontTexture = CreateTexture();
+        g_fontTexture->uploadAsRGBA8(pixels, width, height);
         io.Fonts->TexID = (ImTextureID)g_fontTexture;
     }
     static void CleanUpImGui() {
@@ -1492,8 +1492,8 @@ namespace pr {
                         (int)(clip_rect.z - clip_rect.x), (int)(clip_rect.w - clip_rect.y)
                     );
 
-                    TriBegin((ITextureRGBA8 *)pcmd->TextureId);
-                    for (int i = 0; i < pcmd->ElemCount; i++) {
+                    TriBegin((ITexture *)pcmd->TextureId);
+                    for (int i = 0; i < (int)pcmd->ElemCount; i++) {
                         ImDrawVert v = vtx_buffer[idx_buffer[i]];
                         glm::vec3 p(v.pos.x, v.pos.y, 0.0f);
                         glm::vec2 uv(v.uv.x, v.uv.y);
@@ -1959,35 +1959,56 @@ suspend_event_handle:
         }
     }
 
-    class TextureRGBA8 : public ITextureBindable {
+    class Texture : public ITextureBindable {
     public:
-        TextureRGBA8() {
+        Texture() {
             glCreateTextures(GL_TEXTURE_2D, 1, &_texture);
             glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
             glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
             glTextureParameteri(_texture, GL_TEXTURE_WRAP_S, GL_CLAMP);
             glTextureParameteri(_texture, GL_TEXTURE_WRAP_T, GL_CLAMP);
         }
-        ~TextureRGBA8() {
+        ~Texture() {
             glDeleteTextures(1, &_texture);
         }
-        void upload(const Image2DRGBA8 &image) {
-            _width = image.width();
-            _height = image.height();
-            glTextureStorage2D(_texture, 1, GL_RGBA8, _width, _height);
-            glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, image.data());
+        void upload(const Image2DRGBA8 &image) override {
+            uploadAsRGBA8((const uint8_t *)image.data(), image.width(), image.height());
         }
-        virtual void upload(const uint8_t *rgba, int width, int height) {
+        void upload(const Image2DMono8 &image) override {
+            uploadAsMono8((const uint8_t *)image.data(), image.width(), image.height());
+        }
+        void uploadAsRGBA8(const uint8_t *source, int width, int height) override {
             _width = width;
             _height = height;
             glTextureStorage2D(_texture, 1, GL_RGBA8, _width, _height);
-            glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+            glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, source);
+        }
+        void uploadAsMono8(const uint8_t *source, int width, int height) override {
+            _width = width;
+            _height = height;
+            glTextureStorage2D(_texture, 1, GL_LUMINANCE /*R=G=B=L, A=1.0*/, _width, _height);
+            glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_LUMINANCE /*R=G=B=L, A=1.0*/, GL_UNSIGNED_BYTE, source);
         }
         int width() const override {
             return _width;
         }
         int height() const override {
             return _height;
+        }
+        void setFilter(TextureFilter filter) override {
+            switch (filter) {
+            case TextureFilter::None:
+                glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                break;
+            case TextureFilter::Linear:
+                glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                break;
+            default:
+                PR_ASSERT(0);
+                break;
+            }
         }
         void bind() const override {
             glBindTextureUnit(0, _texture);
@@ -1997,17 +2018,17 @@ suspend_event_handle:
         int _width = 0;
         int _height = 0;
     };
-
-    ITextureRGBA8 *CreateTextureRGBA8() {
-        return new TextureRGBA8();
+   
+    ITexture *CreateTexture() {
+        return new Texture();
     }
 
     namespace {
         bool g_triangleEnabled = false;
         TexturedTriangleDam g_texturedTriangleDam;
-        ITextureRGBA8 *g_texture = nullptr;
+        ITexture *g_texture = nullptr;
     }
-    void TriBegin(ITextureRGBA8 *texture) {
+    void TriBegin(ITexture *texture) {
         PR_ASSERT(g_triangleEnabled == false);
         g_triangleEnabled = true;
         g_texture = texture;

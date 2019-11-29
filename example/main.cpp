@@ -8,7 +8,7 @@ int main() {
 
     SetDataDir(JoinPath(ExecutableDir(), "../data"));
 
-    Image2DRGBA8 image;
+    Image2DMono8 image;
     image.load("font.png");
 
     Config config;
@@ -30,7 +30,7 @@ int main() {
     //image(0, 1) = glm::u8vec4(255);
     //image(1, 1) = glm::u8vec4(255);
 
-    //ITextureRGBA8 *texture = CreateTextureRGBA8();
+    //ITexture *texture = CreateITexture();
     //texture->upload(image);
 
     double e = GetElapsedTime();
@@ -49,15 +49,15 @@ int main() {
         SetBlendMode(BlendMode::Alpha);
 
         // xy Z order
-        Image2DRGBA8 image;
-        image.allocate(2, 2);
-        image(0, 0) = glm::u8vec4(255, 0, 0, 128);
-        image(1, 0) = glm::u8vec4(0, 255, 0, 128);
-        image(0, 1) = glm::u8vec4(0, 0, 255, 128);
-        image(1, 1) = glm::u8vec4(255, 255, 255, 128);
+        //Image2DRGBA8 image;
+        //image.allocate(2, 2);
+        //image(0, 0) = glm::u8vec4(255, 0, 0, 128);
+        //image(1, 0) = glm::u8vec4(0, 255, 0, 128);
+        //image(0, 1) = glm::u8vec4(0, 0, 255, 128);
+        //image(1, 1) = glm::u8vec4(255, 255, 255, 128);
 
-        std::unique_ptr<ITextureRGBA8> texture(CreateTextureRGBA8());
-        texture->upload(image);
+        //std::unique_ptr<ITexture> texture(CreateITexture());
+        //texture->upload(image);
 
         DrawGrid(GridAxis::XY, 1.0f, 10, { 128, 128, 128 });
         DrawXYZAxis(1.0f);
@@ -94,6 +94,16 @@ int main() {
             PrimVertex(sp, { 255, 255, 255 });
         }
         PrimEnd();
+
+        //
+        //PrimBegin(PrimitiveMode::Points);
+        //for (int y = 0; y < image.height(); ++y) {
+        //    for (int x = 0; x < image.width(); ++x) {
+        //        auto c = image(x, y);
+        //        PrimVertex(glm::vec3(x / 100.0f, y / 100.0f, 0.0f), { c, c, c });
+        //    }
+        //}
+        //PrimEnd();
 
         double r = std::sqrt(1.0 - (double)cosTheta * (double)cosTheta) / (double)cosTheta;
         DrawCircle(dir, dir, { 255, 0, 0 }, r);

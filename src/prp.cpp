@@ -151,6 +151,9 @@ namespace pr {
     const glm::u8vec4 *Image2DRGBA8::data() const {
         return _values.data();
     }
+    int Image2DRGBA8::bytes() const {
+        return _width * _height * sizeof(glm::u8vec4);
+    }
     glm::u8vec4 &Image2DRGBA8::operator()(int x, int y) {
         return _values[y * _width + x];
     }
@@ -179,6 +182,59 @@ namespace pr {
         return _width;
     }
     int Image2DRGBA8::height() const {
+        return _height;
+    }
+
+    // --
+    void Image2DMono8::allocate(int w, int h) {
+        _width = w;
+        _height = h;
+        _values.clear();
+        _values.resize(_width * _height);
+    }
+    void Image2DMono8::load(const char *filename) {
+        stbi_uc *pixels = stbi_load(GetDataPath(filename).c_str(), &_width, &_height, 0, 1);
+        _values.resize(_width * _height);
+        memcpy(_values.data(), pixels, _width * _height);
+        stbi_image_free(pixels);
+    }
+    uint8_t *Image2DMono8::data() {
+        return _values.data();
+    }
+    const uint8_t *Image2DMono8::data() const {
+        return _values.data();
+    }
+    int Image2DMono8::bytes() const {
+        return _width * _height * sizeof(uint8_t);
+    }
+    uint8_t &Image2DMono8::operator()(int x, int y) {
+        return _values[y * _width + x];
+    }
+    const uint8_t &Image2DMono8::operator()(int x, int y) const {
+        return _values[y * _width + x];
+    }
+    uint8_t &Image2DMono8::at(int x, int y) {
+        if (x < 0 || _width < x) {
+            throw std::out_of_range("x is out of range");
+        }
+        if (y < 0 || _height < y) {
+            throw std::out_of_range("y is out of range");
+        }
+        return (*this)(x, y);
+    }
+    const uint8_t &Image2DMono8::at(int x, int y) const {
+        if (x < 0 || _width < x) {
+            throw std::out_of_range("x is out of range");
+        }
+        if (y < 0 || _height < y) {
+            throw std::out_of_range("y is out of range");
+        }
+        return (*this)(x, y);
+    }
+    int Image2DMono8::width() const {
+        return _width;
+    }
+    int Image2DMono8::height() const {
         return _height;
     }
 

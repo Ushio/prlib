@@ -78,6 +78,7 @@ namespace pr {
 
         glm::u8vec4 *data();
         const glm::u8vec4 *data() const;
+        int bytes() const;
 
         glm::u8vec4 &operator()(int x, int y);
         const glm::u8vec4 &operator()(int x, int y) const;
@@ -91,6 +92,28 @@ namespace pr {
         int _width = 0;
         int _height = 0;
         std::vector<glm::u8vec4> _values;
+    };
+    class Image2DMono8 {
+    public:
+        void allocate(int w, int h);
+        void load(const char *filename);
+
+        uint8_t *data();
+        const uint8_t *data() const;
+        int bytes() const;
+
+        uint8_t &operator()(int x, int y);
+        const uint8_t &operator()(int x, int y) const;
+
+        uint8_t &at(int x, int y);
+        const uint8_t &at(int x, int y) const;
+
+        int width() const;
+        int height() const;
+    private:
+        int _width = 0;
+        int _height = 0;
+        std::vector<uint8_t> _values;
     };
 
     glm::vec3 GetCartesian(float theta, float phi);

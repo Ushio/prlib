@@ -187,17 +187,24 @@ namespace pr {
     void DrawArrow(glm::vec3 p0, glm::vec3 p1, float bodyRadius, glm::u8vec3 c, int vertexCount = 8, float lineWidth = 1.0f);
     void DrawXYZAxis(float length = 1.0f, float bodyRadius = 0.01f, int vertexCount = 8, float lineWidth = 1.0f);
 
-    class ITextureRGBA8 {
+    enum class TextureFilter {
+        None,
+        Linear,
+    };
+    class ITexture {
     public:
-        virtual ~ITextureRGBA8() {}
+        virtual ~ITexture() {}
         virtual void upload(const Image2DRGBA8 &image) = 0;
-        virtual void upload(const uint8_t *rgba, int width, int height) = 0;
+        virtual void upload(const Image2DMono8 &image) = 0;
+        virtual void uploadAsRGBA8(const uint8_t *source, int width, int height) = 0;
+        virtual void uploadAsMono8(const uint8_t *source, int width, int height) = 0;
         virtual int width() const = 0;
         virtual int height() const = 0;
+        virtual void setFilter(TextureFilter filter) = 0;
     };
-    ITextureRGBA8 *CreateTextureRGBA8();
+    ITexture *CreateTexture();
 
-    void     TriBegin(ITextureRGBA8 *texture);
+    void     TriBegin(ITexture *texture);
     uint32_t TriVertex(glm::vec3 p, glm::vec2 uv, glm::u8vec4 c);
     void     TriIndex(uint32_t index);
     void     TriEnd();
