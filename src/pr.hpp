@@ -57,6 +57,17 @@ namespace pr {
     // Realtime clock
     double GetElapsedTime();
 
+    // Measure
+    class Stopwatch {
+    public:
+        Stopwatch() :_time(GetElapsedTime()) {}
+        double elapsed() const {
+            return GetElapsedTime() - _time;
+        }
+    private:
+        double _time;
+    };
+
     // FrameBase clock
     double GetFrameTime();
     double GetFrameDeltaTime();
@@ -201,6 +212,9 @@ namespace pr {
         virtual int width() const = 0;
         virtual int height() const = 0;
         virtual void setFilter(TextureFilter filter) = 0;
+
+        // internal use
+        virtual void bind() const = 0;
     };
     ITexture *CreateTexture();
 
@@ -208,6 +222,8 @@ namespace pr {
     uint32_t TriVertex(glm::vec3 p, glm::vec2 uv, glm::u8vec4 c);
     void     TriIndex(uint32_t index);
     void     TriEnd();
+
+    void DrawText(glm::vec3 p, std::string text, float fontSize = 20.0f, glm::u8vec3 fontColor = { 16, 16, 240 }, float outlineWidth = 2.0f, glm::u8vec3 outlineColor = { 255, 255, 255 });
 
     void BeginImGui();
     void EndImGui();

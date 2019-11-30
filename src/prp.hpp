@@ -11,9 +11,7 @@
 namespace pr {
     enum class Result {
         Sucess,
-        FileNotFound,
-        AccessDenied,
-        Unknown,
+        Failure
     };
 
     // Random Number Core
@@ -74,7 +72,8 @@ namespace pr {
     class Image2DRGBA8 {
     public:
         void allocate(int w, int h);
-        void load(const char *filename);
+        Result load(const char *filename);
+        Result load(const uint8_t *data, int bytes);
 
         glm::u8vec4 *data();
         const glm::u8vec4 *data() const;
@@ -96,7 +95,8 @@ namespace pr {
     class Image2DMono8 {
     public:
         void allocate(int w, int h);
-        void load(const char *filename);
+        Result load(const char *filename);
+        Result load(const uint8_t *data, int bytes);
 
         uint8_t *data();
         const uint8_t *data() const;

@@ -139,11 +139,25 @@ namespace pr {
         _values.clear();
         _values.resize(_width * _height);
     }
-    void Image2DRGBA8::load(const char *filename) {
+    Result Image2DRGBA8::load(const char *filename) {
         stbi_uc *pixels = stbi_load(GetDataPath(filename).c_str(), &_width, &_height, 0, 4);
+        if (pixels == nullptr) {
+            return Result::Failure;
+        }
         _values.resize(_width * _height);
         memcpy(_values.data(), pixels, _width * _height * 4);
         stbi_image_free(pixels);
+        return Result::Sucess;
+    }
+    Result Image2DRGBA8::load(const uint8_t *data, int bytes) {
+        stbi_uc *pixels = stbi_load_from_memory(data, bytes, &_width, &_height, 0, 4);
+        if (pixels == nullptr) {
+            return Result::Failure;
+        }
+        _values.resize(_width * _height);
+        memcpy(_values.data(), pixels, _width * _height * 4);
+        stbi_image_free(pixels);
+        return Result::Sucess;
     }
     glm::u8vec4 *Image2DRGBA8::data() {
         return _values.data();
@@ -192,11 +206,25 @@ namespace pr {
         _values.clear();
         _values.resize(_width * _height);
     }
-    void Image2DMono8::load(const char *filename) {
+    Result Image2DMono8::load(const char *filename) {
         stbi_uc *pixels = stbi_load(GetDataPath(filename).c_str(), &_width, &_height, 0, 1);
+        if (pixels == nullptr) {
+            return Result::Failure;
+        }
         _values.resize(_width * _height);
         memcpy(_values.data(), pixels, _width * _height);
         stbi_image_free(pixels);
+        return Result::Sucess;
+    }
+    Result Image2DMono8::load(const uint8_t *data, int bytes) {
+        stbi_uc *pixels = stbi_load_from_memory(data, bytes, &_width, &_height, 0, 1);
+        if (pixels == nullptr) {
+            return Result::Failure;
+        }
+        _values.resize(_width * _height);
+        memcpy(_values.data(), pixels, _width * _height);
+        stbi_image_free(pixels);
+        return Result::Sucess;
     }
     uint8_t *Image2DMono8::data() {
         return _values.data();

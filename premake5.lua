@@ -116,7 +116,7 @@ project "prlib_example"
         optimize "Full"
     filter{}
 
-project "fontbuilder"
+project "sandbox"
     kind "ConsoleApp"
     language "C++"
     targetdir "bin/"
@@ -124,10 +124,7 @@ project "fontbuilder"
     flags { "MultiProcessorCompile", "NoPCH" }
 
     -- Src
-    files { "fontbuilder/main.cpp" }
-
-    -- lib
-    includedirs { "libs/stb" }
+    files { "sandbox/main.cpp" }
 
     symbols "On"
 

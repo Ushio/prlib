@@ -35,6 +35,8 @@ int main() {
 
     double e = GetElapsedTime();
 
+    float fontSize = 20.0f;
+
     while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {
             UpdateCameraBlenderLike(&camera);
@@ -108,6 +110,18 @@ int main() {
         double r = std::sqrt(1.0 - (double)cosTheta * (double)cosTheta) / (double)cosTheta;
         DrawCircle(dir, dir, { 255, 0, 0 }, r);
 
+        for (int i = 0; i < 10; ++i) {
+            for (int j = 0; j < 10; ++j) {
+                char buffer[64];
+                sprintf(buffer, "(%d, %d)", i, j);
+                DrawText(
+                    glm::vec3(i, j, 0),
+                    buffer,
+                    fontSize
+                );
+            }
+        }
+
         PopGraphicState();
         EndCamera();
 
@@ -116,6 +130,7 @@ int main() {
         ImGui::SetNextWindowSize({ 500, 800 }, ImGuiCond_Once);
         ImGui::Begin("Panel");
         ImGui::Text("fps = %f", GetFrameRate());
+        ImGui::InputFloat("fontSize", &fontSize, 1);
 
         SliderDirection("dir", &dir);
 
