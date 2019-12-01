@@ -80,7 +80,8 @@ project "prlib"
     filter {"Debug"}
         runtime "Debug"
         targetname ("prlib_d")
-        optimize "Off"
+        -- optimize "Off"
+        optimize "Full"
     filter {"Release"}
         runtime "Release"
         targetname ("prlib")

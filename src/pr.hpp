@@ -196,10 +196,16 @@ namespace pr {
         XZ,
         YZ
     };
+    enum class Orientation {
+        X,
+        Y,
+        Z
+    };
     void DrawGrid(GridAxis axis, float step, int blockCount, glm::u8vec3 c, float lineWidth = 1.0f);
     void DrawTube(glm::vec3 p0, glm::vec3 p1, float radius0, float radius1, glm::u8vec3 c, int vertexCount = 8, float lineWidth = 1.0f);
     void DrawArrow(glm::vec3 p0, glm::vec3 p1, float bodyRadius, glm::u8vec3 c, int vertexCount = 8, float lineWidth = 1.0f);
     void DrawXYZAxis(float length = 1.0f, float bodyRadius = 0.01f, int vertexCount = 8, float lineWidth = 1.0f);
+    void DrawSphere(glm::vec3 origin, float radius, glm::u8vec3 c, int rowCount = 8, int colCount = 8, glm::vec3 orientation = glm::vec3(0, 1, 0), float lineWidth = 1.0f);
 
     enum class TextureFilter {
         None,

@@ -492,7 +492,7 @@ namespace pr {
                     indexBufferType = GL_UNSIGNED_BYTE;
                 } else if (_maxIndex < std::numeric_limits<uint16_t>::max()) {
                     indexStore(_indices16, _indices);
-                    indexOffsetBytes = indices->upload(_indices16.data(), (int)_indices16.size() * sizeof(uint16_t)) / sizeof(uint16_t);
+                    indexOffsetBytes = indices->upload(_indices16.data(), (int)_indices16.size() * sizeof(uint16_t));
                     indexBufferType = GL_UNSIGNED_SHORT;
                 }
                 else {
@@ -1189,6 +1189,10 @@ namespace pr {
         PrimEnd();
     }
     void DrawCircle(glm::vec3 o, glm::vec3 dir, glm::u8vec3 c, float radius, int vertexCount, float lineWidth) {
+        if (vertexCount <= 0) {
+            return;
+        }
+
         LinearTransform i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
 
         glm::vec3 x;
@@ -1233,6 +1237,10 @@ namespace pr {
         DrawCube((a + b) * 0.5f, glm::abs(a - b), c, lineWidth);
     }
     void DrawGrid(GridAxis axis, float step, int blockCount, glm::u8vec3 c, float lineWidth) {
+        if (blockCount <= 0) {
+            return;
+        }
+
         int hBlockCount = blockCount / 2;
         float hWide = blockCount * step * 0.5f;
 
@@ -1278,6 +1286,10 @@ namespace pr {
         PrimEnd();
     }
     void DrawTube(glm::vec3 p0, glm::vec3 p1, float radius0, float radius1, glm::u8vec3 c, int vertexCount, float lineWidth) {
+        if (vertexCount <= 0) {
+            return;
+        }
+
         if (radius0 == 0.0f && radius1 == 0.0f) {
             DrawLine(p0, p1, c, lineWidth);
         }
@@ -1324,6 +1336,10 @@ namespace pr {
         PrimEnd();
     }
     void DrawArrow(glm::vec3 p0, glm::vec3 p1, float bodyRadius, glm::u8vec3 c, int vertexCount, float lineWidth) {
+        if (vertexCount <= 0) {
+            return;
+        }
+
         float triR = bodyRadius * 2.5f;
         float triH = bodyRadius * 7.0f;
         glm::vec3 T = p1 - p0;
@@ -1338,6 +1354,57 @@ namespace pr {
         DrawArrow({}, glm::vec3((float)length, 0, 0), bodyRadius, { 255, 0, 0 }, vertexCount, lineWidth);
         DrawArrow({}, glm::vec3(0, (float)length, 0), bodyRadius, { 0, 255, 0 }, vertexCount, lineWidth);
         DrawArrow({}, glm::vec3(0, 0, (float)length), bodyRadius, { 0, 0, 255 }, vertexCount, lineWidth);
+    }
+    void DrawSphere(glm::vec3 origin, float radius, glm::u8vec3 c, int rowCount, int colCount, glm::vec3 orientation, float lineWidth) {
+        if (rowCount < 0 || colCount < 0) {
+            return;
+        }
+        glm::vec3 u, v;
+        GetOrthonormalBasis(orientation, &u, &v);
+        glm::mat3 m = glm::mat3(
+            u,
+            orientation,
+            v
+        );
+        
+        LinearTransform c2rad(0.0f, (float)(colCount), 0.0f, glm::pi<float>() * 2.0f);
+        
+        std::vector<glm::vec3> cp(colCount);
+        for (int i = 0; i < colCount; ++i) {
+            float radian = c2rad(i);
+            cp[i] = glm::vec3(std::sin(radian), 0.0f, std::cos(radian));
+        }
+
+        LinearTransform r2rad(0.0f, (float)(rowCount - 1), 0.0f, glm::pi<float>());
+        std::vector<int> ps(rowCount * colCount);
+
+        PrimBegin(PrimitiveMode::Lines);
+
+        for (int row = 0; row < rowCount; ++row) {
+            float y = std::cos(r2rad(row));
+            float xz = std::sqrt(std::max(1.0f - y * y, 0.0f));
+
+            for (int col = 0; col < colCount; ++col) {
+                glm::vec3 p = { xz * cp[col].x, y, xz * cp[col].z };
+                ps[row * colCount + col] = PrimVertex(origin + m * (radius * p), c);
+            }
+        }
+
+        for (int row = 0; row < rowCount - 1; ++row) {
+            for (int col = 0; col < colCount; ++col) {
+                // V line
+                PrimIndex(ps[row * colCount + col]);
+                PrimIndex(ps[(row + 1) * colCount + col]);
+
+                // H line
+                if (0 < row && row < rowCount - 1) {
+                    PrimIndex(ps[row * colCount + col]);
+                    PrimIndex(ps[row * colCount + (col + 1) % colCount]);
+                }
+            }
+        }
+
+        PrimEnd();
     }
 
     static void MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, GLchar const* message, void const* user_param)

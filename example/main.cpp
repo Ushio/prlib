@@ -61,13 +61,21 @@ int main() {
         //std::unique_ptr<ITexture> texture(CreateITexture());
         //texture->upload(image);
 
+        static glm::vec3 dir = { 0, 0, 1 };
+
+
         DrawGrid(GridAxis::XY, 1.0f, 10, { 128, 128, 128 });
         DrawXYZAxis(1.0f);
 
-        DrawCube({1, 0, 0}, glm::vec3(1, 2, 3), { 255, 128, 0 });
+        // DrawCube({1, 0, 0}, glm::vec3(1, 2, 3), { 255, 128, 0 });
+        static int col = 8;
+        static int row = 8;
 
-        static glm::vec3 region_a, region_b;
-        DrawAABB(region_a, region_b, { 255, 128, 0 });
+        Xoshiro128StarStar ran;
+        for (int i = 0; i < 500; ++i) {
+            glm::vec3 p = 3.0f * GenerateUniformOnSphere(ran.uniformf(), ran.uniformf());
+            DrawSphere(p, 0.1f, { 255, 128, 0 }, row, col, dir);
+        }
 
         // Rectangle
         //TriBegin(texture.get());
@@ -82,7 +90,7 @@ int main() {
 
         Xoshiro128StarStar random;
 
-        static glm::vec3 dir = {0, 0, 1};
+        
         DrawLine(glm::vec3(), dir, { 255, 255, 255 });
 
         glm::vec3 u, v;
@@ -138,9 +146,8 @@ int main() {
         ImGui::Begin("Panel");
         ImGui::Text("fps = %f", GetFrameRate());
         ImGui::InputFloat("fontSize", &fontSize, 1);
-
-        ImGui::InputFloat3("a", glm::value_ptr(region_a));
-        ImGui::InputFloat3("b", glm::value_ptr(region_b));
+        ImGui::InputInt("col", &col);
+        ImGui::InputInt("row", &row);
 
         SliderDirection("dir", &dir);
 
