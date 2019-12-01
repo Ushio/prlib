@@ -8,8 +8,8 @@ int main() {
 
     SetDataDir(JoinPath(ExecutableDir(), "../data"));
 
-    Image2DMono8 image;
-    image.load("font.png");
+    //Image2DMono8 image;
+    //image.load("font.png");
 
     Config config;
     config.ScreenWidth = 1920;
@@ -72,10 +72,10 @@ int main() {
         static int row = 8;
 
         Xoshiro128StarStar ran;
-        for (int i = 0; i < 500; ++i) {
-            glm::vec3 p = 3.0f * GenerateUniformOnSphere(ran.uniformf(), ran.uniformf());
-            DrawSphere(p, 0.1f, { 255, 128, 0 }, row, col, dir);
-        }
+        //for (int i = 0; i < 500; ++i) {
+        //    glm::vec3 p = 3.0f * GenerateUniformOnSphere(ran.uniformf(), ran.uniformf());
+        //    DrawSphere(p, 0.1f, { 255, 128, 0 }, row, col, dir);
+        //}
 
         // Rectangle
         //TriBegin(texture.get());
@@ -100,7 +100,7 @@ int main() {
         double tanTheta = 0.75 * std::sqrt(1.0 - (double)cosTheta * (double)cosTheta) / (double)cosTheta;
 
         PrimBegin(PrimitiveMode::Points);
-        for (int i = 0; i < 500; ++i) {
+        for (int i = 0; i < 50; ++i) {
             // glm::vec3 p = GenerateUniformOnSphereLimitedAngle(random.uniformf(), random.uniformf(), cosTheta);
             
             glm::vec2 circle = GenerateUniformInCircle(random.uniformf(), random.uniformf());
@@ -150,6 +150,23 @@ int main() {
         ImGui::InputInt("row", &row);
 
         SliderDirection("dir", &dir);
+
+        static int index = 1;
+        if (index++ > 100) {
+            index = 1;
+        }
+        Image2DMono8 image;
+        image.allocate(256, 256);
+        for (int i = 0; i < 256; ++i)
+        {
+            for (int j = 0; j < 256; ++j)
+            {
+                image(i, j) = (i / index + j / index) % 2 == 0 ? 0 : 255;
+            }
+        }
+        static ITexture *tex = CreateTexture();
+        tex->upload(image);
+        ImGui::Image(tex, ImVec2(255, 255));
 
         ImGui::End();
 

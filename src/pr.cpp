@@ -2203,10 +2203,13 @@ suspend_event_handle:
     class Texture : public ITexture {
     public:
         Texture() {
-            glCreateTextures(GL_TEXTURE_2D, 1, &_texture);
+            
         }
         ~Texture() {
-            glDeleteTextures(1, &_texture);
+            if (_texture) {
+                glDeleteTextures(1, &_texture);
+                _texture = 0;
+            }
         }
         void upload(const Image2DRGBA8 &image) override {
             uploadAsRGBA8((const uint8_t *)image.data(), image.width(), image.height());
@@ -2215,23 +2218,15 @@ suspend_event_handle:
             uploadAsMono8((const uint8_t *)image.data(), image.width(), image.height());
         }
         void uploadAsRGBA8(const uint8_t *source, int width, int height) override {
-            _width = width;
-            _height = height;
-            glTextureStorage2D(_texture, 1, GL_RGBA8, _width, _height);
+            applyToStorage(width, height, GL_RGBA8, _filter);
+
             glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, source);
-           
-            applyFilter();
         }
         void uploadAsMono8(const uint8_t *source, int width, int height) override {
-            _width = width;
-            _height = height;
-            
+            applyToStorage(width, height, GL_RGB8, _filter);
+
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-            glTextureStorage2D(_texture, 1, GL_R8, _width, _height);
-            glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RED, GL_UNSIGNED_BYTE, source);
-
-            applyFilter();
+            glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_LUMINANCE, GL_UNSIGNED_BYTE, source);
         }
         int width() const override {
             return _width;
@@ -2240,29 +2235,50 @@ suspend_event_handle:
             return _height;
         }
         void setFilter(TextureFilter filter) override {
-            _filter = filter;
-            applyFilter();
+            applyToStorage(_width, _height, _internalFormat, filter);
         }
         void bind() const override {
             glBindTextureUnit(0, _texture);
         }
     private:
-        void applyFilter() {
-            switch (_filter) {
-            case TextureFilter::None:
-                glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-                glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-                break;
-            case TextureFilter::Linear:
-                glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-                glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                break;
-            default:
-                PR_ASSERT(0);
-                break;
+        void applyToStorage(int w, int h, GLenum internalFormat, TextureFilter filter) {
+            bool reallocate = false;
+            reallocate = reallocate || _width != w;
+            reallocate = reallocate || _height != h;
+            reallocate = reallocate || _internalFormat != internalFormat;
+            if (reallocate) {
+                if (_texture) {
+                    glDeleteTextures(1, &_texture);
+                }
+
+                _width  = w;
+                _height = h;
+                _internalFormat = internalFormat;
+
+                glCreateTextures(GL_TEXTURE_2D, 1, &_texture);
+                glTextureStorage2D(_texture, 1, _internalFormat, _width, _height);
+            }
+
+            if (_filter != filter || reallocate) {
+                _filter = filter;
+
+                switch (_filter) {
+                case TextureFilter::None:
+                    glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                    glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+                    break;
+                case TextureFilter::Linear:
+                    glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                    glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    break;
+                default:
+                    PR_ASSERT(0);
+                    break;
+                }
             }
         }
         GLuint _texture = 0;
+        GLenum _internalFormat = 0;
         int _width = 0;
         int _height = 0;
         TextureFilter _filter = TextureFilter::None;
