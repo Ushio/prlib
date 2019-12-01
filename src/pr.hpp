@@ -224,7 +224,11 @@ namespace pr {
     void     TriIndex(uint32_t index);
     void     TriEnd();
 
-    void DrawText(glm::vec3 p, std::string text, float fontSize = 16.0f, glm::u8vec3 fontColor = { 16, 16, 240 }, float outlineWidth = 2.0f, glm::u8vec3 outlineColor = { 255, 255, 255 });
+    // camera space
+    void DrawText(glm::vec3 p_world, std::string text, float fontSize = 16.0f, glm::u8vec3 fontColor = { 16, 16, 240 }, float outlineWidth = 2.0f, glm::u8vec3 outlineColor = { 255, 255, 255 });
+    
+    // screen space
+    void DrawTextScreen(float screen_x, float screen_y, std::string text, float fontSize = 16.0f, glm::u8vec3 fontColor = { 16, 16, 240 }, float outlineWidth = 2.0f, glm::u8vec3 outlineColor = { 255, 255, 255 });
 
     void BeginImGui();
     void EndImGui();

@@ -125,6 +125,8 @@ int main() {
         PopGraphicState();
         EndCamera();
 
+        DrawTextScreen(20, 20, "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~");
+
         BeginImGui();
 
         ImGui::SetNextWindowSize({ 500, 800 }, ImGuiCond_Once);

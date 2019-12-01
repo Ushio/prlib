@@ -2163,9 +2163,12 @@ suspend_event_handle:
         g_texturedTriangleDam.clear();
         g_texture = nullptr;
     }
-    void DrawText(glm::vec3 p, std::string text, float fontSize, glm::u8vec3 fontColor, float outlineWidth, glm::u8vec3 outlineColor) {
+    void DrawTextScreen(float screen_x, float screen_y, std::string text, float fontSize, glm::u8vec3 fontColor, float outlineWidth, glm::u8vec3 outlineColor) {
+        g_textDam->add(glm::vec3(screen_x, screen_y, 0.0f), text, fontSize, fontColor, outlineWidth, outlineColor);
+    }
+    void DrawText(glm::vec3 p_world, std::string text, float fontSize, glm::u8vec3 fontColor, float outlineWidth, glm::u8vec3 outlineColor) {
         auto camera = GetCurrentCamera();
-        auto screen = glm::project(p, camera->getViewMatrix(), camera->getProjectionMatrx(), glm::vec4(0, 0, GetScreenWidth(), GetScreenHeight()));
+        auto screen = glm::project(p_world, camera->getViewMatrix(), camera->getProjectionMatrx(), glm::vec4(0, 0, GetScreenWidth(), GetScreenHeight()));
         
         // back cliping
         if (screen.z > 1.0f) {
@@ -2173,6 +2176,6 @@ suspend_event_handle:
         }
 
         screen.y = GetScreenHeight() - screen.y;
-        g_textDam->add(screen, text, fontSize, fontColor, outlineWidth, outlineColor);
+        DrawTextScreen(screen.x, screen.y, text, fontSize, fontColor, outlineWidth, outlineColor);
     }
 }
