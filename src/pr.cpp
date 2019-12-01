@@ -37,6 +37,7 @@ namespace pr {
         // Global Variable (Internal)
         Config g_config;
         GLFWwindow *g_window = nullptr;
+        GLFWcursor *g_mouseCursors[ImGuiMouseCursor_COUNT];
 
         // MainFrameBuffer
         MSFrameBufferObject      *g_frameBuffer = nullptr;
@@ -1402,6 +1403,7 @@ namespace pr {
         ImGuiIO& io = ImGui::GetIO();
         io.FontGlobalScale = 1;
         io.IniFilename = nullptr;
+        io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
 
         ImFontConfig fontCfg;
         fontCfg.FontData = (void *)verdana;
@@ -1531,6 +1533,23 @@ namespace pr {
         io.KeyShift = IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT);
         io.KeyAlt = IsKeyPressed(KEY_LEFT_ALT) || IsKeyPressed(KEY_RIGHT_ALT);
         io.KeySuper = IsKeyPressed(KEY_LEFT_SUPER) || IsKeyPressed(KEY_RIGHT_SUPER);
+
+        // Mouse
+        if ((io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange) == false) {
+            ImGuiMouseCursor imgui_cursor = ImGui::GetMouseCursor();
+            if (imgui_cursor == ImGuiMouseCursor_None || io.MouseDrawCursor)
+            {
+                // Hide OS mouse cursor if imgui is drawing it or if it wants no cursor
+                glfwSetInputMode(g_window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+            }
+            else
+            {
+                // Show OS mouse cursor
+                // FIXME-PLATFORM: Unfocused windows seems to fail changing the mouse cursor with GLFW 3.2, but 3.3 works here.
+                glfwSetCursor(g_window, g_mouseCursors[imgui_cursor] ? g_mouseCursors[imgui_cursor] : g_mouseCursors[ImGuiMouseCursor_Arrow]);
+                glfwSetInputMode(g_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            }
+        }
 
         ImGui::NewFrame();
     }
@@ -1721,6 +1740,16 @@ namespace pr {
         g_mousePosition.x = (float)cx;
         g_mousePosition.y = (float)cy;
 
+        // cursor
+        g_mouseCursors[ImGuiMouseCursor_Arrow] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);
+        g_mouseCursors[ImGuiMouseCursor_TextInput] = glfwCreateStandardCursor(GLFW_IBEAM_CURSOR);
+        g_mouseCursors[ImGuiMouseCursor_ResizeAll] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);   // FIXME: GLFW doesn't have this.
+        g_mouseCursors[ImGuiMouseCursor_ResizeNS] = glfwCreateStandardCursor(GLFW_VRESIZE_CURSOR);
+        g_mouseCursors[ImGuiMouseCursor_ResizeEW] = glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR);
+        g_mouseCursors[ImGuiMouseCursor_ResizeNESW] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);  // FIXME: GLFW doesn't have this.
+        g_mouseCursors[ImGuiMouseCursor_ResizeNWSE] = glfwCreateStandardCursor(GLFW_ARROW_CURSOR);  // FIXME: GLFW doesn't have this.
+        g_mouseCursors[ImGuiMouseCursor_Hand] = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+
         SetupGraphics();
         SetupImGui();
     }
@@ -1729,6 +1758,11 @@ namespace pr {
         CleanUpImGui();
         CleanUpGraphics();
 
+        for (ImGuiMouseCursor cursor_n = 0; cursor_n < ImGuiMouseCursor_COUNT; cursor_n++)
+        {
+            glfwDestroyCursor(g_mouseCursors[cursor_n]);
+            g_mouseCursors[cursor_n] = NULL;
+        }
         glfwDestroyWindow(g_window);
         glfwTerminate();
     }
