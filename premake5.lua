@@ -126,14 +126,17 @@ project "sandbox"
     -- Src
     files { "sandbox/main.cpp" }
 
+    -- lib
+    includedirs { "libs/stb" }
+
     symbols "On"
 
     filter {"Debug"}
         runtime "Debug"
-        targetname ("fontbuilder_Debug")
+        targetname ("sandbox_Debug")
         optimize "Off"
     filter {"Release"}
         runtime "Release"
-        targetname ("fontbuilder")
+        targetname ("sandbox")
         optimize "Full"
     filter{}

@@ -3,8 +3,8 @@
 #include <iostream>
 
 int main() {
-    const char *binPath = R"(C:\Users\ushio\Documents\RayTracing\PrLib\data\Verdana64falloff10_gray.png)";
-    const char *hPath   = R"(C:\Users\ushio\Documents\RayTracing\PrLib\data\pr_sdf.h)";
+    const char *binPath = R"(C:\Users\ushio\Documents\RayTracing\PrLib\data\Verdana_min.ttf)";
+    const char *hPath   = R"(C:\Users\ushio\Documents\RayTracing\PrLib\data\verdana_min.h)";
 
     std::ifstream binstream(binPath, std::ios::binary);
     binstream.seekg(0, std::ios_base::end);
@@ -15,7 +15,7 @@ int main() {
 
     std::ofstream hstream(hPath);
     hstream << "namespace pr {" << std::endl;
-    hstream << "const uint8_t sdf_image[] = {";
+    hstream << "const uint8_t verdana[] = {";
     for (int i = 0; i < bin.size(); ++i) {
         if (i % 16 == 0) {
             hstream << std::endl << "    ";

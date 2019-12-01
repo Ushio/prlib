@@ -35,7 +35,7 @@ int main() {
 
     double e = GetElapsedTime();
 
-    float fontSize = 20.0f;
+    float fontSize = 16.0f;
 
     while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {

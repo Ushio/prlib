@@ -39,6 +39,7 @@ namespace pr {
         int ScreenHeight = 768;
         int SwapInterval = 1;
         int NumSamples = 4;
+        int imguiFontSize = 20;
         std::string Title;
     };
     void Initialize(Config config);
@@ -223,7 +224,7 @@ namespace pr {
     void     TriIndex(uint32_t index);
     void     TriEnd();
 
-    void DrawText(glm::vec3 p, std::string text, float fontSize = 20.0f, glm::u8vec3 fontColor = { 16, 16, 240 }, float outlineWidth = 2.0f, glm::u8vec3 outlineColor = { 255, 255, 255 });
+    void DrawText(glm::vec3 p, std::string text, float fontSize = 16.0f, glm::u8vec3 fontColor = { 16, 16, 240 }, float outlineWidth = 2.0f, glm::u8vec3 outlineColor = { 255, 255, 255 });
 
     void BeginImGui();
     void EndImGui();

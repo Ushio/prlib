@@ -18,6 +18,7 @@
 #include <numeric>
 
 #include "pr_sdf.h"
+#include "pr_verdana_min.h"
 
 #define MAX_CAMERA_STACK_SIZE 1000
 
@@ -1399,8 +1400,15 @@ namespace pr {
     static void SetupImGui() {
         ImGui::CreateContext();
         ImGuiIO& io = ImGui::GetIO();
-        io.FontGlobalScale = 2;
+        io.FontGlobalScale = 1;
         io.IniFilename = nullptr;
+
+        ImFontConfig fontCfg;
+        fontCfg.FontData = (void *)verdana;
+        fontCfg.FontDataSize = sizeof(verdana);
+        fontCfg.FontDataOwnedByAtlas = false;
+        fontCfg.SizePixels = g_config.imguiFontSize;
+        io.Fonts->AddFont(&fontCfg);
 
         io.BackendRendererName = "prlib";
 
