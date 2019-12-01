@@ -18,7 +18,7 @@
 #include <numeric>
 
 #include "pr_sdf.h"
-#include "pr_verdana_min.h"
+#include "pr_verdana.h"
 
 #define MAX_CAMERA_STACK_SIZE 1000
 
@@ -1229,6 +1229,11 @@ namespace pr {
         }
         PrimEnd();
     }
+    void DrawAABB(glm::vec3 a, glm::vec3 b, glm::u8vec3 c, float lineWidth) {
+        glm::vec3 lower = glm::min(a, b);
+        glm::vec3 higher = glm::max(a, b);
+        DrawCube((a + b) * 0.5f, higher - lower, c, lineWidth);
+    }
     void DrawGrid(GridAxis axis, float step, int blockCount, glm::u8vec3 c, float lineWidth) {
         int hBlockCount = blockCount / 2;
         float hWide = blockCount * step * 0.5f;
@@ -2134,10 +2139,6 @@ suspend_event_handle:
     public:
         Texture() {
             glCreateTextures(GL_TEXTURE_2D, 1, &_texture);
-            glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-            glTextureParameteri(_texture, GL_TEXTURE_WRAP_S, GL_CLAMP);
-            glTextureParameteri(_texture, GL_TEXTURE_WRAP_T, GL_CLAMP);
         }
         ~Texture() {
             glDeleteTextures(1, &_texture);
@@ -2153,6 +2154,8 @@ suspend_event_handle:
             _height = height;
             glTextureStorage2D(_texture, 1, GL_RGBA8, _width, _height);
             glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, source);
+           
+            applyFilter();
         }
         void uploadAsMono8(const uint8_t *source, int width, int height) override {
             _width = width;
@@ -2162,6 +2165,8 @@ suspend_event_handle:
 
             glTextureStorage2D(_texture, 1, GL_R8, _width, _height);
             glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RED, GL_UNSIGNED_BYTE, source);
+
+            applyFilter();
         }
         int width() const override {
             return _width;
@@ -2170,7 +2175,15 @@ suspend_event_handle:
             return _height;
         }
         void setFilter(TextureFilter filter) override {
-            switch (filter) {
+            _filter = filter;
+            applyFilter();
+        }
+        void bind() const override {
+            glBindTextureUnit(0, _texture);
+        }
+    private:
+        void applyFilter() {
+            switch (_filter) {
             case TextureFilter::None:
                 glTextureParameteri(_texture, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
                 glTextureParameteri(_texture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -2184,13 +2197,10 @@ suspend_event_handle:
                 break;
             }
         }
-        void bind() const override {
-            glBindTextureUnit(0, _texture);
-        }
-    private:
         GLuint _texture = 0;
         int _width = 0;
         int _height = 0;
+        TextureFilter _filter = TextureFilter::None;
     };
    
     ITexture *CreateTexture() {

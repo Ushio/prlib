@@ -83,7 +83,7 @@ namespace pr {
         const glm::u8vec4 &operator()(int x, int y) const;
 
         glm::u8vec4 &at(int x, int y);
-        const glm::vec4 &at(int x, int y) const;
+        const glm::u8vec4 &at(int x, int y) const;
 
         int width() const;
         int height() const;

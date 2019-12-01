@@ -66,6 +66,9 @@ int main() {
 
         DrawCube({1, 0, 0}, glm::vec3(1, 2, 3), { 255, 128, 0 });
 
+        static glm::vec3 region_a, region_b;
+        DrawAABB(region_a, region_b, { 255, 128, 0 });
+
         // Rectangle
         //TriBegin(texture.get());
         //uint32_t vs[4];
@@ -127,7 +130,7 @@ int main() {
         PopGraphicState();
         EndCamera();
 
-        DrawTextScreen(20, 20, "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~");
+        DrawTextScreen(20, 20, R"(!"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~)");
 
         BeginImGui();
 
@@ -135,6 +138,9 @@ int main() {
         ImGui::Begin("Panel");
         ImGui::Text("fps = %f", GetFrameRate());
         ImGui::InputFloat("fontSize", &fontSize, 1);
+
+        ImGui::InputFloat3("a", glm::value_ptr(region_a));
+        ImGui::InputFloat3("b", glm::value_ptr(region_b));
 
         SliderDirection("dir", &dir);
 

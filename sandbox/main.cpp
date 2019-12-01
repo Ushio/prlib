@@ -3,8 +3,8 @@
 #include <iostream>
 
 int main() {
-    const char *binPath = R"(C:\Users\ushio\Documents\RayTracing\PrLib\data\Verdana_min.ttf)";
-    const char *hPath   = R"(C:\Users\ushio\Documents\RayTracing\PrLib\data\verdana_min.h)";
+    const char *binPath = R"(C:\Users\ushio\Documents\RayTracing\PrLib\data\verdana.ttf)";
+    const char *hPath   = R"(C:\Users\ushio\Documents\RayTracing\PrLib\data\pr_verdana.h)";
 
     std::ifstream binstream(binPath, std::ios::binary);
     binstream.seekg(0, std::ios_base::end);

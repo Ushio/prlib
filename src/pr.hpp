@@ -189,6 +189,7 @@ namespace pr {
     void DrawPoint(glm::vec3 p, glm::u8vec3 c, float pointSize = 1.0f);
     void DrawCircle(glm::vec3 o, glm::vec3 dir, glm::u8vec3 c, float radius, int vertexCount = 32, float lineWidth = 1.0f);
     void DrawCube(glm::vec3 o, glm::vec3 size, glm::u8vec3 c, float lineWidth = 1.0f);
+    void DrawAABB(glm::vec3 a, glm::vec3 b, glm::u8vec3 c, float lineWidth = 1.0f);
 
     enum class GridAxis {
         XY,

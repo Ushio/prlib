@@ -183,14 +183,14 @@ namespace pr {
         }
         return (*this)(x, y);
     }
-    const glm::vec4 &Image2DRGBA8::at(int x, int y) const {
+    const glm::u8vec4 &Image2DRGBA8::at(int x, int y) const {
         if (x < 0 || _width < x) {
             throw std::out_of_range("x is out of range");
         }
         if (y < 0 || _height < y) {
             throw std::out_of_range("y is out of range");
         }
-        return (*this)(x, y);
+        return this->operator()(x, y);
     }
     int Image2DRGBA8::width() const {
         return _width;
