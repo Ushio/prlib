@@ -64,6 +64,8 @@ int main() {
         DrawGrid(GridAxis::XY, 1.0f, 10, { 128, 128, 128 });
         DrawXYZAxis(1.0f);
 
+        DrawCube({1, 0, 0}, glm::vec3(1, 2, 3), { 255, 128, 0 });
+
         // Rectangle
         //TriBegin(texture.get());
         //uint32_t vs[4];

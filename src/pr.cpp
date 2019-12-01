@@ -1203,6 +1203,32 @@ namespace pr {
         }
         PrimEnd();
     }
+    void DrawCube(glm::vec3 o, glm::vec3 size, glm::u8vec3 c, float lineWidth) {
+        glm::vec3 h = size * 0.5f;
+        PrimBegin(PrimitiveMode::Lines, lineWidth);
+        int ps[8] = {
+            PrimVertex(o + glm::vec3(-h.x, +h.y, -h.z), c),
+            PrimVertex(o + glm::vec3(+h.x, +h.y, -h.z), c),
+            PrimVertex(o + glm::vec3(+h.x, +h.y, +h.z), c),
+            PrimVertex(o + glm::vec3(-h.x, +h.y, +h.z), c),
+
+            PrimVertex(o + glm::vec3(-h.x, -h.y, -h.z), c),
+            PrimVertex(o + glm::vec3(+h.x, -h.y, -h.z), c),
+            PrimVertex(o + glm::vec3(+h.x, -h.y, +h.z), c),
+            PrimVertex(o + glm::vec3(-h.x, -h.y, +h.z), c),
+        };
+        for (int i = 0; i < 4; ++i) {
+            PrimIndex(ps[i]);
+            PrimIndex(ps[(i + 1) % 4]);
+
+            PrimIndex(ps[4 + i]);
+            PrimIndex(ps[4 + (i + 1) % 4]);
+
+            PrimIndex(ps[i]);
+            PrimIndex(ps[4 + i]);
+        }
+        PrimEnd();
+    }
     void DrawGrid(GridAxis axis, float step, int blockCount, glm::u8vec3 c, float lineWidth) {
         int hBlockCount = blockCount / 2;
         float hWide = blockCount * step * 0.5f;
