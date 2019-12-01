@@ -1230,9 +1230,7 @@ namespace pr {
         PrimEnd();
     }
     void DrawAABB(glm::vec3 a, glm::vec3 b, glm::u8vec3 c, float lineWidth) {
-        glm::vec3 lower = glm::min(a, b);
-        glm::vec3 higher = glm::max(a, b);
-        DrawCube((a + b) * 0.5f, higher - lower, c, lineWidth);
+        DrawCube((a + b) * 0.5f, glm::abs(a - b), c, lineWidth);
     }
     void DrawGrid(GridAxis axis, float step, int blockCount, glm::u8vec3 c, float lineWidth) {
         int hBlockCount = blockCount / 2;
