@@ -981,6 +981,10 @@ namespace pr {
             _height = height;
             _samples = samples;
 
+            if (_width * _height == 0) {
+                return;
+            }
+
             glNamedRenderbufferStorageMultisample(_color, _samples, GL_RGBA8, _width, _height);
             glNamedRenderbufferStorageMultisample(_depth, _samples, GL_DEPTH_COMPONENT24, _width, _height);
 
@@ -1056,7 +1060,54 @@ namespace pr {
 
         }
         virtual glm::mat4 getProjectionMatrx() const override {
-            return glm::perspectiveFov(_camera.fovy, (float)GetScreenWidth(), (float)GetScreenHeight(), _camera.zNear, _camera.zFar);
+            float zn = _camera.zNear;
+            float zf = _camera.zFar;
+
+            float tanFovy = tan(_camera.fovy * 0.5f);
+
+            float Rn_presp = zn * tanFovy;
+            float Rf_presp = zf * tanFovy;
+
+            float zOrtho = glm::distance(_camera.lookat, _camera.origin);
+            float R_ortho = zOrtho * tanFovy;
+            float Rn = glm::mix(R_ortho, Rn_presp, _camera.perspective);
+            float Rf = glm::mix(R_ortho, Rf_presp, _camera.perspective);
+
+            // avoid singular
+            const float eps_Rf = 0.1f;
+            if (Rf < eps_Rf) {
+                // Rn + a * z == eps
+                // z == (eps - Rn) / a
+                float a = (Rf - Rn) / (zf - zn);
+                float z = (eps_Rf - Rn) / a;
+                zf = z;
+                Rf = Rn + a * z;
+            }
+
+            float width = (float)GetScreenWidth();
+            float height = (float)GetScreenHeight();
+
+            float K = Rf * zn - Rn * zf;
+            float e = (Rf - Rn);
+            float b = (-e * zf + K) / Rf;
+            float a = height / width * b;
+            float c = (e * (zn + zf) - 2.0f * K) / (zf - zn);
+            float d = e * zn - K + c * zn;
+
+            a = -a;
+            b = -b;
+            c = -c;
+            d = -d;
+            e = -e;
+            K = -K;
+
+            glm::mat4 persp = glm::mat4(
+                a, 0, 0, 0,
+                0, b, 0, 0,
+                0, 0, c, e,
+                0, 0, d, K
+            );
+            return persp;
         }
         virtual glm::mat4 getViewMatrix() const override {
             glm::mat4 m = glm::lookAt(_camera.origin, _camera.lookat, _camera.up);

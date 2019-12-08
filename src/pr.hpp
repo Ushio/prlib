@@ -160,6 +160,7 @@ namespace pr {
         float zNear = 0.01f;
         float zFar  = 1000.0f;
         bool zUp = false; // y up by default but you can use z up.  But be careful, the camera parameter is always y up.
+        float perspective = 1.0f;
     };
     void BeginCamera(Camera3D camera);
     void BeginCamera2DCanvas();
