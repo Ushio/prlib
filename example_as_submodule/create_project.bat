@@ -4,3 +4,4 @@ copy libs\prlib\premake5.exe premake5.exe
 copy libs\prlib\example_as_submodule\premake5.lua premake5.lua
 copy libs\prlib\example_as_submodule\main.cpp main.cpp
 premake5.exe vs2017
+start build\HogeProject.sln
