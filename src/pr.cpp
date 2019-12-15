@@ -476,6 +476,8 @@ namespace pr {
         }
     public:
         void draw(PrimitiveMode mode, float width) {
+            width = glm::max(width, 1.0f);
+
             auto vertexBuffer = g_primitivePipeline->vertices();
             auto vertexOffsetBytes = vertexBuffer->upload(_vertices.data(), (int)(_vertices.size() * sizeof(Vertex)));
             auto vertexOffset = vertexOffsetBytes / sizeof(Vertex);
@@ -1032,12 +1034,12 @@ namespace pr {
     class ICamera {
     public:
         virtual ~ICamera() {};
-        virtual glm::mat4 getProjectionMatrx() const = 0;
+        virtual glm::mat4 getProjectionMatrix() const = 0;
         virtual glm::mat4 getViewMatrix() const = 0;
     };
-    class CameraDefault : public ICamera {
+    class CameraNone : public ICamera {
     public:
-        virtual glm::mat4 getProjectionMatrx() const override {
+        virtual glm::mat4 getProjectionMatrix() const override {
             return glm::identity<glm::mat4>();
         }
         virtual glm::mat4 getViewMatrix() const override {
@@ -1046,7 +1048,7 @@ namespace pr {
     };
     class Camera2DCanvas : public ICamera {
     public:
-        virtual glm::mat4 getProjectionMatrx() const override {
+        virtual glm::mat4 getProjectionMatrix() const override {
             return glm::orthoLH<float>(0.0f, (float)GetScreenWidth(), (float)GetScreenHeight(), 0.0f, 1.0f, -1.0f);
         }
         virtual glm::mat4 getViewMatrix() const override {
@@ -1059,7 +1061,7 @@ namespace pr {
         Camera3DObject(Camera3D camera):_camera(camera) {
 
         }
-        virtual glm::mat4 getProjectionMatrx() const override {
+        virtual glm::mat4 getProjectionMatrix() const override {
             float zn = _camera.zNear;
             float zf = _camera.zFar;
 
@@ -1127,7 +1129,7 @@ namespace pr {
 
     static const ICamera *GetCurrentCamera() {
         if (g_cameraStack.empty()) {
-            static CameraDefault d;
+            static CameraNone d;
             return &d;
         }
         return g_cameraStack.top().get();
@@ -1135,11 +1137,17 @@ namespace pr {
     static void UpdateCurrentMatrix() {
         auto camera = GetCurrentCamera();
         auto v = camera->getViewMatrix();
-        auto p = camera->getProjectionMatrx();
+        auto p = camera->getProjectionMatrix();
         auto vp = v * p;
         g_primitivePipeline->setVP(v, p);
         g_texturedTrianglePipeline->setVP(v, p);
         g_fontPipeline->setVP(v, p);
+    }
+
+    void GetCameraMatrix(Camera3D camera3d, glm::mat4 *proj, glm::mat4 *view) {
+        Camera3DObject camera(camera3d);
+        *proj = camera.getProjectionMatrix();
+        *view = camera.getViewMatrix();
     }
 
     /*
@@ -1147,6 +1155,33 @@ namespace pr {
     */
     void ClearBackground(float r, float g, float b, float a) {
         g_frameBuffer->clear(r, g, b, a, true);
+    }
+    void ClearBackground(ITexture *texture) {
+        ClearBackground(0, 0, 0, 0);
+
+        BeginCameraNone();
+        PushGraphicState();
+        SetDepthTest(false);
+
+        TriBegin(texture);
+
+        int vs[] = {
+            TriVertex({ -1, +1, 1 }, { 0, 0 }, { 255, 255, 255, 255 }),
+            TriVertex({ +1, +1, 1 }, { 1, 0 }, { 255, 255, 255, 255 }),
+            TriVertex({ -1, -1, 1 }, { 0, 1 }, { 255, 255, 255, 255 }),
+            TriVertex({ +1, -1, 1 }, { 1, 1 }, { 255, 255, 255, 255 }),
+        };
+
+        TriIndex(vs[0]);
+        TriIndex(vs[1]);
+        TriIndex(vs[2]);
+        TriIndex(vs[1]);
+        TriIndex(vs[2]);
+        TriIndex(vs[3]);
+        TriEnd();
+
+        PopGraphicState();
+        EndCamera();
     }
     void PushGraphicState() {
         PR_ASSERT(g_states.empty() == false);
@@ -1194,11 +1229,23 @@ namespace pr {
         g_cameraStack.push(std::unique_ptr<const ICamera>(new Camera2DCanvas()));
         UpdateCurrentMatrix();
     }
+    void BeginCameraNone() {
+        PR_ASSERT(g_cameraStack.size() <= MAX_CAMERA_STACK_SIZE);
+
+        g_cameraStack.push(std::unique_ptr<const ICamera>(new CameraNone()));
+        UpdateCurrentMatrix();
+    }
     void EndCamera() {
         PR_ASSERT(g_cameraStack.empty() == false);
 
         g_cameraStack.pop();
         UpdateCurrentMatrix();
+    }
+    glm::mat4 GetCurrentProjMatrix() {
+        return GetCurrentCamera()->getProjectionMatrix();
+    }
+    glm::mat4 GetCurrentViewMatrix() {
+        return GetCurrentCamera()->getViewMatrix();
     }
     namespace {
         bool g_primitiveEnabled = false;
@@ -2370,7 +2417,7 @@ suspend_event_handle:
     }
     void DrawText(glm::vec3 p_world, std::string text, float fontSize, glm::u8vec3 fontColor, float outlineWidth, glm::u8vec3 outlineColor) {
         auto camera = GetCurrentCamera();
-        auto screen = glm::project(p_world, camera->getViewMatrix(), camera->getProjectionMatrx(), glm::vec4(0, 0, GetScreenWidth(), GetScreenHeight()));
+        auto screen = glm::project(p_world, camera->getViewMatrix(), camera->getProjectionMatrix(), glm::vec4(0, 0, GetScreenWidth(), GetScreenHeight()));
         
         // back cliping
         if (screen.z > 1.0f) {

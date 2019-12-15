@@ -13,3 +13,7 @@ premake5 vs2017
 curl "https://raw.githubusercontent.com/Ushio/prlib/master/example_as_submodule/create_project.bat" -O create_project.bat & create_project
 
 ```
+
+## demo
+![image](demo0.png)
+![image](demo1.png)

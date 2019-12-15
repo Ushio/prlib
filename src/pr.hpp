@@ -134,6 +134,9 @@ namespace pr {
     // Drawing
     void ClearBackground(float r, float g, float b, float a);
 
+    class ITexture;
+    void ClearBackground(ITexture *texture);
+
     // Graphics State
     void PushGraphicState();
     void PopGraphicState();
@@ -162,9 +165,14 @@ namespace pr {
         bool zUp = false; // y up by default but you can use z up.  But be careful, the camera parameter is always y up.
         float perspective = 1.0f;
     };
+    void GetCameraMatrix(Camera3D camera3d, glm::mat4 *proj, glm::mat4 *view);
     void BeginCamera(Camera3D camera);
     void BeginCamera2DCanvas();
+    void BeginCameraNone();
     void EndCamera();
+
+    glm::mat4 GetCurrentProjMatrix();
+    glm::mat4 GetCurrentViewMatrix();
 
     void UpdateCameraBlenderLike(
         Camera3D *camera,
@@ -174,7 +182,8 @@ namespace pr {
         float shift_sensitivity = 0.0006f
     );
 
-    // Core Primitive Functions
+    // Core Primitive Functions ( Only performance, "Simple Functions" are recommended ) 
+    // PrimVertex and PrimIndex is only allowed function between PrimBegin() and PrimEnd().
     enum class PrimitiveMode {
         Points,
         Lines,
