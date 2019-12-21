@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <functional>
+#include <string>
+#include <stdexcept>
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
