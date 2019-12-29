@@ -76,6 +76,7 @@ namespace pr {
         void allocate(int w, int h);
         Result load(const char *filename);
         Result load(const uint8_t *data, int bytes);
+        Result save(const char* filename) const;
 
         glm::u8vec4 *data();
         const glm::u8vec4 *data() const;

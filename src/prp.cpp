@@ -3,6 +3,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 extern "C" {
 #include "cwalk.h"
 }
@@ -158,6 +161,12 @@ namespace pr {
         memcpy(_values.data(), pixels, _width * _height * 4);
         stbi_image_free(pixels);
         return Result::Sucess;
+    }
+    Result Image2DRGBA8::save(const char* filename) const {
+        if (stbi_write_png(filename, width(), height(), 4, _values.data(), 0)) {
+            return Result::Sucess;
+        }
+        return Result::Failure;
     }
     glm::u8vec4 *Image2DRGBA8::data() {
         return _values.data();
