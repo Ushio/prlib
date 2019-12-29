@@ -11,6 +11,7 @@ extern "C" {
 }
 
 #include <algorithm>
+#include <ppl.h>
 
 namespace pr {
     namespace {
@@ -304,5 +305,13 @@ namespace pr {
     }
     std::string GetDataPath(std::string filename) {
         return NormalizePath(JoinPath(g_dataPath, filename));
+    }
+    void ParallelFor(int n, std::function<void(int)> f /* f(index) */) {
+        concurrency::parallel_for(0, n, f);
+    }
+    void SerialFor(int n, std::function<void(int)> f /* f(index) */) {
+        for (int i = 0; i < n; ++i) {
+            f(i);
+        }
     }
 }

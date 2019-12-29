@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 #include <stdexcept>
+#include <functional>
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
@@ -127,4 +128,7 @@ namespace pr {
     std::string ExecutableDir();
     std::string JoinPath(std::string a, std::string b);
     std::string GetDataPath(std::string filename);
+
+    void ParallelFor(int n, std::function<void(int)> f /* f(index) */);
+    void SerialFor(int n, std::function<void(int)> f /* f(index) */);
 }
