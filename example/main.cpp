@@ -101,21 +101,20 @@ struct TextDemo : public IDemo {
     x  : intersected t. -1 is no-intersected
     yzw: un-normalized normal
 */
-glm::vec4 intersect_sphere(glm::vec3 ro, glm::vec3 rd /* normalized */, glm::vec3 o, float r) {
-    float r_sq  = r * r;
+glm::vec4 intersect_sphere(glm::vec3 ro, glm::vec3 rd, glm::vec3 o, float r) {
+    float A = glm::dot(rd, rd);
     glm::vec3 S = ro - o;
     glm::vec3 SxRD = cross(S, rd);
-    float d_sq = dot(SxRD, SxRD);
-    float D = r_sq - d_sq;
+    float D = A * r * r - glm::dot(SxRD, SxRD);
 
     if (D < 0.0f) {
         return glm::vec4(-1);
     }
 
     float B = glm::dot(S, rd);
-    float D_sqrt = sqrt(D);
-    float t0 = (-B - D_sqrt);
-    float t1 = (-B + D_sqrt);
+    float sqrt_d = sqrt(D);
+    float t0 = (-B - sqrt_d) / A;
+    float t1 = (-B + sqrt_d) / A;
 
     if (0.0f < t0) {
         glm::vec3 n = (rd * t0 + S);
