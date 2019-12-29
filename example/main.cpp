@@ -114,19 +114,18 @@ glm::vec4 intersect_sphere(glm::vec3 ro, glm::vec3 rd, glm::vec3 o, float r) {
     float B = glm::dot(S, rd);
     float sqrt_d = sqrt(D);
     float t0 = (-B - sqrt_d) / A;
-    float t1 = (-B + sqrt_d) / A;
-
     if (0.0f < t0) {
         glm::vec3 n = (rd * t0 + S);
         return glm::vec4(t0, n);
     }
+
+    float t1 = (-B + sqrt_d) / A;
     if (0.0f < t1) {
         glm::vec3 n = (rd * t1 + S);
         return glm::vec4(t1, n);
     }
     return glm::vec4(-1);
 }
-
 glm::vec4 combine(glm::vec4 a, glm::vec4 b) {
     if (a.x < 0.0f) {
         return b;
