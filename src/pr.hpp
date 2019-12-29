@@ -137,6 +137,9 @@ namespace pr {
     class ITexture;
     void ClearBackground(ITexture *texture);
 
+    // Screen
+    void CaptureScreen(Image2DRGBA8 *toImage, bool noAlpha = true);
+
     // Graphics State
     void PushGraphicState();
     void PopGraphicState();
@@ -247,6 +250,8 @@ namespace pr {
     
     // screen space
     void DrawTextScreen(float screen_x, float screen_y, std::string text, float fontSize = 16.0f, glm::u8vec3 fontColor = { 16, 16, 240 }, float outlineWidth = 2.0f, glm::u8vec3 outlineColor = { 255, 255, 255 });
+
+    void FlashTextDrawing();
 
     void BeginImGui();
     void EndImGui();

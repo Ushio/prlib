@@ -31,8 +31,6 @@ namespace pr {
     class MSFrameBufferObject;
     class TextDam;
 
-    void FlushDrawText();
-
     namespace {
         // Global Variable (Internal)
         Config g_config;
@@ -1011,7 +1009,6 @@ namespace pr {
         }
         void bind() {
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, _fb);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
         }
         void copyToScreen() {
             glBlitNamedFramebuffer(
@@ -1021,6 +1018,12 @@ namespace pr {
                 0, 0, _width, _height,
                 GL_COLOR_BUFFER_BIT, GL_NEAREST
             );
+        }
+        int width() const {
+            return _width;
+        }
+        int height() const {
+            return _height;
         }
     private:
         GLuint _width = 0;
@@ -1182,6 +1185,32 @@ namespace pr {
 
         PopGraphicState();
         EndCamera();
+    }
+    void CaptureScreen(Image2DRGBA8* toImage, bool noAlpha) {
+        toImage->allocate(GetScreenWidth(), GetScreenHeight());
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+        glReadPixels(
+            0, 0, GetScreenWidth(), GetScreenHeight(),
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            toImage->data()
+        );
+
+        if (noAlpha) {
+            int n = toImage->width() * toImage->height();
+            for (int i = 0; i < n; ++i) {
+                toImage->data()[i].w = 255;
+            }
+        }
+
+        // flip vertically
+        int h = toImage->height();
+        int n = h / 2;
+        for (int y = 0; y < n; ++y) {
+            for (int x = 0; x < toImage->width(); ++x) {
+                std::swap((*toImage)(x, y), (*toImage)(x, h - y - 1));
+            }
+        }
     }
     void PushGraphicState() {
         PR_ASSERT(g_states.empty() == false);
@@ -1663,7 +1692,7 @@ namespace pr {
         ImGui::DestroyContext();
     }
     void BeginImGui() {
-        FlushDrawText();
+        FlashTextDrawing();
 
         ImGuiIO& io = ImGui::GetIO();
 
@@ -2071,13 +2100,13 @@ suspend_event_handle:
         g_mouseDelta = g_mousePosition - previousMousePosition;
     }
 
-    void FlushDrawText() {
+    void FlashTextDrawing() {
         g_textDam->draw();
         g_textDam->clear();
     }
 
     bool NextFrame() {
-        FlushDrawText();
+        FlashTextDrawing();
 
         g_frameBuffer->copyToScreen();
         glfwSwapBuffers(g_window);
