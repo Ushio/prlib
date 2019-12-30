@@ -7,12 +7,14 @@ enum DemoMode {
     DemoMode_Line,
     DemoMode_Text,
     DemoMode_Rays,
+    DemoMode_Manip,
 };
 const char* DemoModes[] = { 
     "DemoMode_Point",
     "DemoMode_Line",
     "DemoMode_Text",
     "DemoMode_Rays",
+    "DemoMode_Manip",
 };
 
 class IDemo {
@@ -21,6 +23,8 @@ public:
     virtual void OnDraw() = 0;
     virtual void OnImGui() = 0;
     virtual pr::ITexture *GetBackground() { return nullptr; };
+
+    pr::Camera3D camera;
 };
 
 struct PointDemo : public IDemo {
@@ -213,11 +217,28 @@ private:
     int _stride = 4;
 };
 
+struct ManipDemo : public IDemo {
+    void OnDraw() override {
+        using namespace pr;
+        ManipulatePosition(camera, &_position0, 0.3f);
+        ManipulatePosition(camera, &_position1, 0.3f);
+        DrawSphere(_position0, 0.5f, { 255, 128, 128 });
+        DrawSphere(_position1, 0.5f, { 128, 128, 255 });
+        DrawTube(_position0, _position1, 0.5f, 0.5f, { 128, 128, 128 }, 32);
+    }
+    void OnImGui() override {
+        using namespace pr;
+    }
+    glm::vec3 _position0 = { -1, 0, 0 };
+    glm::vec3 _position1 = { +1, 0, 0 };
+};
+
 std::vector<IDemo *> demos = {
     new PointDemo(),
     new LineDemo(),
     new TextDemo(),
     new RaysDemo(),
+    new ManipDemo()
 };
 
 int main() {
@@ -233,19 +254,20 @@ int main() {
 
     Camera3D camera;
     camera.origin = { 4, 4, 4 };
-    camera.lookat = { 0, 1, 0 };
+    camera.lookat = { 0, 0, 0 };
     camera.zNear = 0.1f;
     camera.zUp = false;
 
     double e = GetElapsedTime();
 
     float fontSize = 16.0f;
-    int demoMode = DemoMode_Point;
+    int demoMode = DemoMode_Manip;
 
     while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {
             UpdateCameraBlenderLike(&camera);
         }
+        demos[demoMode]->camera = camera;
 
         if (ITexture *bg = demos[demoMode]->GetBackground()) {
             ClearBackground(bg);

@@ -5,6 +5,7 @@
 #include "GLFW/glfw3native.h"
 
 #include "imgui.h"
+#include "ImGuizmo.h"
 
 #include <iostream>
 #include <vector>
@@ -1858,7 +1859,7 @@ namespace pr {
         ImGuiIO& io = ImGui::GetIO();
         return io.WantCaptureMouse;
     }
-    void SliderDirection(const char *label, glm::vec3 *dir, float minTheta, float maxTheta) {
+    void ImGuiSliderDirection(const char *label, glm::vec3 *dir, float minTheta, float maxTheta) {
         ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
         if (ImGui::TreeNode(label)) {
             char thetaLabel[128];
@@ -1882,6 +1883,7 @@ namespace pr {
             ImGui::TreePop();
         }
     }
+
     // Event Handling
     static void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
     {
@@ -2455,5 +2457,124 @@ suspend_event_handle:
 
         screen.y = GetScreenHeight() - screen.y;
         DrawTextScreen(screen.x, screen.y, text, fontSize, fontColor, outlineWidth, outlineColor);
+    }
+
+
+    // return closest t
+    float closest_cylinder(glm::vec3 ro, glm::vec3 rd, glm::vec3 P0, glm::vec3 P1, glm::vec3* p_closest_online, bool* touch_body) {
+        glm::vec3 T = P1 - P0;
+        float H = glm::length(T);
+        float one_over_H = 1.0f / H;
+        T *= one_over_H;
+
+        glm::vec3 S = ro - P0;
+
+        // Shift the origin
+        ro = S;
+
+        // Get z
+        float ro_z = glm::dot(T, ro);
+        float rd_z = glm::dot(T, rd);
+
+        // Cut z component
+        ro = ro - ro_z * T;
+        rd = rd - rd_z * T;
+
+        glm::vec3 cross3d = glm::cross(ro, rd);
+        float A = glm::dot(rd, rd);
+        float B = glm::dot(rd, ro);
+        float t = (-B) / A;
+
+        if (t < 0) {
+            return -1;
+        }
+
+        float hit_z = ro_z + rd_z * t;
+        *touch_body = 0.0f <= hit_z && hit_z < H;
+        *p_closest_online = glm::mix(P0, P1, hit_z * one_over_H);
+        return t;
+    }
+
+    void ManipulateDirection(glm::vec3* v,
+        glm::vec3 ro_cur, glm::vec3 rd_cur,
+        glm::vec3 ro_pre, glm::vec3 rd_pre,
+        glm::vec3 direction, glm::u8vec3 color) {
+        using namespace pr;
+
+        static void* s_grab = nullptr;
+        static glm::vec3 s_direction;
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) == false) {
+            s_grab = nullptr;
+            s_direction = glm::vec3(0.0f);
+        }
+
+        bool manipulatable = v == s_grab && s_direction == direction;
+
+        glm::vec3 po = *v + direction * 0.05f;
+        glm::vec3 px = *v + direction * 1.05f;
+        float arrow_radius = glm::length(direction) * 0.04f;
+        float arrow_radius_cond = arrow_radius * 3 /*bias*/;
+
+        glm::vec3 closest_online_pre;
+        glm::vec3 closest_online_cur;
+        bool touch_body_pre;
+        bool touch_body_cur;
+        float t_pre = closest_cylinder(ro_pre, rd_pre, po, px, &closest_online_pre, &touch_body_pre);
+        float t_cur = closest_cylinder(ro_cur, rd_cur, po, px, &closest_online_cur, &touch_body_cur);
+
+        bool grabable = 0 < t_cur && glm::distance(closest_online_cur, ro_cur + rd_cur * t_cur) < arrow_radius_cond && touch_body_cur;
+        bool bright = manipulatable || grabable;
+        glm::u8vec3 dark = color / (uint8_t)2;
+        DrawArrow(*v, px, arrow_radius, bright ? color : dark, 8, bright ? 3 : 1);
+
+        if (s_grab == nullptr) {
+            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                if (0 < t_cur && grabable) {
+                    s_grab = v;
+                    s_direction = direction;
+                }
+            }
+        }
+        else {
+            if (manipulatable) {
+                if (0 < t_pre && 0 < t_cur) {
+                    glm::vec3 move = closest_online_cur - closest_online_pre;
+                    *v += move;
+                }
+            }
+        }
+    }
+    void ManipulatePosition(const pr::Camera3D& camera, glm::vec3* v, float manipulatorSize) {
+        using namespace pr;
+        glm::mat4 view;
+        glm::mat4 proj;
+        GetCameraMatrix(camera, &proj, &view);
+        glm::mat4 inverse_vp = glm::inverse(proj * view);
+
+        auto curMouse = GetMousePosition();
+        auto preMouse = GetMousePosition() - GetMouseDelta();
+
+        auto h = [](glm::vec4 v) {
+            return glm::vec3(v / v.w);
+        };
+        LinearTransform i2x(0, GetScreenWidth(), -1, 1);
+        LinearTransform j2y(0, GetScreenHeight(), 1, -1);
+        auto ro_cur = h(inverse_vp * glm::vec4(i2x(curMouse.x), j2y(curMouse.y), -1 /*near*/, 1));
+        auto rd_cur = h(inverse_vp * glm::vec4(i2x(curMouse.x), j2y(curMouse.y), +1 /*far */, 1)) - ro_cur;
+        rd_cur = glm::normalize(rd_cur);
+
+        auto ro_pre = h(inverse_vp * glm::vec4(i2x(preMouse.x), j2y(preMouse.y), -1 /*near*/, 1));
+        auto rd_pre = h(inverse_vp * glm::vec4(i2x(preMouse.x), j2y(preMouse.y), +1 /*far */, 1)) - ro_pre;
+        rd_pre = glm::normalize(rd_pre);
+
+        ManipulateDirection(v,
+            ro_cur, rd_cur, ro_pre, rd_pre,
+            { manipulatorSize, 0.0f, 0.0f }, glm::u8vec3{ 255, 0, 0 });
+        ManipulateDirection(v,
+            ro_cur, rd_cur, ro_pre, rd_pre,
+            { 0.0f, manipulatorSize, 0.0f }, glm::u8vec3{ 0, 255, 0 });
+        ManipulateDirection(v,
+            ro_cur, rd_cur, ro_pre, rd_pre,
+            { 0.0f, 0.0f, manipulatorSize }, glm::u8vec3{ 0, 0, 255 });
     }
 }

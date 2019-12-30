@@ -257,5 +257,11 @@ namespace pr {
     void EndImGui();
     bool IsImGuiUsingMouse();
 
-    void SliderDirection(const char *label, glm::vec3 *dir, float minTheta = 0.0001f, float maxTheta = glm::pi<float>() - 0.0001f);
+    // ImGui Helper
+
+    // Polar
+    void ImGuiSliderDirection(const char *label, glm::vec3 *dir, float minTheta = 0.0001f, float maxTheta = glm::pi<float>() - 0.0001f);
+
+    // Draw and Manipulate
+    void ManipulatePosition(const pr::Camera3D& camera, glm::vec3* v, float manipulatorSize);
 }
