@@ -2479,7 +2479,6 @@ suspend_event_handle:
         ro = ro - ro_z * T;
         rd = rd - rd_z * T;
 
-        glm::vec3 cross3d = glm::cross(ro, rd);
         float A = glm::dot(rd, rd);
         float B = glm::dot(rd, ro);
         float t = (-B) / A;
