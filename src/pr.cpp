@@ -5,7 +5,6 @@
 #include "GLFW/glfw3native.h"
 
 #include "imgui.h"
-#include "ImGuizmo.h"
 
 #include <iostream>
 #include <vector>
