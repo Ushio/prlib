@@ -220,17 +220,24 @@ private:
 struct ManipDemo : public IDemo {
     void OnDraw() override {
         using namespace pr;
-        ManipulatePosition(camera, &_position0, 0.3f);
-        ManipulatePosition(camera, &_position1, 0.3f);
+        ManipulatePosition(camera, &_position0, _size);
+        ManipulatePosition(camera, &_position1, _size);
         DrawSphere(_position0, 0.5f, { 255, 128, 128 });
         DrawSphere(_position1, 0.5f, { 128, 128, 255 });
         DrawTube(_position0, _position1, 0.5f, 0.5f, { 128, 128, 128 }, 32);
     }
     void OnImGui() override {
         using namespace pr;
+        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode("Manip")) {
+            ImGui::SliderFloat("size", &_size, 0, 3.0f);
+            ImGui::TreePop();
+        }
     }
     glm::vec3 _position0 = { -1, 0, 0 };
     glm::vec3 _position1 = { +1, 0, 0 };
+
+    float _size = 0.3f;
 };
 
 std::vector<IDemo *> demos = {
