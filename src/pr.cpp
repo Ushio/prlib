@@ -2738,9 +2738,10 @@ suspend_event_handle:
             zaxis, xaxis
         );
 
+		glm::vec3 dir = glm::transpose(glm::mat3(view)) * glm::vec3(0.0f, 0.0f, -1.0f);
         ManipulatePlaneConstraintNonAxisAligned(v,
             ro_cur, rd_cur, ro_pre, rd_pre,
-            camera.lookat - camera.origin, manipulatorSize
+			dir, manipulatorSize
         );
     }
 }
