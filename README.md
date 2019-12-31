@@ -17,3 +17,4 @@ curl "https://raw.githubusercontent.com/Ushio/prlib/master/example_as_submodule/
 ## demo
 ![image](demo0.png)
 ![image](demo1.png)
+![image](demo2.gif)

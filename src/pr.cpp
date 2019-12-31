@@ -2493,7 +2493,7 @@ suspend_event_handle:
         return t;
     }
 
-    void ManipulateDirection(glm::vec3* v,
+    void ManipulateLineConstraint(glm::vec3* v,
         glm::vec3 ro_cur, glm::vec3 rd_cur,
         glm::vec3 ro_pre, glm::vec3 rd_pre,
         glm::vec3 direction, glm::u8vec3 color) {
@@ -2542,6 +2542,86 @@ suspend_event_handle:
             }
         }
     }
+
+    float compMin(glm::vec3 v) {
+        return glm::min(glm::min(v.x, v.y), v.z);
+    }
+    float compMax(glm::vec3 v) {
+        return glm::max(glm::max(v.x, v.y), v.z);
+    }
+    glm::vec3 select(glm::vec3 a, glm::vec3 b, glm::bvec3 s) {
+        return {
+            s.x ? b.x : a.x,
+            s.y ? b.y : a.y,
+            s.z ? b.z : a.z
+        };
+    }
+    bool slabs(glm::vec3 p0, glm::vec3 p1, glm::vec3 ro, glm::vec3 one_over_rd) {
+        glm::vec3 t0 = (p0 - ro) * one_over_rd;
+        glm::vec3 t1 = (p1 - ro) * one_over_rd;
+
+        t0 = select(t0, -t1, glm::isnan(t0));
+        t1 = select(t1, -t0, glm::isnan(t1));
+
+        glm::vec3 tmin = min(t0, t1), tmax = max(t0, t1);
+        float region_min = compMax(tmin);
+        float region_max = compMin(tmax);
+        return region_min <= region_max && 0.0f <= region_max;
+    }
+
+    float project_on_plane(glm::vec3 ro, glm::vec3 rd, glm::vec3 o, glm::vec3 T) {
+        return -glm::dot(ro - o, T) / glm::dot(T, rd);
+    }
+    void ManipulatePlaneConstraint(glm::vec3* v,
+        glm::vec3 ro_cur, glm::vec3 rd_cur,
+        glm::vec3 ro_pre, glm::vec3 rd_pre,
+        glm::vec3 axis_a, glm::vec3 axis_b) {
+        static void* s_grab = nullptr;
+        static glm::vec3 s_T;
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) == false) {
+            s_grab = nullptr;
+            s_T = glm::vec3(0.0f);
+        }
+
+        glm::vec3 T = glm::cross(axis_a, axis_b);
+        bool manipulatable = v == s_grab && s_T == T;
+
+        float lower = 0.25f;
+        float upper = 0.75f;
+        glm::vec3 xy_a = *v + (axis_a + axis_b) * lower;
+        glm::vec3 xy_b = *v + (axis_a + axis_b) * upper;
+
+        bool grabable = slabs(xy_a, xy_b, ro_cur, glm::vec3(1.0f) / rd_cur);
+        bool bright = manipulatable || grabable;
+        glm::u8vec3 color = bright ? glm::u8vec3{ 176, 255, 255 } : glm::u8vec3{ 128, 128, 128 };
+        DrawAABB(xy_a, xy_b, color, bright ? 3 : 1);
+        DrawLine(xy_a, xy_b, color, bright ? 3 : 1);
+        DrawLine(
+            *v + axis_a * lower + axis_b * upper,
+            *v + axis_a * upper + axis_b * lower,
+            color, bright ? 3 : 1);
+
+        if (s_grab == nullptr) {
+            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                if (grabable) {
+                    s_grab = v;
+                    s_T = T;
+                }
+            }
+        }
+        else {
+            if (manipulatable) {
+                float t_cur = project_on_plane(ro_cur, rd_cur, *v, T);
+                float t_pre = project_on_plane(ro_pre, rd_pre, *v, T);
+                if (0 < t_pre && 0 < t_cur) {
+                    glm::vec3 closest_online_pre = ro_pre + rd_pre * t_pre;
+                    glm::vec3 closest_online_cur = ro_cur + rd_cur * t_cur;
+                    glm::vec3 move = closest_online_cur - closest_online_pre;
+                    *v += move;
+                }
+            }
+        }
+    }
     void ManipulatePosition(const pr::Camera3D& camera, glm::vec3* v, float manipulatorSize) {
         using namespace pr;
         glm::mat4 view;
@@ -2565,14 +2645,30 @@ suspend_event_handle:
         auto rd_pre = h(inverse_vp * glm::vec4(i2x(preMouse.x), j2y(preMouse.y), +1 /*far */, 1)) - ro_pre;
         rd_pre = glm::normalize(rd_pre);
 
-        ManipulateDirection(v,
+        glm::vec3 xaxis = { manipulatorSize, 0.0f, 0.0f };
+        glm::vec3 yaxis = { 0.0f, manipulatorSize, 0.0f };
+        glm::vec3 zaxis = { 0.0f, 0.0f, manipulatorSize };
+        ManipulateLineConstraint(v,
             ro_cur, rd_cur, ro_pre, rd_pre,
-            { manipulatorSize, 0.0f, 0.0f }, glm::u8vec3{ 255, 0, 0 });
-        ManipulateDirection(v,
+            xaxis, glm::u8vec3{ 255, 0, 0 });
+        ManipulateLineConstraint(v,
             ro_cur, rd_cur, ro_pre, rd_pre,
-            { 0.0f, manipulatorSize, 0.0f }, glm::u8vec3{ 0, 255, 0 });
-        ManipulateDirection(v,
+            yaxis, glm::u8vec3{ 0, 255, 0 });
+        ManipulateLineConstraint(v,
             ro_cur, rd_cur, ro_pre, rd_pre,
-            { 0.0f, 0.0f, manipulatorSize }, glm::u8vec3{ 0, 0, 255 });
+            zaxis, glm::u8vec3{ 0, 0, 255 });
+        
+        ManipulatePlaneConstraint(v,
+            ro_cur, rd_cur, ro_pre, rd_pre,
+            xaxis, yaxis
+        );
+        ManipulatePlaneConstraint(v,
+            ro_cur, rd_cur, ro_pre, rd_pre,
+            yaxis, zaxis
+        );
+        ManipulatePlaneConstraint(v,
+            ro_cur, rd_cur, ro_pre, rd_pre,
+            zaxis, xaxis
+        );
     }
 }
