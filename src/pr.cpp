@@ -2508,8 +2508,8 @@ suspend_event_handle:
 
         bool manipulatable = v == s_grab && s_direction == direction;
 
-        glm::vec3 po = *v + direction * 0.05f;
-        glm::vec3 px = *v + direction * 1.05f;
+        glm::vec3 po = *v + direction * 0.2f;
+        glm::vec3 px = *v + direction;
         float arrow_radius = glm::length(direction) * 0.04f;
         float arrow_radius_cond = arrow_radius * 3 /*bias*/;
 
@@ -2523,7 +2523,7 @@ suspend_event_handle:
         bool grabable = 0 < t_cur && glm::distance(closest_online_cur, ro_cur + rd_cur * t_cur) < arrow_radius_cond && touch_body_cur;
         bool bright = manipulatable || grabable;
         glm::u8vec3 dark = color / (uint8_t)2;
-        DrawArrow(*v, px, arrow_radius, bright ? color : dark, 8, bright ? 3 : 1);
+        DrawArrow(po, px, arrow_radius, bright ? color : dark, 8, bright ? 3 : 1);
 
         if (s_grab == nullptr) {
             if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
@@ -2622,6 +2622,71 @@ suspend_event_handle:
             }
         }
     }
+    /*
+        x  : intersected t. -1 is no-intersected
+        yzw: un-normalized normal
+    */
+    float intersect_sphere(glm::vec3 ro, glm::vec3 rd, glm::vec3 o, float r) {
+        float A = glm::dot(rd, rd);
+        glm::vec3 S = ro - o;
+        glm::vec3 SxRD = cross(S, rd);
+        float D = A * r * r - glm::dot(SxRD, SxRD);
+
+        if (D < 0.0f) {
+            return -1;
+        }
+
+        float B = glm::dot(S, rd);
+        float sqrt_d = sqrt(D);
+        float t0 = (-B - sqrt_d) / A;
+        if (0.0f < t0) {
+            return t0;
+        }
+        return -1;
+    }
+
+    void ManipulatePlaneConstraintNonAxisAligned(glm::vec3* v,
+        glm::vec3 ro_cur, glm::vec3 rd_cur,
+        glm::vec3 ro_pre, glm::vec3 rd_pre,
+        glm::vec3 cameradir, float size) {
+        static void* s_grab = nullptr;
+        static glm::vec3 s_T;
+        if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) == false) {
+            s_grab = nullptr;
+            s_T = glm::vec3(0.0f);
+        }
+
+        glm::vec3 T = cameradir;
+        bool manipulatable = v == s_grab && s_T == T;
+
+        float radius = size * 0.1f;
+        bool grabable = 0.0f < intersect_sphere(ro_cur, rd_cur, *v, radius);
+
+        bool bright = manipulatable || grabable;
+        glm::u8vec3 color = bright ? glm::u8vec3{ 255, 0, 255 } : glm::u8vec3{ 128, 128, 128 };
+        DrawSphere(*v, radius, color, 8, 8, {0, 1, 0}, bright ? 3 : 1);
+
+        if (s_grab == nullptr) {
+            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                if (grabable) {
+                    s_grab = v;
+                    s_T = T;
+                }
+            }
+        }
+        else {
+            if (manipulatable) {
+                float t_cur = project_on_plane(ro_cur, rd_cur, *v, T);
+                float t_pre = project_on_plane(ro_pre, rd_pre, *v, T);
+                if (0 < t_pre && 0 < t_cur) {
+                    glm::vec3 closest_online_pre = ro_pre + rd_pre * t_pre;
+                    glm::vec3 closest_online_cur = ro_cur + rd_cur * t_cur;
+                    glm::vec3 move = closest_online_cur - closest_online_pre;
+                    *v += move;
+                }
+            }
+        }
+    }
     void ManipulatePosition(const pr::Camera3D& camera, glm::vec3* v, float manipulatorSize) {
         using namespace pr;
         glm::mat4 view;
@@ -2669,6 +2734,11 @@ suspend_event_handle:
         ManipulatePlaneConstraint(v,
             ro_cur, rd_cur, ro_pre, rd_pre,
             zaxis, xaxis
+        );
+
+        ManipulatePlaneConstraintNonAxisAligned(v,
+            ro_cur, rd_cur, ro_pre, rd_pre,
+            camera.lookat - camera.origin, manipulatorSize
         );
     }
 }

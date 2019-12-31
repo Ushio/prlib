@@ -267,6 +267,7 @@ int main() {
 
     double e = GetElapsedTime();
 
+    bool showImGuiDemo = false;
     float fontSize = 16.0f;
     int demoMode = DemoMode_Manip;
 
@@ -302,12 +303,15 @@ int main() {
         ImGui::Begin("Panel");
         ImGui::Text("fps = %f", GetFrameRate());
         ImGui::Combo("Demo Mode", &demoMode, DemoModes, IM_ARRAYSIZE(DemoModes));
-
+        ImGui::Checkbox("show ImGui Demo", &showImGuiDemo);
+        
         demos[demoMode]->OnImGui();
 
         ImGui::End();
 
-        ImGui::ShowDemoWindow();
+        if (showImGuiDemo) {
+            ImGui::ShowDemoWindow();
+        }
         EndImGui();
     }
 
