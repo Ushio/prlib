@@ -88,8 +88,11 @@ project "prlib"
         optimize "Full"
     filter{}
 
-    -- strcopy etc
+    -- strcpy_s
     disablewarnings { "4996"} 
+
+    -- int overflow 
+    disablewarnings { "26451"} 
 project "prlib_example"
     kind "ConsoleApp"
     language "C++"

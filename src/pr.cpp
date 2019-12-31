@@ -22,6 +22,8 @@
 
 #define MAX_CAMERA_STACK_SIZE 1000
 
+static const float MANIP_HIGHLIGHT_LINE_WIDTH = 3.0f;
+
 namespace pr {
     // foward
     class Shader;
@@ -931,7 +933,7 @@ namespace pr {
                 }
 
                 auto vertices = g_fontPipeline->vertices();
-                auto offsetBytes = vertices->upload(_buffer.data(), _buffer.size() * sizeof(Vertex));
+                auto offsetBytes = vertices->upload(_buffer.data(), (int)_buffer.size() * (int)sizeof(Vertex));
 
                 g_fontPipeline->setFontColor(command.fontColor);
                 g_fontPipeline->setOutlineColor(command.outlineColor);
@@ -939,7 +941,7 @@ namespace pr {
                 g_fontPipeline->setFontscaled(fontscaling);
                 g_fontPipeline->bindShaderAndBuffer();
 
-                glDrawArrays(GL_TRIANGLES, offsetBytes / sizeof(Vertex), _buffer.size());
+                glDrawArrays(GL_TRIANGLES, offsetBytes / sizeof(Vertex), (GLsizei)_buffer.size());
             }
 
             PopGraphicState();
@@ -1168,7 +1170,7 @@ namespace pr {
 
         TriBegin(texture);
 
-        int vs[] = {
+        uint32_t vs[] = {
             TriVertex({ -1, +1, 1 }, { 0, 0 }, { 255, 255, 255, 255 }),
             TriVertex({ +1, +1, 1 }, { 1, 0 }, { 255, 255, 255, 255 }),
             TriVertex({ -1, -1, 1 }, { 0, 1 }, { 255, 255, 255, 255 }),
@@ -1337,7 +1339,7 @@ namespace pr {
     void DrawCube(glm::vec3 o, glm::vec3 size, glm::u8vec3 c, float lineWidth) {
         glm::vec3 h = size * 0.5f;
         PrimBegin(PrimitiveMode::Lines, lineWidth);
-        int ps[8] = {
+        uint32_t ps[8] = {
             PrimVertex(o + glm::vec3(-h.x, +h.y, -h.z), c),
             PrimVertex(o + glm::vec3(+h.x, +h.y, -h.z), c),
             PrimVertex(o + glm::vec3(+h.x, +h.y, +h.z), c),
@@ -1498,7 +1500,7 @@ namespace pr {
         
         std::vector<glm::vec3> cp(colCount);
         for (int i = 0; i < colCount; ++i) {
-            float radian = c2rad(i);
+            float radian = c2rad((float)i);
             cp[i] = glm::vec3(std::sin(radian), 0.0f, std::cos(radian));
         }
 
@@ -1508,7 +1510,7 @@ namespace pr {
         PrimBegin(PrimitiveMode::Lines);
 
         for (int row = 0; row < rowCount; ++row) {
-            float y = std::cos(r2rad(row));
+            float y = std::cos(r2rad((float)row));
             float xz = std::sqrt(std::max(1.0f - y * y, 0.0f));
 
             for (int col = 0; col < colCount; ++col) {
@@ -1632,7 +1634,7 @@ namespace pr {
         fontCfg.FontData = (void *)verdana;
         fontCfg.FontDataSize = sizeof(verdana);
         fontCfg.FontDataOwnedByAtlas = false;
-        fontCfg.SizePixels = g_config.imguiFontSize;
+        fontCfg.SizePixels = (float)g_config.imguiFontSize;
         io.Fonts->AddFont(&fontCfg);
 
         io.BackendRendererName = "prlib";
@@ -2523,7 +2525,7 @@ suspend_event_handle:
         bool grabable = 0 < t_cur && glm::distance(closest_online_cur, ro_cur + rd_cur * t_cur) < arrow_radius_cond && touch_body_cur;
         bool bright = manipulatable || grabable;
         glm::u8vec3 dark = color / (uint8_t)2;
-        DrawArrow(po, px, arrow_radius, bright ? color : dark, 8, bright ? 3 : 1);
+        DrawArrow(po, px, arrow_radius, bright ? color : dark, 8, bright ? MANIP_HIGHLIGHT_LINE_WIDTH : 1.0f);
 
         if (s_grab == nullptr) {
             if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
@@ -2594,12 +2596,12 @@ suspend_event_handle:
         bool grabable = slabs(xy_a, xy_b, ro_cur, glm::vec3(1.0f) / rd_cur);
         bool bright = manipulatable || grabable;
         glm::u8vec3 color = bright ? glm::u8vec3{ 176, 255, 255 } : glm::u8vec3{ 128, 128, 128 };
-        DrawAABB(xy_a, xy_b, color, bright ? 3 : 1);
-        DrawLine(xy_a, xy_b, color, bright ? 3 : 1);
+        DrawAABB(xy_a, xy_b, color, bright ? MANIP_HIGHLIGHT_LINE_WIDTH : 1.0f);
+        DrawLine(xy_a, xy_b, color, bright ? MANIP_HIGHLIGHT_LINE_WIDTH : 1.0f);
         DrawLine(
             *v + axis_a * lower + axis_b * upper,
             *v + axis_a * upper + axis_b * lower,
-            color, bright ? 3 : 1);
+            color, bright ? MANIP_HIGHLIGHT_LINE_WIDTH : 1.0f);
 
         if (s_grab == nullptr) {
             if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
@@ -2664,7 +2666,7 @@ suspend_event_handle:
 
         bool bright = manipulatable || grabable;
         glm::u8vec3 color = bright ? glm::u8vec3{ 255, 0, 255 } : glm::u8vec3{ 128, 128, 128 };
-        DrawSphere(*v, radius, color, 8, 8, {0, 1, 0}, bright ? 3 : 1);
+        DrawSphere(*v, radius, color, 8, 8, {0, 1, 0}, bright ? MANIP_HIGHLIGHT_LINE_WIDTH : 1.0f);
 
         if (s_grab == nullptr) {
             if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
@@ -2700,8 +2702,8 @@ suspend_event_handle:
         auto h = [](glm::vec4 v) {
             return glm::vec3(v / v.w);
         };
-        LinearTransform i2x(0, GetScreenWidth(), -1, 1);
-        LinearTransform j2y(0, GetScreenHeight(), 1, -1);
+        LinearTransform i2x(0, (float)GetScreenWidth(), -1, 1);
+        LinearTransform j2y(0, (float)GetScreenHeight(), 1, -1);
         auto ro_cur = h(inverse_vp * glm::vec4(i2x(curMouse.x), j2y(curMouse.y), -1 /*near*/, 1));
         auto rd_cur = h(inverse_vp * glm::vec4(i2x(curMouse.x), j2y(curMouse.y), +1 /*far */, 1)) - ro_cur;
         rd_cur = glm::normalize(rd_cur);
