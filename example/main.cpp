@@ -8,6 +8,7 @@ enum DemoMode {
     DemoMode_Text,
     DemoMode_Rays,
     DemoMode_Manip,
+    DemoMode_Benchmark,
 };
 const char* DemoModes[] = { 
     "DemoMode_Point",
@@ -15,6 +16,7 @@ const char* DemoModes[] = {
     "DemoMode_Text",
     "DemoMode_Rays",
     "DemoMode_Manip",
+    "DemoMode_Benchmark",
 };
 
 class IDemo {
@@ -160,8 +162,8 @@ struct RaysDemo : public IDemo {
         Image2DRGBA8 image;
         image.allocate(GetScreenWidth() / _stride, GetScreenHeight() / _stride);
 
-        LinearTransform i2x(0, image.width(),  -1, 1);
-        LinearTransform j2y(0, image.height(), 1, -1);
+        LinearTransform i2x(0, (float)image.width(),  -1, 1);
+        LinearTransform j2y(0, (float)image.height(), 1, -1);
 
         for (int j = 0; j < image.height(); ++j)
         {
@@ -170,8 +172,8 @@ struct RaysDemo : public IDemo {
                 auto h = [](glm::vec4 v) {
                     return glm::vec3(v / v.w);
                 };
-                auto ro = h(inverse_vp * glm::vec4(i2x(i), j2y(j), -1 /*near*/, 1));
-                auto rd = h(inverse_vp * glm::vec4(i2x(i), j2y(j), +1 /*far */, 1)) - ro;
+                auto ro = h(inverse_vp * glm::vec4(i2x((float)i), j2y((float)j), -1 /*near*/, 1));
+                auto rd = h(inverse_vp * glm::vec4(i2x((float)i), j2y((float)j), +1 /*far */, 1)) - ro;
                 rd = glm::normalize(rd);
 
                 auto isect = glm::vec4(-1);
@@ -203,7 +205,7 @@ struct RaysDemo : public IDemo {
             ImGui::SliderInt("stride", &_stride, 1, 8);
 
             if (_texture) {
-                ImGui::Image(_texture, ImVec2(_texture->width(), _texture->height()));
+                ImGui::Image(_texture, ImVec2((float)_texture->width(), (float)_texture->height()));
             }
             ImGui::TreePop();
         }
@@ -240,12 +242,58 @@ struct ManipDemo : public IDemo {
     float _size = 0.3f;
 };
 
+struct BenchmarkDemo : public IDemo {
+    void OnDraw() override {
+        using namespace pr;
+
+        Xoshiro128StarStar random;
+        float size = 10.0f;
+        for (int i = 0; i < N; ++i) {
+            glm::vec3 o = { 
+                glm::mix(-size, size, random.uniformf()), 
+                glm::mix(-size, size, random.uniformf()), 
+                glm::mix(-size, size, random.uniformf()) 
+            };
+            glm::vec3 d = GenerateUniformOnSphere(random.uniformf(), random.uniformf());
+
+            glm::u8vec3 color = {
+                random.uniformi() % 256,
+                random.uniformi() % 256,
+                random.uniformi() % 256
+            };
+            switch (random.uniformi() % 4) {
+                case 0:
+                    DrawCircle(o, d, color, 0.1f);
+                    break;
+                case 1:
+                    DrawTube(o, o + d * 0.2f, 0.1f, 0.1f, { color });
+                    break;
+                case 2:
+                    DrawSphere(o, 0.1f, { color });
+                    break;
+                case 3:
+                    DrawArrow(o, o + d * 0.2f, 0.01f, { color });
+            }
+        }
+    }
+    void OnImGui() override {
+        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode("Benchmark")) {
+            ImGui::SliderInt("N", &N, 0, 100000);
+            ImGui::TreePop();
+        }
+    }
+    float size = 5;
+    int N = 32000;
+};
+
 std::vector<IDemo *> demos = {
     new PointDemo(),
     new LineDemo(),
     new TextDemo(),
     new RaysDemo(),
-    new ManipDemo()
+    new ManipDemo(),
+    new BenchmarkDemo()
 };
 
 int main() {
@@ -269,7 +317,7 @@ int main() {
 
     bool showImGuiDemo = false;
     float fontSize = 16.0f;
-    int demoMode = DemoMode_Manip;
+    int demoMode = DemoMode_Benchmark;
 
     while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {

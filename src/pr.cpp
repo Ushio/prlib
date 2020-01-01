@@ -1322,17 +1322,16 @@ namespace pr {
             return;
         }
 
-        LinearTransform i2rad(0.0f, (float)(vertexCount - 1), 0.0f, glm::pi<float>() * 2.0f);
-
         glm::vec3 x;
         glm::vec3 y;
         GetOrthonormalBasis(dir, &x, &y);
 
         PrimBegin(PrimitiveMode::LineStrip, lineWidth);
+        CircleGenerator circle(glm::pi<float>() * 2.0f / (vertexCount - 1));
         for (int i = 0; i < vertexCount; ++i) {
-            float radian = i2rad.evaluate((float)i);
-            glm::vec3 p = x * std::cos(radian) + y * std::sin(radian);
+            glm::vec3 p = x * circle.cos() + y * circle.sin();
             PrimVertex(o + radius * p, c);
+            circle.step();
         }
         PrimEnd();
     }
@@ -1434,10 +1433,10 @@ namespace pr {
 
         std::vector<uint32_t> circleVerticesB(vertexCount);
         std::vector<uint32_t> circleVerticesT(vertexCount);
-        LinearTransform i2rad(0.0f, (float)(vertexCount), 0.0f, glm::pi<float>() * 2.0f);
+        CircleGenerator circle(glm::pi<float>() * 2.0f / vertexCount);
         for (int i = 0; i < vertexCount; ++i) {
-            float radian = i2rad.evaluate((float)i);
-            glm::vec3 ring = x * std::sin(radian) + y * std::cos(radian);
+            glm::vec3 ring = x * circle.sin() + y * circle.cos();
+            circle.step();
             circleVerticesB[i] = PrimVertex(p0 + ring * radius0, c);
             circleVerticesT[i] = PrimVertex(p1 + ring * radius1, c);
         }
@@ -1496,12 +1495,12 @@ namespace pr {
             v
         );
         
-        LinearTransform c2rad(0.0f, (float)(colCount), 0.0f, glm::pi<float>() * 2.0f);
-        
+        CircleGenerator circle(glm::pi<float>() * 2.0f / colCount);
+
         std::vector<glm::vec3> cp(colCount);
         for (int i = 0; i < colCount; ++i) {
-            float radian = c2rad((float)i);
-            cp[i] = glm::vec3(std::sin(radian), 0.0f, std::cos(radian));
+            cp[i] = glm::vec3(circle.sin(), 0.0f, circle.cos());
+            circle.step();
         }
 
         LinearTransform r2rad(0.0f, (float)(rowCount - 1), 0.0f, glm::pi<float>());

@@ -5,6 +5,7 @@
 #include <string>
 #include <stdexcept>
 #include <functional>
+#include <cmath>
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
@@ -71,6 +72,46 @@ namespace pr {
         float _b;
     };
     void GetOrthonormalBasis(glm::vec3 zaxis, glm::vec3 *xaxis, glm::vec3 *yaxis);
+
+    // http://iquilezles.org/www/articles/sincos/sincos.htm
+    class CircleGenerator {
+    public:
+        CircleGenerator(float stepThetaT)
+            :_sinDeltaT(std::sin(stepThetaT)), _cosDeltaT(std::cos(stepThetaT)) {
+        }
+        CircleGenerator(float stepThetaT, float theta)
+            :_sinDeltaT(std::sin(stepThetaT)), _cosDeltaT(std::cos(stepThetaT))
+            , _sinT(std::sin(theta)), _cosT(std::cos(theta)) {
+        }
+
+        // sin(theta)
+        float sin() const {
+            return _sinT;
+        }
+
+        // cos(theta)
+        float cos() const {
+            return _cosT;
+        }
+
+        // theta += stepThetaT
+        void step() {
+            float newSin = _sinT * _cosDeltaT + _cosT * _sinDeltaT;
+            float newCos = _cosT * _cosDeltaT - _sinT * _sinDeltaT;
+            _sinT = newSin;
+            _cosT = newCos;
+        }
+
+        void setDeltaT(float stepThetaT) {
+            _sinDeltaT = std::sin(stepThetaT);
+            _cosDeltaT = std::cos(stepThetaT);
+        }
+    private:
+        float _sinDeltaT = 0.0f;
+        float _cosDeltaT = 0.0f;
+        float _sinT = 0.0f;
+        float _cosT = 1.0f;
+    };
 
     class Image2DRGBA8 {
     public:
