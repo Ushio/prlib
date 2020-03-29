@@ -11,6 +11,14 @@
 #include <algorithm>
 #include <ppl.h>
 
+#include <Windows.h>
+#ifdef max
+#undef max
+#endif
+#ifdef min
+#undef min
+#endif
+
 namespace pr {
     namespace {
         std::string g_dataPath;
@@ -311,5 +319,26 @@ namespace pr {
         for (int i = 0; i < n; ++i) {
             f(i);
         }
+    }
+
+    std::wstring string_to_wstring(const std::string& s)
+    {
+        int in_length = (int)s.length();
+        int out_length = MultiByteToWideChar(CP_ACP, 0, s.c_str(), in_length, 0, 0);
+        std::vector<wchar_t> buffer(out_length);
+        if (out_length) {
+            MultiByteToWideChar(CP_ACP, 0, s.c_str(), in_length, &buffer[0], out_length);
+        }
+        return std::wstring(buffer.begin(), buffer.end());
+    }
+    std::string wstring_to_string(const std::wstring& s)
+    {
+        int in_length = (int)s.length();
+        int out_length = WideCharToMultiByte(CP_ACP, 0, s.c_str(), in_length, 0, 0, 0, 0);
+        std::vector<char> buffer(out_length);
+        if (out_length) {
+            WideCharToMultiByte(CP_ACP, 0, s.c_str(), in_length, &buffer[0], out_length, 0, 0);
+        }
+        return std::string(buffer.begin(), buffer.end());
     }
 }
