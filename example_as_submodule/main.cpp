@@ -51,5 +51,5 @@ int main() {
         EndImGui();
     }
 
-    CleanUp();
+    pr::CleanUp();
 }
