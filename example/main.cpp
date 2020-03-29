@@ -317,7 +317,7 @@ int main() {
 
     bool showImGuiDemo = false;
     float fontSize = 16.0f;
-    int demoMode = DemoMode_Benchmark;
+    int demoMode = DemoMode_Point;
 
     while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {
@@ -363,5 +363,5 @@ int main() {
         EndImGui();
     }
 
-    CleanUp();
+    pr::CleanUp();
 }
