@@ -170,7 +170,7 @@ namespace pr {
         return Result::Sucess;
     }
     Result Image2DRGBA8::save(const char* filename) const {
-        if (stbi_write_png(filename, width(), height(), 4, _values.data(), 0)) {
+        if (stbi_write_png(GetDataPath(filename).c_str(), width(), height(), 4, _values.data(), 0)) {
             return Result::Sucess;
         }
         return Result::Failure;
