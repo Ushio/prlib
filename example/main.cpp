@@ -155,26 +155,17 @@ struct RaysDemo : public IDemo {
             DrawSphere({ 4, 0, 0 }, 2.0f, { 255, 255, 255 }, 16, 16);
         }
 
-        // ray trace
-        glm::mat4 vp = GetCurrentProjMatrix() * GetCurrentViewMatrix();
-        glm::mat4 inverse_vp = glm::inverse(vp);
-
         Image2DRGBA8 image;
         image.allocate(GetScreenWidth() / _stride, GetScreenHeight() / _stride);
 
-        LinearTransform i2x(0, (float)image.width(),  -1, 1);
-        LinearTransform j2y(0, (float)image.height(), 1, -1);
+		CameraRayGenerator rayGenerator(GetCurrentViewMatrix(), GetCurrentProjMatrix(), image.width(), image.height());
 
         for (int j = 0; j < image.height(); ++j)
         {
             for (int i = 0; i < image.width(); ++i)
             {
-                auto h = [](glm::vec4 v) {
-                    return glm::vec3(v / v.w);
-                };
-                auto ro = h(inverse_vp * glm::vec4(i2x((float)i), j2y((float)j), -1 /*near*/, 1));
-                auto rd = h(inverse_vp * glm::vec4(i2x((float)i), j2y((float)j), +1 /*far */, 1)) - ro;
-                rd = glm::normalize(rd);
+				glm::vec3 ro, rd;
+				rayGenerator.shoot(&ro, &rd, i, j);
 
                 auto isect = glm::vec4(-1);
                 isect = combine(isect, intersect_sphere(ro, rd, { -2, 0, 0 }, 0.5f));

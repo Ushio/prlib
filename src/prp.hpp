@@ -176,4 +176,31 @@ namespace pr {
     // warning: we assume string use system encoding
     std::wstring string_to_wstring(const std::string& s);
     std::string wstring_to_string(const std::wstring& s);
+
+	// Simple Generator
+	class CameraRayGenerator
+	{
+	public:
+		CameraRayGenerator(glm::mat4 viewMatrix, glm::mat4 projMatrix, int width, int height)
+		{
+			glm::mat4 vp = projMatrix * viewMatrix;
+			_inverseVP = glm::inverse(vp);
+
+			_i2x = LinearTransform(0, (float)width, -1, 1);
+			_j2y = LinearTransform(0, (float)height, 1, -1);
+		}
+
+		void shoot(glm::vec3 *ro, glm::vec3 *rd, int x, int y) const {
+			auto h = [](glm::vec4 v) {
+				return glm::vec3(v / v.w);
+			};
+			*ro = h(_inverseVP * glm::vec4(_i2x((float)x), _j2y((float)y), -1 /*near*/, 1));
+			*rd = h(_inverseVP * glm::vec4(_i2x((float)x), _j2y((float)y), +1 /*far */, 1)) - *ro;
+			*rd = glm::normalize(*rd);
+		}
+	private:
+		glm::mat4 _inverseVP;
+		LinearTransform _i2x;
+		LinearTransform _j2y;
+	};
 }
