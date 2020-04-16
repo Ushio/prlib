@@ -282,6 +282,93 @@ namespace pr {
         return _height;
     }
 
+	// 32F
+	void Image2DRGBA32::allocate(int w, int h) {
+		_width = w;
+		_height = h;
+		_values.clear();
+		_values.resize(_width * _height);
+	}
+	Result Image2DRGBA32::load(const char *filename) {
+		float *pixels = stbi_loadf(GetDataPath(filename).c_str(), &_width, &_height, 0, 4);
+		if (pixels == nullptr) {
+			return Result::Failure;
+		}
+		_values.resize(_width * _height);
+		memcpy(_values.data(), pixels, _width * _height * sizeof(PixelType));
+		stbi_image_free(pixels);
+		return Result::Sucess;
+	}
+	Result Image2DRGBA32::load(const uint8_t *data, int bytes) {
+		float *pixels = stbi_loadf_from_memory(data, bytes, &_width, &_height, 0, 4);
+		if (pixels == nullptr) {
+			return Result::Failure;
+		}
+		_values.resize(_width * _height);
+		memcpy(_values.data(), pixels, _width * _height * 4);
+		stbi_image_free(pixels);
+		return Result::Sucess;
+	}
+	Result Image2DRGBA32::save(const char* filename) const {
+		if (stbi_write_hdr(GetDataPath(filename).c_str(), width(), height(), 4, glm::value_ptr(*_values.data()))) {
+			return Result::Sucess;
+		}
+		return Result::Failure;
+	}
+	Image2DRGBA32::PixelType *Image2DRGBA32::data() {
+		return _values.data();
+	}
+	const Image2DRGBA32::PixelType *Image2DRGBA32::data() const {
+		return _values.data();
+	}
+	int Image2DRGBA32::bytes() const {
+		return _width * _height * sizeof(PixelType);
+	}
+	Image2DRGBA32::PixelType &Image2DRGBA32::operator()(int x, int y) {
+		return _values[y * _width + x];
+	}
+	const Image2DRGBA32::PixelType &Image2DRGBA32::operator()(int x, int y) const {
+		return _values[y * _width + x];
+	}
+	Image2DRGBA32::PixelType &Image2DRGBA32::at(int x, int y) {
+		if (x < 0 || _width < x) {
+			throw std::out_of_range("x is out of range");
+		}
+		if (y < 0 || _height < y) {
+			throw std::out_of_range("y is out of range");
+		}
+		return (*this)(x, y);
+	}
+	const Image2DRGBA32::PixelType &Image2DRGBA32::at(int x, int y) const {
+		if (x < 0 || _width < x) {
+			throw std::out_of_range("x is out of range");
+		}
+		if (y < 0 || _height < y) {
+			throw std::out_of_range("y is out of range");
+		}
+		return this->operator()(x, y);
+	}
+	int Image2DRGBA32::width() const {
+		return _width;
+	}
+	int Image2DRGBA32::height() const {
+		return _height;
+	}
+
+	// Simple Linear Translate
+	Image2DRGBA32 Image2DRGBA8_to_Image2DRGBA32(const Image2DRGBA8 &src) {
+		Image2DRGBA32 image;
+		image.allocate(src.width(), src.height());
+		for (int j = 0; j < image.height(); ++j)
+		{
+			for (int i = 0; i < image.width(); ++i)
+			{
+				image(i, j) = glm::vec4(src(i, j)) / glm::vec4(255.0f);
+			}
+		}
+		return image;
+	}
+
     std::string NormalizePath(std::string path) {
         std::size_t normLength = cwk_path_normalize(path.data(), 0, 0);
         std::vector<char> normname(normLength + 1);

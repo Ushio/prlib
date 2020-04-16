@@ -161,6 +161,39 @@ namespace pr {
         std::vector<uint8_t> _values;
     };
 
+	class Image2DRGBA32 {
+	public:
+		using PixelType = glm::vec4;
+
+		void allocate(int w, int h);
+
+		// warning: image will be degamma when you load 8bit image.
+		Result load(const char *filename);
+		Result load(const uint8_t *data, int bytes);
+
+		Result save(const char* filename) const;
+
+		PixelType *data();
+		const PixelType *data() const;
+		int bytes() const;
+
+		PixelType &operator()(int x, int y);
+		const PixelType &operator()(int x, int y) const;
+
+		PixelType &at(int x, int y);
+		const PixelType &at(int x, int y) const;
+
+		int width() const;
+		int height() const;
+	private:
+		int _width = 0;
+		int _height = 0;
+		std::vector<PixelType> _values;
+	};
+
+	// Simple Linear Translate
+	Image2DRGBA32 Image2DRGBA8_to_Image2DRGBA32(const Image2DRGBA8 &src);
+
     glm::vec3 GetCartesian(float theta, float phi);
     void GetSpherical(glm::vec3 direction, float *theta, float *phi);
 
