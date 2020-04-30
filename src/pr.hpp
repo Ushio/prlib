@@ -91,7 +91,6 @@ namespace pr {
     glm::vec2 GetMouseDelta();
     glm::vec2 GetMouseScrollDelta();
 
-    // Notes: ImGui Required Keys
     extern const int KEY_TAB;
     extern const int KEY_LEFT;
     extern const int KEY_RIGHT;
@@ -108,12 +107,44 @@ namespace pr {
     extern const int KEY_ENTER;
     extern const int KEY_ESCAPE;
     extern const int KEY_KP_ENTER;
+
+    extern const int KEY_0;
+    extern const int KEY_1;
+    extern const int KEY_2;
+    extern const int KEY_3;
+    extern const int KEY_4;
+    extern const int KEY_5;
+    extern const int KEY_6;
+    extern const int KEY_7;
+    extern const int KEY_8;
+    extern const int KEY_9;
     extern const int KEY_A;
+    extern const int KEY_B;
     extern const int KEY_C;
+    extern const int KEY_D;
+    extern const int KEY_E;
+    extern const int KEY_F;
+    extern const int KEY_G;
+    extern const int KEY_H;
+    extern const int KEY_I;
+    extern const int KEY_J;
+    extern const int KEY_K;
+    extern const int KEY_L;
+    extern const int KEY_M;
+    extern const int KEY_N;
+    extern const int KEY_O;
+    extern const int KEY_P;
+    extern const int KEY_Q;
+    extern const int KEY_R;
+    extern const int KEY_S;
+    extern const int KEY_T;
+    extern const int KEY_U;
     extern const int KEY_V;
+    extern const int KEY_W;
     extern const int KEY_X;
     extern const int KEY_Y;
     extern const int KEY_Z;
+
     extern const int KEY_LEFT_CONTROL;
     extern const int KEY_RIGHT_CONTROL;
     extern const int KEY_LEFT_SHIFT;
