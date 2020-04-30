@@ -201,6 +201,10 @@ namespace pr {
     std::string NormalizePath(std::string path);
     std::string ExecutableDir();
     std::string JoinPath(std::string a, std::string b);
+    std::string JoinPath(std::string a, std::string b, std::string c);
+    std::string JoinPath(std::string a, std::string b, std::string c, std::string d);
+    std::string JoinPath(std::string a, std::string b, std::string c, std::string d, std::string e);
+
     std::string GetDataPath(std::string filename);
 
     void ParallelFor(int n, std::function<void(int)> f /* f(index) */);
@@ -209,6 +213,31 @@ namespace pr {
     // warning: we assume string use system encoding
     std::wstring string_to_wstring(const std::string& s);
     std::string wstring_to_string(const std::wstring& s);
+
+    class BinaryLoader
+    {
+    public:
+        Result load(const char* file);
+
+        uint8_t* data()
+        {
+            return _data.data();
+        }
+        const uint8_t* data() const
+        {
+            return _data.data();
+        }
+        std::size_t size() const
+        {
+            return _data.size();
+        }
+        void push_back(uint8_t c)
+        {
+            _data.push_back(c);
+        }
+    private:
+        std::vector<uint8_t> _data;
+    };
 
 	// Simple Generator
 	class CameraRayGenerator

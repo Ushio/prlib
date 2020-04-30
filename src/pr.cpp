@@ -1063,7 +1063,7 @@ namespace pr {
 
     class Camera3DObject : public ICamera {
     public:
-        Camera3DObject(Camera3D camera):_camera(camera) {
+        Camera3DObject(Camera3D camera, glm::mat4 objectTransform = glm::identity<glm::mat4>()):_camera(camera), _objectTransform(objectTransform) {
 
         }
         virtual glm::mat4 getProjectionMatrix() const override {
@@ -1126,10 +1126,11 @@ namespace pr {
                     glm::vec3(-1, 0, 0)
                 );
             }
-            return m;
+            return m * _objectTransform;
         }
     private:
         Camera3D _camera;
+        glm::mat4 _objectTransform = glm::identity<glm::mat4>();
     };
 
     static const ICamera *GetCurrentCamera() {
@@ -1252,6 +1253,13 @@ namespace pr {
         PR_ASSERT(g_cameraStack.size() <= MAX_CAMERA_STACK_SIZE);
 
         g_cameraStack.push(std::unique_ptr<const ICamera>(new Camera3DObject(camera)));
+        UpdateCurrentMatrix();
+    }
+    void BeginCameraWithObjectTransform(Camera3D camera, glm::mat4 transform)
+    {
+        PR_ASSERT(g_cameraStack.size() <= MAX_CAMERA_STACK_SIZE);
+
+        g_cameraStack.push(std::unique_ptr<const ICamera>(new Camera3DObject(camera, transform)));
         UpdateCurrentMatrix();
     }
     void BeginCamera2DCanvas() {

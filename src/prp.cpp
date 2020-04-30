@@ -393,6 +393,19 @@ namespace pr {
         cwk_path_join(a.c_str(), b.c_str(), joined.data(), joined.size());
         return NormalizePath(joined.data());
     }
+    std::string JoinPath(std::string a, std::string b, std::string c) 
+    {
+        return JoinPath(JoinPath(a, b), c);
+    }
+    std::string JoinPath(std::string a, std::string b, std::string c, std::string d)
+    {
+        return JoinPath(JoinPath(a, b, c), d);
+    }
+    std::string JoinPath(std::string a, std::string b, std::string c, std::string d, std::string e)
+    {
+        return JoinPath(JoinPath(a, b, c, d), e);
+    }
+
     void SetDataDir(std::string dir) {
         g_dataPath = NormalizePath(dir);
     }
@@ -427,5 +440,31 @@ namespace pr {
             WideCharToMultiByte(CP_ACP, 0, s.c_str(), in_length, &buffer[0], out_length, 0, 0);
         }
         return std::string(buffer.begin(), buffer.end());
+    }
+
+    Result BinaryLoader::load(const char* file)
+    {
+        FILE* fp = fopen(GetDataPath(file).c_str(), "rb");
+        if (fp == nullptr)
+        {
+            return Result::Failure;
+        }
+
+        fseek(fp, 0, SEEK_END);
+
+        _data.resize(ftell(fp));
+
+        fseek(fp, 0, SEEK_SET);
+
+        size_t s = fread(_data.data(), 1, _data.size(), fp);
+        if (s != _data.size())
+        {
+            _data.clear();
+            return Result::Failure;
+        }
+
+        fclose(fp);
+        fp = nullptr;
+        return Result::Sucess;
     }
 }

@@ -199,8 +199,11 @@ namespace pr {
         bool zUp = false; // y up by default but you can use z up.  But be careful, the camera parameter is always y up.
         float perspective = 1.0f;
     };
+
+    // These are stack-managemented.
     void GetCameraMatrix(Camera3D camera3d, glm::mat4 *proj, glm::mat4 *view);
     void BeginCamera(Camera3D camera);
+    void BeginCameraWithObjectTransform(Camera3D camera, glm::mat4 transform);
     void BeginCamera2DCanvas();
     void BeginCameraNone();
     void EndCamera();
@@ -276,12 +279,14 @@ namespace pr {
     void     TriIndex(uint32_t index);
     void     TriEnd();
 
-    // camera space
+    // world space
     void DrawText(glm::vec3 p_world, std::string text, float fontSize = 16.0f, glm::u8vec3 fontColor = { 16, 16, 240 }, float outlineWidth = 2.0f, glm::u8vec3 outlineColor = { 255, 255, 255 });
     
     // screen space
     void DrawTextScreen(float screen_x, float screen_y, std::string text, float fontSize = 16.0f, glm::u8vec3 fontColor = { 16, 16, 240 }, float outlineWidth = 2.0f, glm::u8vec3 outlineColor = { 255, 255, 255 });
 
+    // by default, texts will be drawn at end of frame.
+    // you can flash it immediately
     void FlashTextDrawing();
 
     void BeginImGui();
