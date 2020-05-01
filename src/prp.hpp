@@ -5,6 +5,7 @@
 #include <string>
 #include <stdexcept>
 #include <functional>
+#include <random>
 #include <cmath>
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
@@ -40,6 +41,16 @@ namespace pr {
 
         // state
         uint32_t s[4];
+    };
+    struct MersenneTwister : public IRandomNumberGenerator {
+        MersenneTwister();
+        MersenneTwister(uint32_t seed);
+
+        float uniformf() override;
+        uint64_t uniformi() override;
+
+        // state
+        std::mt19937 s;
     };
 
     glm::vec2 GenerateUniformInCircle(float u0, float u1);

@@ -91,6 +91,21 @@ namespace pr {
         return (a << 31) | b;
     }
 
+    MersenneTwister::MersenneTwister() : MersenneTwister(953687342) {
+    }
+    MersenneTwister::MersenneTwister(uint32_t seed) : s(seed) {
+    }
+    float MersenneTwister::uniformf() {
+        std::uniform_real_distribution<float> d;
+        return d(s);
+    }
+
+    uint64_t MersenneTwister::uniformi() {
+        uint64_t a = s() >> 1;
+        uint64_t b = s() >> 1;
+        return (a << 31) | b;
+    }
+
     // Random Number Helper
     glm::vec2 GenerateUniformInCircle(float u0, float u1) {
         float r = std::sqrt(u0);
