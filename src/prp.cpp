@@ -257,6 +257,12 @@ namespace pr {
         stbi_image_free(pixels);
         return Result::Sucess;
     }
+	Result Image2DMono8::save(const char* filename) const {
+		if (stbi_write_png(GetDataPath(filename).c_str(), width(), height(), 1, _values.data(), 0)) {
+			return Result::Sucess;
+		}
+		return Result::Failure;
+	}
     uint8_t *Image2DMono8::data() {
         return _values.data();
     }

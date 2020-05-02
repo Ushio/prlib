@@ -154,6 +154,8 @@ namespace pr {
         Result load(const char *filename);
         Result load(const uint8_t *data, int bytes);
 
+		Result save(const char* filename) const;
+
         uint8_t *data();
         const uint8_t *data() const;
         int bytes() const;

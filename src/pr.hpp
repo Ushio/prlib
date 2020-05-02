@@ -263,8 +263,11 @@ namespace pr {
         virtual ~ITexture() {}
         virtual void upload(const Image2DRGBA8 &image) = 0;
         virtual void upload(const Image2DMono8 &image) = 0;
+		virtual void upload(const Image2DRGBA32 &image) = 0;
         virtual void uploadAsRGBA8(const uint8_t *source, int width, int height) = 0;
-        virtual void uploadAsMono8(const uint8_t *source, int width, int height) = 0;
+		virtual void uploadAsMono8(const uint8_t *source, int width, int height) = 0;
+		virtual void uploadAsRGBAF32(const float *source, int width, int height) = 0;
+
         virtual int width() const = 0;
         virtual int height() const = 0;
         virtual void setFilter(TextureFilter filter) = 0;

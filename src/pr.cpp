@@ -2386,6 +2386,9 @@ suspend_event_handle:
         void upload(const Image2DMono8 &image) override {
             uploadAsMono8((const uint8_t *)image.data(), image.width(), image.height());
         }
+		virtual void upload(const Image2DRGBA32 &image) override {
+			uploadAsRGBAF32(glm::value_ptr(*image.data()), image.width(), image.height());
+		}
         void uploadAsRGBA8(const uint8_t *source, int width, int height) override {
             applyToStorage(width, height, GL_RGBA8, _filter);
 
@@ -2397,6 +2400,13 @@ suspend_event_handle:
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_LUMINANCE, GL_UNSIGNED_BYTE, source);
         }
+		void uploadAsRGBAF32(const float *source, int width, int height) override
+		{
+			applyToStorage(width, height, GL_RGB8, _filter);
+
+			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+			glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_FLOAT, source);
+		}
         int width() const override {
             return _width;
         }
