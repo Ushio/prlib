@@ -2259,7 +2259,7 @@ suspend_event_handle:
     }
 
     // Interactions
-    void UpdateCameraBlenderLike(
+	bool UpdateCameraBlenderLike(
         Camera3D *camera,
         float wheel_sensitivity,
         float zoom_mouse_sensitivity,
@@ -2267,6 +2267,7 @@ suspend_event_handle:
         float shift_sensitivity
     ) {
         const float camera_near_limit = 0.000001f;
+		bool isChange = false;
 
         glm::vec2 mousePositionDelta = GetMouseDelta();
 
@@ -2287,6 +2288,8 @@ suspend_event_handle:
             auto dir = glm::normalize(origin - lookat);
             origin = lookat + dir * d;
             camera->origin = origin;
+
+			isChange = true;
         } else if (right_pressed) {
             if (mousePositionDelta.y != 0.0f) {
                 auto lookat = camera->lookat;
@@ -2299,6 +2302,8 @@ suspend_event_handle:
                 auto dir = glm::normalize(origin - lookat);
                 origin = lookat + dir * d;
                 camera->origin = origin;
+
+				isChange = true;
             }
         }
 
@@ -2317,6 +2322,8 @@ suspend_event_handle:
 
                 camera->origin = lookat + S;
                 camera->up = up;
+
+				isChange = true;
             }
 
             if (mousePositionDelta.y != 0.0f) {
@@ -2338,6 +2345,8 @@ suspend_event_handle:
 
                 camera->origin = lookat + S;
                 camera->up = up;
+
+				isChange = true;
             }
         }
 
@@ -2366,7 +2375,13 @@ suspend_event_handle:
 
             camera->lookat = lookat;
             camera->origin = origin;
+
+			if (mousePositionDelta.x != 0.0 || mousePositionDelta.y != 0.0f) {
+				isChange = true;
+			}
         }
+
+		return isChange;
     }
 
     class Texture : public ITexture {

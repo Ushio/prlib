@@ -211,7 +211,8 @@ namespace pr {
     glm::mat4 GetCurrentProjMatrix();
     glm::mat4 GetCurrentViewMatrix();
 
-    void UpdateCameraBlenderLike(
+	// return true if the camera has modified.
+    bool UpdateCameraBlenderLike(
         Camera3D *camera,
         float wheel_sensitivity = 0.1f,
         float zoom_mouse_sensitivity = 0.002f,
