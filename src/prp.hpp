@@ -265,12 +265,12 @@ namespace pr {
 			_j2y = LinearTransform(0, (float)height, 1, -1);
 		}
 
-		void shoot(glm::vec3 *ro, glm::vec3 *rd, int x, int y) const {
+		void shoot(glm::vec3 *ro, glm::vec3 *rd, int x, int y, float xoffsetInPixel = 0.0f, float yoffsetInPixel = 0.0f) const {
 			auto h = [](glm::vec4 v) {
 				return glm::vec3(v / v.w);
 			};
-			*ro = h(_inverseVP * glm::vec4(_i2x((float)x), _j2y((float)y), -1 /*near*/, 1));
-			*rd = h(_inverseVP * glm::vec4(_i2x((float)x), _j2y((float)y), +1 /*far */, 1)) - *ro;
+			*ro = h(_inverseVP * glm::vec4(_i2x((float)x + xoffsetInPixel), _j2y((float)y + yoffsetInPixel), -1 /*near*/, 1));
+			*rd = h(_inverseVP * glm::vec4(_i2x((float)x + xoffsetInPixel), _j2y((float)y + yoffsetInPixel), +1 /*far */, 1)) - *ro;
 			*rd = glm::normalize(*rd);
 		}
 	private:
