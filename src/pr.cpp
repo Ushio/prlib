@@ -16,6 +16,7 @@
 #include <map>
 #include <algorithm>
 #include <numeric>
+#include <chrono>
 
 #include "pr_sdf.h"
 #include "pr_verdana.h"
@@ -2017,6 +2018,13 @@ namespace pr {
     }
 
     double GetElapsedTime() {
+        // work around non initializeed
+        if( g_window == nullptr )
+        {
+            static std::chrono::high_resolution_clock::time_point s_start = std::chrono::high_resolution_clock::now();
+            auto now = std::chrono::high_resolution_clock::now();
+            return (double)std::chrono::duration_cast<std::chrono::microseconds>(now - s_start).count() * 0.001 * 0.001;
+        }
         return glfwGetTime();
     }
     double GetFrameTime() {
