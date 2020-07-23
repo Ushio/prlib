@@ -41,7 +41,7 @@ namespace pr {
         int SwapInterval = 1;
         int NumSamples = 4;
         int imguiFontSize = 20;
-        std::string Title;
+        std::string Title; // UTF-8 encoded
 
         bool UTF8CodePageOnInit = true;
     };
@@ -169,6 +169,7 @@ namespace pr {
     bool IsKeyUp(int button);
 
     // File Drop
+    // UTF-8 encoded
     void SetFileDropCallback(std::function<void(std::vector<std::string>)> onFileDrop);
 
     // Drawing
