@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <functional>
 
 #ifdef GLM_VERSION
     #ifndef GLM_FORCE_CTOR_INIT
@@ -41,9 +42,14 @@ namespace pr {
         int NumSamples = 4;
         int imguiFontSize = 20;
         std::string Title;
+
+        bool UTF8CodePageOnInit = true;
     };
     void Initialize(Config config);
     void CleanUp();
+
+    // for explicit call. it's ok to call without Initialize()
+    void SetUTF8CodePage();
 
     int GetScreenWidth();
     int GetScreenHeight();
@@ -161,6 +167,9 @@ namespace pr {
     // up or down event
     bool IsKeyDown(int button);
     bool IsKeyUp(int button);
+
+    // File Drop
+    void SetFileDropCallback(std::function<void(std::vector<std::string>)> onFileDrop);
 
     // Drawing
     void ClearBackground(float r, float g, float b, float a);

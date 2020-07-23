@@ -291,6 +291,16 @@ int main() {
     using namespace pr;
 
     SetDataDir(JoinPath(ExecutableDir(), "../data"));
+    SetFileDropCallback([](std::vector<std::string> files) {
+        for (auto file : files)
+        {
+            std::cout << file << std::endl;
+            std::cout << GetPathBasename(file) << std::endl;
+            std::cout << GetPathDirname(file) << std::endl;
+            std::cout << GetPathExtension(file) << std::endl;
+            std::cout << ChangePathExtension(file, "hogehogehoge") << std::endl;
+        }
+    });
 
     Config config;
     config.ScreenWidth = 1920;

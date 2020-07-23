@@ -427,6 +427,36 @@ namespace pr {
         return JoinPath(JoinPath(a, b, c, d), e);
     }
 
+    std::string GetPathBasename(std::string path)
+    {
+        const char* basename = nullptr;
+        size_t length = 0;
+        cwk_path_get_basename(path.c_str(), &basename, &length);
+        return std::string(basename);
+    }
+    std::string GetPathDirname(std::string path)
+    {
+        size_t length = 0;
+        cwk_path_get_dirname(path.c_str(), &length);
+        std::vector<char> dirname(length + 1);
+        memcpy(dirname.data(), path.c_str(), length);
+        return std::string(dirname.data());
+    }
+    std::string GetPathExtension(std::string path)
+    {
+        const char* ext = nullptr;
+        size_t length = 0;
+        cwk_path_get_extension(path.c_str(), &ext, &length);
+        return std::string(ext);
+    }
+    std::string ChangePathExtension(std::string path, std::string newExtension)
+    {
+        size_t size = cwk_path_change_extension(path.c_str(), newExtension.c_str(), 0, 0);
+        std::vector<char> dirname(size + 1);
+        size_t should_be_zero = cwk_path_change_extension(path.c_str(), newExtension.c_str(), dirname.data(), dirname.size());
+        return dirname.data();
+    }
+
     void SetDataDir(std::string dir) {
         g_dataPath = NormalizePath(dir);
     }

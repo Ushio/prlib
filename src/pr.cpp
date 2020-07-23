@@ -1,5 +1,11 @@
 ﻿#include "pr.hpp"
 
+#define NOMINMAX
+#include <Windows.h>
+#if defined(DrawText)
+#undef DrawText
+#endif
+
 #include "GL/glew.h"
 #include "GLFW/glfw3.h"
 #include "GLFW/glfw3native.h"
@@ -17,6 +23,8 @@
 #include <algorithm>
 #include <numeric>
 #include <chrono>
+#include <clocale>
+#include <fstream>
 
 #include "pr_sdf.h"
 #include "pr_verdana.h"
@@ -105,6 +113,8 @@ namespace pr {
 
         std::map<int, ButtonCondition> g_keyConditions;
         std::map<int, ButtonCondition> g_keyConditionsPrevious;
+
+        std::function<void(std::vector<std::string>)> g_onFileDrop;
 
         // Global Variable (User)
         std::stack<std::unique_ptr<const ICamera>> g_cameraStack;
@@ -1932,8 +1942,17 @@ namespace pr {
         g_events.push(e);
     }
 
+    void SetUTF8CodePage()
+    {
+        std::locale::global(std::locale("en_US.UTF-8"));
+    }
     void Initialize(Config config) {
         g_config = config;
+
+        if (config.UTF8CodePageOnInit)
+        {
+            SetUTF8CodePage();
+        }
 
         glfwInit();
 
@@ -1968,6 +1987,18 @@ namespace pr {
         glfwSetCursorPosCallback(g_window, CursorPositionCallback);
         glfwSetKeyCallback(g_window, KeyCallback);
         glfwSetScrollCallback(g_window, ScrollCallback);
+        glfwSetDropCallback(g_window, [](GLFWwindow* window, int count, const char** paths) {
+            std::vector<std::string> files;
+            for(int i = 0; i < count; i++)
+            {
+                files.emplace_back(paths[i]);
+            }
+
+            if(g_onFileDrop)
+            {
+                g_onFileDrop(files);
+            }
+        });
 
         double cx, cy;
         glfwGetCursorPos(g_window, &cx, &cy);
@@ -2264,6 +2295,10 @@ suspend_event_handle:
         return
             g_keyConditions[button] == ButtonCondition::Released &&
             g_keyConditionsPrevious[button] == ButtonCondition::Pressed;
+    }
+    void SetFileDropCallback(std::function<void(std::vector<std::string>)> onFileDrop)
+    {
+        g_onFileDrop = onFileDrop;
     }
 
     // Interactions

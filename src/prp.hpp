@@ -218,6 +218,11 @@ namespace pr {
     std::string JoinPath(std::string a, std::string b, std::string c, std::string d);
     std::string JoinPath(std::string a, std::string b, std::string c, std::string d, std::string e);
 
+    std::string GetPathBasename(std::string path); // note: includes extension 
+    std::string GetPathDirname(std::string path);
+    std::string GetPathExtension(std::string path);
+    std::string ChangePathExtension(std::string path, std::string newExtension);
+
     std::string GetDataPath(std::string filename);
 
     void ParallelFor(int n, std::function<void(int)> f /* f(index) */);
