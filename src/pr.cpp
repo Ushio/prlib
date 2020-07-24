@@ -116,7 +116,7 @@ namespace pr {
 
         std::function<void(std::vector<std::string>)> g_onFileDrop;
 
-        // Global Variable (User)
+        glm::mat4 g_objectTransform = glm::identity<glm::mat4>();
         std::stack<std::unique_ptr<const ICamera>> g_cameraStack;
     }
 
@@ -1074,7 +1074,7 @@ namespace pr {
 
     class Camera3DObject : public ICamera {
     public:
-        Camera3DObject(Camera3D camera, glm::mat4 objectTransform = glm::identity<glm::mat4>()):_camera(camera), _objectTransform(objectTransform) {
+        Camera3DObject(Camera3D camera):_camera(camera) {
 
         }
         virtual glm::mat4 getProjectionMatrix() const override {
@@ -1137,11 +1137,10 @@ namespace pr {
                     glm::vec3(-1, 0, 0)
                 );
             }
-            return m * _objectTransform;
+            return m;
         }
     private:
         Camera3D _camera;
-        glm::mat4 _objectTransform = glm::identity<glm::mat4>();
     };
 
     static const ICamera *GetCurrentCamera() {
@@ -1153,9 +1152,8 @@ namespace pr {
     }
     static void UpdateCurrentMatrix() {
         auto camera = GetCurrentCamera();
-        auto v = camera->getViewMatrix();
+        auto v = camera->getViewMatrix() * g_objectTransform;
         auto p = camera->getProjectionMatrix();
-        auto vp = v * p;
         g_primitivePipeline->setVP(v, p);
         g_texturedTrianglePipeline->setVP(v, p);
         g_fontPipeline->setVP(v, p);
@@ -1259,18 +1257,24 @@ namespace pr {
         s.scissorHeight = height;
         g_states.top().apply();
     }
-
+    void SetObjectTransform(glm::mat4 transform)
+    {
+        g_objectTransform = transform;
+        UpdateCurrentMatrix();
+    }
+    glm::mat4 GetObjectTransform()
+    {
+        return g_objectTransform;
+    }
+    void SetObjectIdentify()
+    {
+        g_objectTransform = glm::identity<glm::mat4>();
+        UpdateCurrentMatrix();
+    }
     void BeginCamera(Camera3D camera) {
         PR_ASSERT(g_cameraStack.size() <= MAX_CAMERA_STACK_SIZE);
 
         g_cameraStack.push(std::unique_ptr<const ICamera>(new Camera3DObject(camera)));
-        UpdateCurrentMatrix();
-    }
-    void BeginCameraWithObjectTransform(Camera3D camera, glm::mat4 transform)
-    {
-        PR_ASSERT(g_cameraStack.size() <= MAX_CAMERA_STACK_SIZE);
-
-        g_cameraStack.push(std::unique_ptr<const ICamera>(new Camera3DObject(camera, transform)));
         UpdateCurrentMatrix();
     }
     void BeginCamera2DCanvas() {

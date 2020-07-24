@@ -210,10 +210,14 @@ namespace pr {
         float perspective = 1.0f;
     };
 
+    // Object Transfrom
+    void SetObjectTransform(glm::mat4 transform);
+    glm::mat4 GetObjectTransform();
+    void SetObjectIdentify();
+
     // These are stack-managemented.
     void GetCameraMatrix(Camera3D camera3d, glm::mat4 *proj, glm::mat4 *view);
     void BeginCamera(Camera3D camera);
-    void BeginCameraWithObjectTransform(Camera3D camera, glm::mat4 transform);
     void BeginCamera2DCanvas();
     void BeginCameraNone();
     void EndCamera();
