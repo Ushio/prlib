@@ -9,18 +9,24 @@
 #include "pr.hpp"
 
 namespace pr {
-	enum IColumnType {
-		ColumnType_Int32 = 0,
-		ColumnType_Float,
-		ColumnType_Vector3,
-		ColumnType_String,
+	//enum IColumnType {
+	//	ColumnType_Int32 = 0,
+	//	ColumnType_Float,
+	//	ColumnType_Vector3,
+	//	ColumnType_String,
+	//};
+
+	enum WindingOrder
+	{
+		WindingOrder_CW,
+		WindingOrder_CCW
 	};
 
 	class IColumn
 	{
 	public:
 		virtual ~IColumn() {}
-		virtual uint64_t count() const = 0;
+		virtual int64_t count() const = 0;
 		virtual int snprint(uint32_t i, char* dst, uint32_t buffersize) const = 0;
 	};
 	class IInt32Column : public IColumn {
@@ -64,9 +70,10 @@ namespace pr {
 		/*
 		  These return the same data if it refer the same kind of instance.
 		*/
+		virtual WindingOrder winingOrder() const = 0;
 		virtual std::shared_ptr<IVector3Column> positions() const = 0;
-		virtual std::shared_ptr<IVector3Column> normals() const = 0;
-		virtual std::shared_ptr<IVector2Column> uvs() const = 0;
+		virtual std::shared_ptr<IVector3Column> normals() const = 0; // optional
+		virtual std::shared_ptr<IVector2Column> uvs() const = 0; // optional
 		virtual std::shared_ptr<IInt32Column> faceCounts() const = 0;
 		virtual std::shared_ptr<IInt32Column> faceIndices() const = 0;
 
@@ -126,7 +133,7 @@ namespace pr {
 			Sucess,
 			Failure
 		};
-		Result open(const std::string& filePath, std::string& error_message);
+		Result open(const std::string& filePath /* it doesn't refer GetDataPath */, std::string& error_message);
 		bool isOpened() const;
 		void close();
 
@@ -170,4 +177,7 @@ namespace pr {
 		std::string _userDescription;
 		double _DCCFPS = 0.0;
 	};
+
+
+	std::shared_ptr<FScene> ReadWavefrontObj(const std::string& filePath /* it doesn't refer GetDataPath */, std::string& error_message);
 }

@@ -10,14 +10,31 @@
 using namespace Alembic::Abc;
 using namespace Alembic::AbcGeom;
 
+#include <tiny_obj_loader.h>
+
 namespace pr {
+	class IInt32ColumnVectorImpl : public IInt32Column {
+	public:
+		virtual const int32_t* data() const override {
+			return _ints.data();
+		}
+		virtual int64_t count() const override {
+			return _ints.size();
+		}
+		virtual int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
+			return snprintf(dst, buffersize, "%d", _ints[i]);
+		}
+
+		std::vector<int32_t> _ints;
+	};
+
 	class IInt32ColumnImpl : public IInt32Column {
 	public:
 		IInt32ColumnImpl(Int32ArraySamplePtr ptr) :_ints(ptr) {}
 		virtual const int32_t* data() const override {
 			return _ints->get();
 		}
-		virtual uint64_t count() const override {
+		virtual int64_t count() const override {
 			return _ints->size();
 		}
 		virtual int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
@@ -25,6 +42,7 @@ namespace pr {
 		}
 		Int32ArraySamplePtr _ints;
 	};
+
 	class IVector3ColumnP3fImpl : public IVector3Column {
 	public:
 		IVector3ColumnP3fImpl(P3fArraySamplePtr ptr) :_vec3s(ptr) {}
@@ -36,7 +54,7 @@ namespace pr {
 			static_assert(offsetof(glm::vec3, z) == offsetof(V3f, z), "invalid data compatibility");
 			return reinterpret_cast<const glm::vec3*>(_vec3s->get());
 		}
-		virtual uint64_t count() const override {
+		virtual int64_t count() const override {
 			return _vec3s->size();
 		}
 		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
@@ -55,7 +73,7 @@ namespace pr {
 			static_assert(offsetof(glm::vec2, y) == offsetof(V2f, y), "invalid data compatibility");
 			return reinterpret_cast<const glm::vec2*>(_vec2s->get());
 		}
-		virtual uint64_t count() const override {
+		virtual int64_t count() const override {
 			return _vec2s->size();
 		}
 		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
@@ -75,7 +93,7 @@ namespace pr {
 			static_assert(offsetof(glm::vec3, z) == offsetof(N3f, z), "invalid data compatibility");
 			return reinterpret_cast<const glm::vec3*>(_vec3s->get());
 		}
-		virtual uint64_t count() const override {
+		virtual int64_t count() const override {
 			return _vec3s->size();
 		}
 		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
@@ -93,7 +111,7 @@ namespace pr {
 			static_assert(offsetof(glm::vec2, y) == offsetof(TVec2, y), "invalid data compatibility");
 			return reinterpret_cast<const glm::vec2*>(_vec2s.data());
 		}
-		virtual uint64_t count() const override {
+		virtual int64_t count() const override {
 			return _vec2s.size();
 		}
 		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
@@ -112,7 +130,7 @@ namespace pr {
 			static_assert(offsetof(glm::vec3, z) == offsetof(TVec3, z), "invalid data compatibility");
 			return reinterpret_cast<const glm::vec3*>(_vec3s.data());
 		}
-		virtual uint64_t count() const override {
+		virtual int64_t count() const override {
 			return _vec3s.size();
 		}
 		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
@@ -129,9 +147,14 @@ namespace pr {
 		bool bakedVisibility = true;
 		glm::mat4 localToWorld = glm::identity<glm::mat4>();
 	};
-	class FPolyMeshEntityImpl : public FPolyMeshEntity
+
+	// Alembic
+	class FPolyMeshEntityAbcImpl : public FPolyMeshEntity
 	{
 	public:
+		virtual WindingOrder winingOrder() const override {
+			return WindingOrder_CW;
+		}
 		virtual std::string fullname() const override {
 			return _common.fullname;
 		}
@@ -199,7 +222,7 @@ namespace pr {
 	template <class GeomParam>
 	inline void varyingStrainghten( std::vector<typename GeomParam::value_type>& straight, const typename GeomParam::Sample& sample, std::shared_ptr<IInt32Column> faceIndices )
 	{
-		const uint64_t nVertices = faceIndices->count();
+		const int64_t nVertices = faceIndices->count();
 		auto vals /* TSamplerPtr */ = sample.getVals();
 		UInt32ArraySamplePtr indices = sample.getIndices();
 
@@ -232,7 +255,7 @@ namespace pr {
 	{
 		auto vals /* TSamplerPtr */ = sample.getVals();
 		UInt32ArraySamplePtr indices = sample.getIndices();
-		const uint64_t nVertices = indices->size();
+		const int64_t nVertices = indices->size();
 
 		auto src = vals->get();
 		const uint32_t* src_indices = indices->get();
@@ -251,7 +274,7 @@ namespace pr {
 		IPolyMeshSchema::Sample sample;
 		schema.get(sample, selector);
 
-		std::shared_ptr<FPolyMeshEntityImpl> e(new FPolyMeshEntityImpl());
+		std::shared_ptr<FPolyMeshEntityAbcImpl> e(new FPolyMeshEntityAbcImpl());
 		e->_positions = std::shared_ptr<IVector3ColumnP3fImpl>(new IVector3ColumnP3fImpl(sample.getPositions()));
 		e->_faceCounts = std::shared_ptr<IInt32ColumnImpl>(new IInt32ColumnImpl(sample.getFaceCounts()));
 		e->_faceIndices = std::shared_ptr<IInt32ColumnImpl>(new IInt32ColumnImpl(sample.getFaceIndices()));
@@ -513,11 +536,196 @@ namespace pr {
 			std::vector<std::shared_ptr<FSceneEntity>> entities;
 			IArchive* archive = static_cast<IArchive*>(_alembicArchive.get());
 			parse_object(archive->getTop(), selector, std::vector<M44d>(), true /* visible */, entities );
-			return std::shared_ptr<FScene>(new FScene(entities));
+			return std::shared_ptr<FScene>(new FScene(std::move(entities)));
 		}
 		catch (std::exception& e) {
 			error_message = e.what();
 		}
 		return std::shared_ptr<FScene>();
+	}
+
+	class FPolyMeshEntityTinyObjLoaderImpl : public FPolyMeshEntity
+	{
+	public:
+		virtual std::string fullname() const override {
+			return _common.fullname;
+		}
+		virtual bool visible() const override {
+			return _common.bakedVisibility;
+		}
+		virtual glm::mat4 localToWorld() const override {
+			return _common.localToWorld;
+		}
+		virtual WindingOrder winingOrder() const override {
+			return WindingOrder_CCW;
+		}
+		virtual std::shared_ptr<IVector3Column> positions() const override {
+			return _positions;
+		}
+		virtual std::shared_ptr<IVector3Column> normals() const override {
+			return _normals;
+		}
+		virtual std::shared_ptr<IVector2Column> uvs() const override {
+			return _uvs;
+		}
+		virtual std::shared_ptr<IInt32Column> faceCounts() const override {
+			return _faceCounts;
+		}
+		virtual std::shared_ptr<IInt32Column> faceIndices() const override {
+			return _faceIndices;
+		}
+
+		virtual std::string propertyHash() const override {
+			return _propertyHash;
+		}
+
+		std::shared_ptr<tinyobj::ObjReader> _sharedObjReader;
+
+		CommonAttribute _common;
+
+		// Standard Mesh
+		std::shared_ptr<IVector3Column> _positions;
+		std::shared_ptr<IVector3Column> _normals;
+		std::shared_ptr<IVector2Column> _uvs;
+		std::shared_ptr<IInt32Column> _faceCounts;
+		std::shared_ptr<IInt32Column> _faceIndices;
+
+		// Instanced Mesh
+		std::string _propertyHash;
+	};
+
+	class IVector2ColumnFloatRefImpl : public IVector2Column {
+	public:
+		IVector2ColumnFloatRefImpl(const float *ptr, int64_t count) :_ptr(ptr), _count(count) {}
+
+		virtual const glm::vec2* data() const override {
+			return reinterpret_cast<const glm::vec2*>(_ptr);
+		}
+		virtual int64_t count() const override {
+			return _count;
+		}
+		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
+			float x = _ptr[i * 2];
+			float y = _ptr[i * 2 + 1];
+			return snprintf(dst, buffersize, "(%f, %f)", x, y);
+		}
+		const float* _ptr = nullptr;
+		int64_t _count = 0;
+	};
+	class IVector3ColumnFloatRefImpl : public IVector3Column {
+	public:
+		IVector3ColumnFloatRefImpl(const float* ptr, int64_t count) :_ptr(ptr), _count(count) {}
+
+		virtual const glm::vec3* data() const override {
+			return reinterpret_cast<const glm::vec3*>(_ptr);
+		}
+		virtual int64_t count() const override {
+			return _count;
+		}
+		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
+			float x = _ptr[i * 3];
+			float y = _ptr[i * 3 + 1];
+			float z = _ptr[i * 3 + 2];
+			return snprintf(dst, buffersize, "(%f, %f, %f)", x, y, z);
+		}
+		const float* _ptr = nullptr;
+		int64_t _count = 0;
+	};
+
+	std::shared_ptr<FScene> ReadWavefrontObj(const std::string& filePath, std::string& error_message)
+	{
+		std::shared_ptr<tinyobj::ObjReader> reader(new tinyobj::ObjReader());
+		reader->ParseFromFile(filePath);
+
+		const std::vector<tinyobj::shape_t>& shapes = reader->GetShapes();
+		const tinyobj::attrib_t& attrib = reader->GetAttrib();
+
+		std::shared_ptr<FPolyMeshEntityTinyObjLoaderImpl> e(new FPolyMeshEntityTinyObjLoaderImpl());
+		e->_sharedObjReader = reader;
+
+		e->_positions = std::shared_ptr<IVector3ColumnFloatRefImpl>(new IVector3ColumnFloatRefImpl(
+			attrib.vertices.data(),
+			attrib.vertices.size() / 3
+		));
+
+		int64_t indexCount = 0;
+		int64_t faceCount = 0;
+		for (int i = 0; i < shapes.size(); ++i)
+		{
+			const tinyobj::shape_t& shape = shapes[i];
+			indexCount += shape.mesh.indices.size();
+			faceCount += shape.mesh.num_face_vertices.size();
+		}
+
+		std::shared_ptr<IInt32ColumnVectorImpl> faceCounts(new IInt32ColumnVectorImpl());
+		faceCounts->_ints.resize(faceCount);
+		std::shared_ptr<IInt32ColumnVectorImpl> faceIndices(new IInt32ColumnVectorImpl());
+		faceIndices->_ints.resize(indexCount);
+
+		int32_t* faceCountsPtr = faceCounts->_ints.data();
+		int32_t* faceIndicesPtr = faceIndices->_ints.data();
+
+		std::shared_ptr<IVector3ColumnImplT<glm::vec3>> normals;
+		glm::vec3* normalsPtr = nullptr;
+		std::shared_ptr<IVector2ColumnImplT<glm::vec2>> uvs;
+		glm::vec2* uvsPtr = nullptr;
+
+		int64_t index_i = 0;
+		int64_t face_i = 0;
+		for (int i = 0; i < shapes.size(); ++i)
+		{
+			const tinyobj::shape_t& shape = shapes[i];
+			
+			for (int j = 0; j < shape.mesh.num_face_vertices.size(); ++j)
+			{
+				faceCountsPtr[face_i++] = shape.mesh.num_face_vertices[j];
+			}
+			for (int j = 0; j < shape.mesh.indices.size(); ++j)
+			{
+				auto index = shape.mesh.indices[j];
+				faceIndicesPtr[index_i] = index.vertex_index;
+
+				// setup normals
+				if(0 <= index.normal_index)
+				{
+					if( normalsPtr == nullptr )
+					{
+						normals = std::shared_ptr<IVector3ColumnImplT<glm::vec3>>(new IVector3ColumnImplT<glm::vec3>());
+						normals->_vec3s.resize(indexCount);
+						normalsPtr = normals->_vec3s.data();
+					}
+					
+					normalsPtr[index_i] = {
+						attrib.normals[index.normal_index * 3],
+						attrib.normals[index.normal_index * 3 + 1],
+						attrib.normals[index.normal_index * 3 + 2]
+					};
+				}
+
+				// setup UV
+				if (0 <= index.texcoord_index)
+				{
+					if (uvsPtr == nullptr)
+					{
+						uvs = std::shared_ptr<IVector2ColumnImplT<glm::vec2>>(new IVector2ColumnImplT<glm::vec2>());
+						uvs->_vec2s.resize(indexCount);
+						uvsPtr = uvs->_vec2s.data();
+					}
+					uvsPtr[index_i] = {
+						attrib.texcoords[index.texcoord_index * 2],
+						attrib.texcoords[index.texcoord_index * 2 + 1],
+					};
+				}
+
+				index_i++;
+			}
+		}
+		e->_faceCounts = faceCounts;
+		e->_faceIndices = faceIndices;
+
+		e->_normals = normals;
+		e->_uvs = uvs;
+
+		return std::shared_ptr<FScene>(new FScene({ e }));
 	}
 }

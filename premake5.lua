@@ -76,6 +76,11 @@ project "prlib"
     files { "libs/alembic/**.cpp" }
     files { "libs/alembic/**.h" }
 
+    -- tinyobjloader
+    includedirs { "libs/tiny_obj_loader" }
+    files { "libs/tiny_obj_loader/tiny_obj_loader.cc" }
+    files { "libs/tiny_obj_loader/tiny_obj_loader.h" }
+
     -- Lib Core
     files {"src/*.cpp", "src/*.h", "src/*.hpp"}
     includedirs { "src/" }
