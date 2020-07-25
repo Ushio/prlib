@@ -71,6 +71,11 @@ project "prlib"
     -- lib
     includedirs { "libs/stb" }
 
+    -- alembic
+    includedirs { "libs/alembic" }
+    files { "libs/alembic/**.cpp" }
+    files { "libs/alembic/**.h" }
+
     -- Lib Core
     files {"src/*.cpp", "src/*.h", "src/*.hpp"}
     includedirs { "src/" }
