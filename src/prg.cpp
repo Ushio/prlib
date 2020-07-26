@@ -153,7 +153,7 @@ namespace pr {
 	{
 	public:
 		virtual WindingOrder winingOrder() const override {
-			return WindingOrder_CW;
+			return WindingOrder::WindingOrder_CW;
 		}
 		virtual std::string fullname() const override {
 			return _common.fullname;
@@ -165,20 +165,20 @@ namespace pr {
 			return _common.localToWorld;
 		}
 
-		virtual std::shared_ptr<IVector3Column> positions() const override {
-			return _positions;
+		virtual IVector3Column* positions() const override {
+			return _positions.get();
 		}
-		virtual std::shared_ptr<IVector3Column> normals() const override {
-			return _normals;
+		virtual IVector3Column* normals() const override {
+			return _normals.get();
 		}
-		virtual std::shared_ptr<IVector2Column> uvs() const override {
-			return _uvs;
+		virtual IVector2Column* uvs() const override {
+			return _uvs.get();
 		}
-		virtual std::shared_ptr<IInt32Column> faceCounts() const override {
-			return _faceCounts;
+		virtual IInt32Column* faceCounts() const override {
+			return _faceCounts.get();
 		}
-		virtual std::shared_ptr<IInt32Column> faceIndices() const override {
-			return _faceIndices;
+		virtual IInt32Column* faceIndices() const override {
+			return _faceIndices.get();
 		}
 
 		virtual std::string propertyHash() const override {
@@ -187,11 +187,11 @@ namespace pr {
 		CommonAttribute _common;
 
 		// Standard Mesh
-		std::shared_ptr<IVector3Column> _positions;
-		std::shared_ptr<IVector3Column> _normals;
-		std::shared_ptr<IVector2Column> _uvs;
-		std::shared_ptr<IInt32Column> _faceCounts;
-		std::shared_ptr<IInt32Column> _faceIndices;
+		std::unique_ptr<IVector3Column> _positions;
+		std::unique_ptr<IVector3Column> _normals;
+		std::unique_ptr<IVector2Column> _uvs;
+		std::unique_ptr<IInt32Column> _faceCounts;
+		std::unique_ptr<IInt32Column> _faceIndices;
 
 		// Instanced Mesh
 		std::string _propertyHash;
@@ -219,15 +219,13 @@ namespace pr {
 	}
 
 	// IN3fGeomParam::value_type : N3f, V3f, etc.
+	// sample should be expanded.
 	template <class GeomParam>
-	inline void varyingStrainghten( std::vector<typename GeomParam::value_type>& straight, const typename GeomParam::Sample& sample, std::shared_ptr<IInt32Column> faceIndices )
+	inline void varyingStrainghten( std::vector<typename GeomParam::value_type>& straight, const typename GeomParam::Sample& sample, IInt32Column* faceIndices )
 	{
 		const int64_t nVertices = faceIndices->count();
 		auto vals /* TSamplerPtr */ = sample.getVals();
-		UInt32ArraySamplePtr indices = sample.getIndices();
-
 		auto src = vals->get();
-		const uint32_t* src_indices = indices->get();
 
 		straight.resize( nVertices );
 		auto dst = straight.data();
@@ -237,37 +235,67 @@ namespace pr {
 		{
 			int pIndex = pIndices[i];
 			typename GeomParam::value_type n;
-			if (sample.isIndexed())
-			{
-				n = src[src_indices[pIndex]];
-			}
-			else
-			{
-				n = src[pIndex];
-			}
+			n = src[pIndex];
 			dst[i] = n;
 		}
 	}
 
-	// IN3fGeomParam::value_type : N3f, V3f, etc.
-	template <class GeomParam>
-	inline void facevaryingStrainghtenIndexed( std::vector<typename GeomParam::value_type>& straight, const typename GeomParam::Sample& sample )
+	class AttributeVector3ColumnImpl : public AttributeVector3Column
 	{
-		auto vals /* TSamplerPtr */ = sample.getVals();
-		UInt32ArraySamplePtr indices = sample.getIndices();
-		const int64_t nVertices = indices->size();
-
-		auto src = vals->get();
-		const uint32_t* src_indices = indices->get();
-
-		straight.resize(nVertices);
-		auto dst = straight.data();
-
-		for (int i = 0; i < nVertices; ++i)
-		{
-			dst[i] = src[src_indices[i]];
+	public:
+		virtual uint32_t rowCount() const {
+			return 0;
 		}
-	}
+		virtual int snprint(uint32_t index, char* buffer, uint32_t buffersize) const
+		{
+			return 0;
+		}
+		virtual glm::vec3 get(uint32_t index) const
+		{
+			const float* p = _vals->get();
+			if (_isIndexed)
+			{
+
+			}
+			float x = p[index * 3];
+			float y = p[index * 3 + 1];
+			float z = p[index * 3 + 2];
+			return glm::vec3(x, y, z);
+		}
+		static bool matches(const AbcA::PropertyHeader& iHeader)
+		{
+			DataType srcDataType = iHeader.getDataType();
+			if (iHeader.isCompound())
+			{
+
+			}
+			else if (iHeader.isArray())
+			{
+				return
+					iHeader.getDataType() == DataType(kFloat32POD, 3) ||
+					(iHeader.getDataType() == DataType(kFloat32POD, 1) && iHeader.getMetaData().get("arrayExtent") == "3");
+			}
+			return false;
+		}
+		static std::shared_ptr<AttributeVector3Column> Get(ICompoundProperty parent, const char* key, ISampleSelector selector )
+		{
+			const PropertyHeader* header = parent.getPropertyHeader(key);
+			if( header->isArray() )
+			{
+				IFloatArrayProperty vals(parent, key);
+				IFloatArrayProperty::sample_ptr_type sample;
+				vals.get(sample, selector);
+				std::shared_ptr<AttributeVector3ColumnImpl> col(new AttributeVector3ColumnImpl());
+				col->_vals = sample;
+				return col;
+			}
+			return std::shared_ptr<AttributeVector3Column>();
+		}
+
+		FloatArraySamplePtr _vals;
+		bool _isIndexed = false;
+	};
+
 
 	inline std::shared_ptr<FPolyMeshEntity> parse_polymesh(IPolyMesh &polyMesh, const CommonAttribute& common, ISampleSelector selector) {
 		IPolyMeshSchema& schema = polyMesh.getSchema();
@@ -275,35 +303,26 @@ namespace pr {
 		schema.get(sample, selector);
 
 		std::shared_ptr<FPolyMeshEntityAbcImpl> e(new FPolyMeshEntityAbcImpl());
-		e->_positions = std::shared_ptr<IVector3ColumnP3fImpl>(new IVector3ColumnP3fImpl(sample.getPositions()));
-		e->_faceCounts = std::shared_ptr<IInt32ColumnImpl>(new IInt32ColumnImpl(sample.getFaceCounts()));
-		e->_faceIndices = std::shared_ptr<IInt32ColumnImpl>(new IInt32ColumnImpl(sample.getFaceIndices()));
+		e->_positions = std::unique_ptr<IVector3ColumnP3fImpl>(new IVector3ColumnP3fImpl(sample.getPositions()));
+		e->_faceCounts = std::unique_ptr<IInt32ColumnImpl>(new IInt32ColumnImpl(sample.getFaceCounts()));
+		e->_faceIndices = std::unique_ptr<IInt32ColumnImpl>(new IInt32ColumnImpl(sample.getFaceIndices()));
 		IN3fGeomParam normalParam = schema.getNormalsParam();
 		if( normalParam )
 		{
 			GeometryScope scope = normalParam.getScope();
 			IN3fGeomParam::Sample sampleNormal;
-			normalParam.getIndexed(sampleNormal, selector);
+			normalParam.getExpanded(sampleNormal, selector);
 			switch( scope )
 			{
 			case kVaryingScope:
 			{
-				std::shared_ptr<IVector3ColumnImplT<N3f>> normals(new IVector3ColumnImplT<N3f>());
-				varyingStrainghten<IN3fGeomParam>(normals->_vec3s, sampleNormal, e->_faceIndices);
-				e->_normals = normals;
+				std::unique_ptr<IVector3ColumnImplT<N3f>> normals(new IVector3ColumnImplT<N3f>());
+				varyingStrainghten<IN3fGeomParam>(normals->_vec3s, sampleNormal, e->_faceIndices.get());
+				e->_normals = std::move(normals);
 				break;
 			}
 			case kFacevaryingScope:
-				if ( sampleNormal.isIndexed())
-				{
-					std::shared_ptr<IVector3ColumnImplT<N3f>> normals(new IVector3ColumnImplT<N3f>());
-					facevaryingStrainghtenIndexed<IN3fGeomParam>( normals->_vec3s, sampleNormal );
-					e->_normals = normals;
-				}
-				else
-				{
-					e->_normals = std::shared_ptr<IVector3ColumnN3fImpl>(new IVector3ColumnN3fImpl(sampleNormal.getVals()));
-				}
+				e->_normals = std::unique_ptr<IVector3ColumnN3fImpl>(new IVector3ColumnN3fImpl(sampleNormal.getVals()));
 				break;
 			default:
 				break;
@@ -315,31 +334,68 @@ namespace pr {
 		{
 			GeometryScope scope = uvParam.getScope();
 			IV2fGeomParam::Sample sampleUV;
-			uvParam.getIndexed(sampleUV, selector);
+			uvParam.getExpanded(sampleUV, selector);
 			switch (scope)
 			{
 			case kVaryingScope:
 			{
-				std::shared_ptr<IVector2ColumnImplT<V2f>> uvs(new IVector2ColumnImplT<V2f>());
-				varyingStrainghten<IV2fGeomParam>(uvs->_vec2s, sampleUV, e->_faceIndices);
-				e->_uvs = uvs;
+				std::unique_ptr<IVector2ColumnImplT<V2f>> uvs(new IVector2ColumnImplT<V2f>());
+				varyingStrainghten<IV2fGeomParam>(uvs->_vec2s, sampleUV, e->_faceIndices.get());
+				e->_uvs = std::move(uvs);
 				break;
 			}
 			case kFacevaryingScope:
-				if (sampleUV.isIndexed())
-				{
-					std::shared_ptr<IVector2ColumnImplT<V2f>> uvs(new IVector2ColumnImplT<V2f>());
-					facevaryingStrainghtenIndexed<IV2fGeomParam>(uvs->_vec2s, sampleUV);
-					e->_uvs = uvs;
-				}
-				else
-				{
-					e->_uvs = std::shared_ptr<IVector2ColumnV2fImpl>(new IVector2ColumnV2fImpl(sampleUV.getVals()));
-				}
+				e->_uvs = std::unique_ptr<IVector2ColumnV2fImpl>(new IVector2ColumnV2fImpl(sampleUV.getVals()));
 				break;
 			default:
 				break;
 			}
+		}
+
+		ICompoundProperty arbProps = schema.getArbGeomParams();
+		for (int i = 0; i < arbProps.getNumProperties(); ++i) {
+			const PropertyHeader &propertyHeader = arbProps.getPropertyHeader(i);
+			auto key = propertyHeader.getName();
+
+			if (AttributeVector3ColumnImpl::matches(propertyHeader))
+			{
+				auto data = AttributeVector3ColumnImpl::Get(arbProps, key.c_str(), selector);
+			}
+			//if (IFloatGeomParam::matches(propertyHeader))
+			//{
+			//	IFloatGeomParam param = IFloatGeomParam(arbProps, key);
+			//	IFloatGeomParam::Sample sample;
+			//	param.getIndexed(sample, selector);
+			//	int arraysize = sample.getVals()->size();
+			//	int indexsize = sample.getIndices()->size();
+			//	int arrayExtent = param.getArrayExtent();
+			//	printf("");
+			//}
+			//if (IV2fGeomParam::matches(child_header, kNoMatching /* just checking extent and type */))
+			//{
+			//	IV2fGeomParam param = IV2fGeomParam(arbProps, key);
+			//	IV2fGeomParam::Sample sample;
+			//	param.getIndexed(sample, selector);
+			//}
+			//if (IV3fGeomParam::matches(child_header, kNoMatching /* just checking extent and type */))
+			//{
+			//	IV3fGeomParam param = IV3fGeomParam(arbProps, key);
+			//	IV3fGeomParam::Sample sample;
+			//	param.getIndexed(sample, selector);
+			//}
+
+			//std::string geoScope = propertyHeader.getMetaData().get("");
+
+			// std::string geoScope = child_header.getMetaData().get("geoScope");
+			
+			// m_positionsProperty = Abc::IP3fArrayProperty(polyMesh, "P", kNoMatching, ErrorHandler::kQuietNoopPolicy);
+
+			//m_indicesProperty = Abc::IInt32ArrayProperty(polyMesh, ".faceIndices",
+			//	iArg0, iArg1);
+			//m_countsProperty = Abc::IInt32ArrayProperty(polyMesh, ".faceCounts",
+			//	iArg0, iArg1);
+			// ALEMBIC_ABC_DECLARE_TYPE_TRAITS( V3f, kFloat32POD, 3, "point", P3fTPTraits );
+			//IV3fGeomParam prop = 
 		}
 
 		Digest d;
@@ -557,22 +613,22 @@ namespace pr {
 			return _common.localToWorld;
 		}
 		virtual WindingOrder winingOrder() const override {
-			return WindingOrder_CCW;
+			return WindingOrder::WindingOrder_CCW;
 		}
-		virtual std::shared_ptr<IVector3Column> positions() const override {
-			return _positions;
+		virtual IVector3Column* positions() const override {
+			return _positions.get();
 		}
-		virtual std::shared_ptr<IVector3Column> normals() const override {
-			return _normals;
+		virtual IVector3Column * normals() const override {
+			return _normals.get();
 		}
-		virtual std::shared_ptr<IVector2Column> uvs() const override {
-			return _uvs;
+		virtual IVector2Column* uvs() const override {
+			return _uvs.get();
 		}
-		virtual std::shared_ptr<IInt32Column> faceCounts() const override {
-			return _faceCounts;
+		virtual IInt32Column* faceCounts() const override {
+			return _faceCounts.get();
 		}
-		virtual std::shared_ptr<IInt32Column> faceIndices() const override {
-			return _faceIndices;
+		virtual IInt32Column* faceIndices() const override {
+			return _faceIndices.get();
 		}
 
 		virtual std::string propertyHash() const override {
@@ -584,11 +640,11 @@ namespace pr {
 		CommonAttribute _common;
 
 		// Standard Mesh
-		std::shared_ptr<IVector3Column> _positions;
-		std::shared_ptr<IVector3Column> _normals;
-		std::shared_ptr<IVector2Column> _uvs;
-		std::shared_ptr<IInt32Column> _faceCounts;
-		std::shared_ptr<IInt32Column> _faceIndices;
+		std::unique_ptr<IVector3Column> _positions;
+		std::unique_ptr<IVector3Column> _normals;
+		std::unique_ptr<IVector2Column> _uvs;
+		std::unique_ptr<IInt32Column> _faceCounts;
+		std::unique_ptr<IInt32Column> _faceIndices;
 
 		// Instanced Mesh
 		std::string _propertyHash;
@@ -635,7 +691,11 @@ namespace pr {
 	std::shared_ptr<FScene> ReadWavefrontObj(const std::string& filePath, std::string& error_message)
 	{
 		std::shared_ptr<tinyobj::ObjReader> reader(new tinyobj::ObjReader());
-		reader->ParseFromFile(filePath);
+		if (reader->ParseFromFile(filePath) == false)
+		{
+			error_message = reader->Error();
+			return std::shared_ptr<FScene>();
+		}
 
 		const std::vector<tinyobj::shape_t>& shapes = reader->GetShapes();
 		const tinyobj::attrib_t& attrib = reader->GetAttrib();
@@ -643,7 +703,7 @@ namespace pr {
 		std::shared_ptr<FPolyMeshEntityTinyObjLoaderImpl> e(new FPolyMeshEntityTinyObjLoaderImpl());
 		e->_sharedObjReader = reader;
 
-		e->_positions = std::shared_ptr<IVector3ColumnFloatRefImpl>(new IVector3ColumnFloatRefImpl(
+		e->_positions = std::unique_ptr<IVector3ColumnFloatRefImpl>(new IVector3ColumnFloatRefImpl(
 			attrib.vertices.data(),
 			attrib.vertices.size() / 3
 		));
@@ -657,17 +717,17 @@ namespace pr {
 			faceCount += shape.mesh.num_face_vertices.size();
 		}
 
-		std::shared_ptr<IInt32ColumnVectorImpl> faceCounts(new IInt32ColumnVectorImpl());
+		std::unique_ptr<IInt32ColumnVectorImpl> faceCounts(new IInt32ColumnVectorImpl());
 		faceCounts->_ints.resize(faceCount);
-		std::shared_ptr<IInt32ColumnVectorImpl> faceIndices(new IInt32ColumnVectorImpl());
+		std::unique_ptr<IInt32ColumnVectorImpl> faceIndices(new IInt32ColumnVectorImpl());
 		faceIndices->_ints.resize(indexCount);
 
 		int32_t* faceCountsPtr = faceCounts->_ints.data();
 		int32_t* faceIndicesPtr = faceIndices->_ints.data();
 
-		std::shared_ptr<IVector3ColumnImplT<glm::vec3>> normals;
+		std::unique_ptr<IVector3ColumnImplT<glm::vec3>> normals;
 		glm::vec3* normalsPtr = nullptr;
-		std::shared_ptr<IVector2ColumnImplT<glm::vec2>> uvs;
+		std::unique_ptr<IVector2ColumnImplT<glm::vec2>> uvs;
 		glm::vec2* uvsPtr = nullptr;
 
 		int64_t index_i = 0;
@@ -690,7 +750,7 @@ namespace pr {
 				{
 					if( normalsPtr == nullptr )
 					{
-						normals = std::shared_ptr<IVector3ColumnImplT<glm::vec3>>(new IVector3ColumnImplT<glm::vec3>());
+						normals = std::unique_ptr<IVector3ColumnImplT<glm::vec3>>(new IVector3ColumnImplT<glm::vec3>());
 						normals->_vec3s.resize(indexCount);
 						normalsPtr = normals->_vec3s.data();
 					}
@@ -707,7 +767,7 @@ namespace pr {
 				{
 					if (uvsPtr == nullptr)
 					{
-						uvs = std::shared_ptr<IVector2ColumnImplT<glm::vec2>>(new IVector2ColumnImplT<glm::vec2>());
+						uvs = std::unique_ptr<IVector2ColumnImplT<glm::vec2>>(new IVector2ColumnImplT<glm::vec2>());
 						uvs->_vec2s.resize(indexCount);
 						uvsPtr = uvs->_vec2s.data();
 					}
@@ -720,11 +780,11 @@ namespace pr {
 				index_i++;
 			}
 		}
-		e->_faceCounts = faceCounts;
-		e->_faceIndices = faceIndices;
+		e->_faceCounts = std::move(faceCounts);
+		e->_faceIndices = std::move(faceIndices);
 
-		e->_normals = normals;
-		e->_uvs = uvs;
+		e->_normals = std::move(normals);
+		e->_uvs = std::move(uvs);
 
 		return std::shared_ptr<FScene>(new FScene({ e }));
 	}

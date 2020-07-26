@@ -16,7 +16,7 @@ namespace pr {
 	//	ColumnType_String,
 	//};
 
-	enum WindingOrder
+	enum class WindingOrder
 	{
 		WindingOrder_CW,
 		WindingOrder_CCW
@@ -41,9 +41,124 @@ namespace pr {
 	public:
 		virtual const glm::vec3* data() const = 0;
 	};
-	using IInt32ColumnPtr = std::shared_ptr<IInt32Column>;
-	using IVector2ColumnPtr = std::shared_ptr<IVector2Column>;
-	using IVector3ColumnPtr = std::shared_ptr<IVector3Column>;
+
+	/*
+	Houdini Specific
+	*/
+	enum AttributeType {
+		AttributeType_Int = 0,
+		AttributeType_Float,
+		AttributeType_Vector2,
+		AttributeType_Vector3,
+		AttributeType_Vector4,
+		AttributeType_String,
+	};
+	inline const char* attributeTypeString(AttributeType type) {
+		static const char* types[] = {
+			"Int",
+			"Float",
+			"Vector2",
+			"Vector3",
+			"Vector4",
+			"String",
+		};
+		return types[type];
+	}
+
+	class AttributeColumn {
+	public:
+		AttributeColumn() {}
+		AttributeColumn(const AttributeColumn&) = delete;
+		void operator=(const AttributeColumn&) = delete;
+
+		virtual ~AttributeColumn() {}
+		virtual AttributeType attributeType() const = 0;
+		virtual uint32_t rowCount() const = 0;
+		virtual int snprint(uint32_t index, char* buffer, uint32_t buffersize) const = 0;
+	};
+	class AttributeVector3Column : public AttributeColumn {
+	public:
+		AttributeType attributeType() const override {
+			return AttributeType_Vector3;
+		}
+		virtual glm::vec3 get(uint32_t index) const = 0;
+	};
+
+	class AttributeSpreadsheet {
+	public:
+		virtual ~AttributeSpreadsheet() {}
+
+		virtual std::vector<std::string> keys() const = 0;
+
+		virtual const AttributeColumn* column(const char* key) const = 0;
+		virtual const AttributeVector3Column* columnAsVector3(const char* key) const = 0;
+	};
+	//class AttributeSpreadSheet {
+	//	template <class T>
+	//	const T* column_as(const char* key, AttributeType attributeType) const {
+	//		auto c = column(key);
+	//		if (c && c->attributeType() == attributeType) {
+	//			return static_cast<const T*>(column(key));
+	//		}
+	//		return nullptr;
+	//	}
+	//public:
+	//	//const AttributeStringColumn* column_as_string(const char* key) const {
+	//	//	return column_as<AttributeStringColumn>(key, AttributeType_String);
+	//	//}
+	//	//const AttributeFloatColumn* column_as_float(const char* key) const {
+	//	//	return column_as<AttributeFloatColumn>(key, AttributeType_Float);
+	//	//}
+	//	//const AttributeIntColumn* column_as_int(const char* key) const {
+	//	//	return column_as<AttributeIntColumn>(key, AttributeType_Int);
+	//	//}
+	//	//const AttributeVector2Column* column_as_vector2(const char* key) const {
+	//	//	return column_as<AttributeVector2Column>(key, AttributeType_Vector2);
+	//	//}
+	//	const AttributeVector3Column* column_as_vector3(const char* key) const {
+	//		return column_as<AttributeVector3Column>(key, AttributeType_Vector3);
+	//	}
+	//	//const AttributeVector4Column* column_as_vector4(const char* key) const {
+	//	//	return column_as<AttributeVector4Column>(key, AttributeType_Vector4);
+	//	//}
+	//	uint32_t rowCount() const {
+	//		if (sheet.empty()) {
+	//			return 0;
+	//		}
+	//		return sheet[0].column->rowCount();
+	//	}
+	//	uint32_t columnCount() const {
+	//		return (uint32_t)sheet.size();
+	//	}
+
+	//	const AttributeColumn* column(const char* key) const {
+	//		auto it = std::lower_bound(sheet.begin(), sheet.end(), key, [](const char* a, const char* b) {
+	//			return strcmp(a, b) < 0;
+	//			});
+	//		if (it == sheet.end()) {
+	//			return nullptr;
+	//		}
+	//		if (strcmp(it->key.c_str(), key) != 0) {
+	//			return nullptr;
+	//		}
+	//		return it->column.get();
+	//	}
+
+	//	struct Attribute {
+	//		Attribute() {}
+	//		Attribute(std::string k, std::shared_ptr<AttributeColumn> c) : key(k), column(c) {}
+	//		std::string key;
+	//		std::shared_ptr<AttributeColumn> column;
+
+	//		operator const char* () const {
+	//			return key.c_str();
+	//		}
+	//		bool operator<(const Attribute& rhs) const {
+	//			return key < rhs.key;
+	//		}
+	//	};
+	//	std::vector<Attribute> sheet;
+	//};
 
 	/*
 	Flat Scene Entities
@@ -69,13 +184,14 @@ namespace pr {
 
 		/*
 		  These return the same data if it refer the same kind of instance.
+		  The data's live cycles belong to this entity.
 		*/
 		virtual WindingOrder winingOrder() const = 0;
-		virtual std::shared_ptr<IVector3Column> positions() const = 0;
-		virtual std::shared_ptr<IVector3Column> normals() const = 0; // optional
-		virtual std::shared_ptr<IVector2Column> uvs() const = 0; // optional
-		virtual std::shared_ptr<IInt32Column> faceCounts() const = 0;
-		virtual std::shared_ptr<IInt32Column> faceIndices() const = 0;
+		virtual IVector3Column* positions() const = 0;
+		virtual IVector3Column* normals() const = 0; // optional
+		virtual IVector2Column* uvs() const = 0; // optional
+		virtual IInt32Column* faceCounts() const = 0;
+		virtual IInt32Column* faceIndices() const = 0;
 
 		//AttributeSpreadSheet points;
 		//AttributeSpreadSheet vertices;
