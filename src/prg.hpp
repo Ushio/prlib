@@ -42,6 +42,37 @@ namespace pr {
 		virtual const glm::vec3* data() const = 0;
 	};
 
+	template <class T>
+	class ColumnView
+	{
+	public:
+		template <class U> 
+		ColumnView(const U* col):_ptr(col ? col->data() : nullptr ), _count(col ? col->count() : 0) {
+
+		}
+		ColumnView(const T* ptr, int64_t count):_ptr(ptr), _count(count) {
+
+		}
+		const T& operator[](int64_t i) const {
+			return _ptr[i];
+		}
+		int64_t count() const {
+			return _count;
+		}
+		const T* begin() const {
+			return _ptr;
+		}
+		const T* end() const {
+			return _ptr + _count;
+		}
+		bool empty() const {
+			return _count == 0;
+		}
+	private:
+		const T* _ptr;
+		int64_t _count;
+	};
+
 	/*
 	Houdini Specific
 	*/

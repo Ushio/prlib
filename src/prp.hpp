@@ -283,4 +283,59 @@ namespace pr {
 		LinearTransform _i2x;
 		LinearTransform _j2y;
 	};
+
+    template <class T>
+    class OnlineMean {
+    public:
+        void addSample(T newValue) {
+            _count++;
+            auto delta = newValue - _mean;
+            _mean += delta / _count;
+        }
+        T mean() const {
+            return _mean;
+        }
+        int sampleCount() const {
+            return _count;
+        }
+    private:
+        int _count = 0;
+        T _mean = T(0.0);
+    };
+
+    template <class T>
+    class OnlineVariance {
+    public:
+        void addSample(T newValue) {
+            _count++;
+            auto delta = newValue - _mean;
+            _mean += delta / _count;
+            auto delta2 = newValue - _mean;
+            _M2 += delta * delta2;
+        }
+        T mean() const {
+            return _mean;
+        }
+        T sampleVariance() const {
+            if ( _count <= 0 )
+            {
+                return T(0.0);
+            }
+            return _M2 / _count;
+        }
+        T unbiasedVariance() const {
+            if (_count <= 1)
+            {
+                return T(0.0);
+            }
+            return _M2 / (_count - 1);
+        }
+        int sampleCount() const {
+            return _count;
+        }
+    private:
+        int _count = 0;
+        T _mean = T(0.0);
+        T _M2 = T(0.0);
+    };
 }
