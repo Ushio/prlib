@@ -214,7 +214,7 @@ namespace pr {
 		{
 			for (std::shared_ptr<const FSceneEntity> e : _entities)
 			{
-				std::shared_ptr<const T> d = dynamic_pointer_cast<const T>(e);
+				std::shared_ptr<const T> d = std::dynamic_pointer_cast<const T>(e);
 				if (d)
 				{
 					if (visitor(d) == VisitorAction::Break)
@@ -229,7 +229,7 @@ namespace pr {
 		{
 			for (std::shared_ptr<const FSceneEntity> e : _entities)
 			{
-				std::shared_ptr<const T> d = dynamic_pointer_cast<const T>(e);
+				std::shared_ptr<const T> d = std::dynamic_pointer_cast<const T>(e);
 				if (d)
 				{
 					visitor(d);

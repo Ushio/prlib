@@ -353,49 +353,52 @@ namespace pr {
 		}
 
 		ICompoundProperty arbProps = schema.getArbGeomParams();
-		for (int i = 0; i < arbProps.getNumProperties(); ++i) {
-			const PropertyHeader &propertyHeader = arbProps.getPropertyHeader(i);
-			auto key = propertyHeader.getName();
+		if (arbProps)
+		{
+			for (int i = 0; i < arbProps.getNumProperties(); ++i) {
+				const PropertyHeader &propertyHeader = arbProps.getPropertyHeader(i);
+				auto key = propertyHeader.getName();
 
-			if (AttributeVector3ColumnImpl::matches(propertyHeader))
-			{
-				auto data = AttributeVector3ColumnImpl::Get(arbProps, key.c_str(), selector);
-			}
-			//if (IFloatGeomParam::matches(propertyHeader))
-			//{
-			//	IFloatGeomParam param = IFloatGeomParam(arbProps, key);
-			//	IFloatGeomParam::Sample sample;
-			//	param.getIndexed(sample, selector);
-			//	int arraysize = sample.getVals()->size();
-			//	int indexsize = sample.getIndices()->size();
-			//	int arrayExtent = param.getArrayExtent();
-			//	printf("");
-			//}
-			//if (IV2fGeomParam::matches(child_header, kNoMatching /* just checking extent and type */))
-			//{
-			//	IV2fGeomParam param = IV2fGeomParam(arbProps, key);
-			//	IV2fGeomParam::Sample sample;
-			//	param.getIndexed(sample, selector);
-			//}
-			//if (IV3fGeomParam::matches(child_header, kNoMatching /* just checking extent and type */))
-			//{
-			//	IV3fGeomParam param = IV3fGeomParam(arbProps, key);
-			//	IV3fGeomParam::Sample sample;
-			//	param.getIndexed(sample, selector);
-			//}
+				if (AttributeVector3ColumnImpl::matches(propertyHeader))
+				{
+					auto data = AttributeVector3ColumnImpl::Get(arbProps, key.c_str(), selector);
+				}
+				//if (IFloatGeomParam::matches(propertyHeader))
+				//{
+				//	IFloatGeomParam param = IFloatGeomParam(arbProps, key);
+				//	IFloatGeomParam::Sample sample;
+				//	param.getIndexed(sample, selector);
+				//	int arraysize = sample.getVals()->size();
+				//	int indexsize = sample.getIndices()->size();
+				//	int arrayExtent = param.getArrayExtent();
+				//	printf("");
+				//}
+				//if (IV2fGeomParam::matches(child_header, kNoMatching /* just checking extent and type */))
+				//{
+				//	IV2fGeomParam param = IV2fGeomParam(arbProps, key);
+				//	IV2fGeomParam::Sample sample;
+				//	param.getIndexed(sample, selector);
+				//}
+				//if (IV3fGeomParam::matches(child_header, kNoMatching /* just checking extent and type */))
+				//{
+				//	IV3fGeomParam param = IV3fGeomParam(arbProps, key);
+				//	IV3fGeomParam::Sample sample;
+				//	param.getIndexed(sample, selector);
+				//}
 
-			//std::string geoScope = propertyHeader.getMetaData().get("");
+				//std::string geoScope = propertyHeader.getMetaData().get("");
 
-			// std::string geoScope = child_header.getMetaData().get("geoScope");
+				// std::string geoScope = child_header.getMetaData().get("geoScope");
 			
-			// m_positionsProperty = Abc::IP3fArrayProperty(polyMesh, "P", kNoMatching, ErrorHandler::kQuietNoopPolicy);
+				// m_positionsProperty = Abc::IP3fArrayProperty(polyMesh, "P", kNoMatching, ErrorHandler::kQuietNoopPolicy);
 
-			//m_indicesProperty = Abc::IInt32ArrayProperty(polyMesh, ".faceIndices",
-			//	iArg0, iArg1);
-			//m_countsProperty = Abc::IInt32ArrayProperty(polyMesh, ".faceCounts",
-			//	iArg0, iArg1);
-			// ALEMBIC_ABC_DECLARE_TYPE_TRAITS( V3f, kFloat32POD, 3, "point", P3fTPTraits );
-			//IV3fGeomParam prop = 
+				//m_indicesProperty = Abc::IInt32ArrayProperty(polyMesh, ".faceIndices",
+				//	iArg0, iArg1);
+				//m_countsProperty = Abc::IInt32ArrayProperty(polyMesh, ".faceCounts",
+				//	iArg0, iArg1);
+				// ALEMBIC_ABC_DECLARE_TYPE_TRAITS( V3f, kFloat32POD, 3, "point", P3fTPTraits );
+				//IV3fGeomParam prop = 
+			}
 		}
 
 		Digest d;
