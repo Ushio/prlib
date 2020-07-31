@@ -1,4 +1,5 @@
 ﻿#include "pr.hpp"
+#include "prg.hpp"
 #include <iostream>
 #include <memory>
 
@@ -9,6 +10,7 @@ enum DemoMode {
     DemoMode_Rays,
     DemoMode_Manip,
     DemoMode_Benchmark,
+    DemoMode_Alembic,
 };
 const char* DemoModes[] = { 
     "DemoMode_Point",
@@ -17,6 +19,7 @@ const char* DemoModes[] = {
     "DemoMode_Rays",
     "DemoMode_Manip",
     "DemoMode_Benchmark",
+    "DemoMode_Alembic"
 };
 
 class IDemo {
@@ -278,14 +281,127 @@ struct BenchmarkDemo : public IDemo {
     int N = 32000;
 };
 
-std::vector<IDemo *> demos = {
-    new PointDemo(),
-    new LineDemo(),
-    new TextDemo(),
-    new RaysDemo(),
-    new ManipDemo(),
-    new BenchmarkDemo()
+std::vector<const char*> abcList = {
+    "blend_abc.abc",
+    "maya_abc.abc",
+    "houdini_abc.abc",
 };
+struct AlembicDemo : public IDemo {
+    AlembicDemo()
+    {
+        using namespace pr;
+        std::string errorMessage;
+        if (_abcArchive.open(GetDataPath(abcList[0]), errorMessage) == AbcArchive::Result::Failure)
+        {
+            printf("Alembic Error: %s\n", errorMessage.c_str());
+        }
+        else
+        {
+            _scene = _abcArchive.readFlat(_sample_index, errorMessage);
+        }
+    }
+    void OnDraw() override {
+        using namespace pr;
+
+        if (! _scene) {
+            return;
+        }
+        _scene->visitPolyMesh([](std::shared_ptr<const FPolyMeshEntity> polymesh) {
+            if (polymesh->visible() == false)
+            {
+                return;
+            }
+            ColumnView<int32_t> faceCounts(polymesh->faceCounts());
+            ColumnView<int32_t> indices(polymesh->faceIndices());
+            ColumnView<glm::vec3> positions(polymesh->positions());
+            ColumnView<glm::vec3> normals(polymesh->normals());
+
+            pr::SetObjectTransform(polymesh->localToWorld());
+
+            // Geometry
+            pr::PrimBegin(pr::PrimitiveMode::Lines);
+            for (int i = 0; i < positions.count(); i++)
+            {
+                glm::vec3 p = positions[i];
+                pr::PrimVertex(p, { 200, 200, 200 });
+            }
+            int indexBase = 0;
+            for (int i = 0; i < faceCounts.count(); i++)
+            {
+                int nVerts = faceCounts[i];
+                for (int j = 0; j < nVerts; ++j)
+                {
+                    int i0 = indices[indexBase + j];
+                    int i1 = indices[indexBase + (j + 1) % nVerts];
+                    pr::PrimIndex(i0);
+                    pr::PrimIndex(i1);
+                }
+                indexBase += nVerts;
+            }
+            pr::PrimEnd();
+
+            // Normal
+            if (normals.empty() == false)
+            {
+                pr::PrimBegin(pr::PrimitiveMode::Lines);
+                int indexBase = 0;
+                for (int i = 0; i < faceCounts.count(); i++)
+                {
+                    int nVerts = faceCounts[i];
+
+                    // adaptive n length
+                    OnlineMean<float> d2;
+                    for (int j = 0; j < nVerts; ++j)
+                    {
+                        int i0 = indices[indexBase + j];
+                        int i1 = indices[indexBase + (j + 1) % nVerts];
+                        glm::vec3 d = positions[i0] - positions[i1];
+                        d2.addSample(glm::dot(d, d));
+                    }
+                    float edge = std::sqrt(d2.mean());
+                    for (int j = 0; j < nVerts; ++j)
+                    {
+                        glm::vec3 p = positions[indices[indexBase + j]];
+                        glm::vec3 n = normals[indexBase + j];
+                        pr::PrimVertex(p, { 255, 128, 128 });
+                        pr::PrimVertex(p + n * edge * 0.4f, { 255, 128, 128 });
+                    }
+                    indexBase += nVerts;
+                }
+                pr::PrimEnd();
+            }
+
+            pr::SetObjectIdentify();
+        });
+    }
+    void OnImGui() override {
+        if (ImGui::Combo("File", &_abcFileIndex, abcList.data(), abcList.size()))
+        {
+            using namespace pr;
+            std::string errorMessage;
+            if (_abcArchive.open(GetDataPath(abcList[_abcFileIndex]), errorMessage) == AbcArchive::Result::Failure)
+            {
+                printf("Alembic Error: %s\n", errorMessage.c_str());
+            }
+            else
+            {
+                _scene = _abcArchive.readFlat(_sample_index, errorMessage);
+            }
+        }
+        if (ImGui::SliderInt("sample", &_sample_index, 0, _abcArchive.frameCount()))
+        {
+            std::string errorMessage;
+            _scene = _abcArchive.readFlat(_sample_index, errorMessage);
+        }
+    }
+    int _abcFileIndex = 0;
+    pr::AbcArchive _abcArchive;
+    int _sample_index = 0;
+    std::shared_ptr<pr::FScene> _scene;
+};
+
+
+std::vector<IDemo*> demos;
 
 int main() {
     using namespace pr;
@@ -301,6 +417,16 @@ int main() {
             std::cout << ChangePathExtension(file, "hogehogehoge") << std::endl;
         }
     });
+
+    demos  = {
+       new PointDemo(),
+       new LineDemo(),
+       new TextDemo(),
+       new RaysDemo(),
+       new ManipDemo(),
+       new BenchmarkDemo(),
+       new AlembicDemo(),
+    };
 
     Config config;
     config.ScreenWidth = 1920;
