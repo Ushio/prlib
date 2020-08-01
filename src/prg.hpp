@@ -15,13 +15,6 @@
 #include "glm/ext.hpp"
 
 namespace pr {
-	//enum IColumnType {
-	//	ColumnType_Int32 = 0,
-	//	ColumnType_Float,
-	//	ColumnType_Vector3,
-	//	ColumnType_String,
-	//};
-
 	enum class WindingOrder
 	{
 		WindingOrder_CW,
@@ -81,24 +74,24 @@ namespace pr {
 	/*
 	Houdini Specific
 	*/
-	enum AttributeType {
-		AttributeType_Int = 0,
-		AttributeType_Float,
-		AttributeType_Vector2,
-		AttributeType_Vector3,
-		AttributeType_Vector4,
-		AttributeType_String,
+	enum class AttributeType {
+		Int = 0,
+		Float,
+		Vector2,
+		Vector3,
+		Vector4,
+		String,
 	};
-	inline const char* attributeTypeString(AttributeType type) {
+	inline const char* attributeTypeToVexTypeString(AttributeType type) {
 		static const char* types[] = {
-			"Int",
-			"Float",
-			"Vector2",
-			"Vector3",
-			"Vector4",
-			"String",
+			"int",
+			"float",
+			"vector2",
+			"vector",
+			"vector4",
+			"string",
 		};
-		return types[type];
+		return types[(int)type];
 	}
 
 	class AttributeColumn {
@@ -110,32 +103,39 @@ namespace pr {
 		virtual ~AttributeColumn() {}
 		virtual AttributeType attributeType() const = 0;
 		virtual int64_t count() const = 0;
+		virtual std::string getAsString(int64_t index) const = 0; /* It's slow. just for testing */
+	};
+	class AttributeIntColumn : public AttributeColumn {
+		AttributeType attributeType() const override {
+			return AttributeType::Int;
+		}
+		virtual int32_t get(int64_t index) const = 0;
 	};
 	class AttributeFloatColumn : public AttributeColumn {
 	public:
 		AttributeType attributeType() const override {
-			return AttributeType_Float;
+			return AttributeType::Float;
 		}
 		virtual float get(int64_t index) const = 0;
 	};
 	class AttributeVector2Column : public AttributeColumn {
 	public:
 		AttributeType attributeType() const override {
-			return AttributeType_Vector2;
+			return AttributeType::Vector2;
 		}
 		virtual glm::vec2 get(int64_t index) const = 0;
 	};
 	class AttributeVector3Column : public AttributeColumn {
 	public:
 		AttributeType attributeType() const override {
-			return AttributeType_Vector3;
+			return AttributeType::Vector3;
 		}
 		virtual glm::vec3 get(int64_t index) const = 0;
 	};
 	class AttributeVector4Column : public AttributeColumn {
 	public:
 		AttributeType attributeType() const override {
-			return AttributeType_Vector4;
+			return AttributeType::Vector4;
 		}
 		virtual glm::vec4 get(int64_t index) const = 0;
 	};
@@ -144,85 +144,18 @@ namespace pr {
 	public:
 		virtual ~AttributeSpreadsheet() {}
 
+		virtual int64_t rowCount() const = 0;
+		virtual int64_t columnCount() const = 0;
 		virtual const std::vector<std::string>& keys() const = 0;
 		virtual const AttributeColumn* column(const char* key) const = 0;
 		// virtual const AttributeVector3Column* columnAsVector3(const char* key) const = 0;
 	};
-	//class AttributeSpreadSheet {
-	//	template <class T>
-	//	const T* column_as(const char* key, AttributeType attributeType) const {
-	//		auto c = column(key);
-	//		if (c && c->attributeType() == attributeType) {
-	//			return static_cast<const T*>(column(key));
-	//		}
-	//		return nullptr;
-	//	}
-	//public:
-	//	//const AttributeStringColumn* column_as_string(const char* key) const {
-	//	//	return column_as<AttributeStringColumn>(key, AttributeType_String);
-	//	//}
-	//	//const AttributeFloatColumn* column_as_float(const char* key) const {
-	//	//	return column_as<AttributeFloatColumn>(key, AttributeType_Float);
-	//	//}
-	//	//const AttributeIntColumn* column_as_int(const char* key) const {
-	//	//	return column_as<AttributeIntColumn>(key, AttributeType_Int);
-	//	//}
-	//	//const AttributeVector2Column* column_as_vector2(const char* key) const {
-	//	//	return column_as<AttributeVector2Column>(key, AttributeType_Vector2);
-	//	//}
-	//	const AttributeVector3Column* column_as_vector3(const char* key) const {
-	//		return column_as<AttributeVector3Column>(key, AttributeType_Vector3);
-	//	}
-	//	//const AttributeVector4Column* column_as_vector4(const char* key) const {
-	//	//	return column_as<AttributeVector4Column>(key, AttributeType_Vector4);
-	//	//}
-	//	uint32_t rowCount() const {
-	//		if (sheet.empty()) {
-	//			return 0;
-	//		}
-	//		return sheet[0].column->rowCount();
-	//	}
-	//	uint32_t columnCount() const {
-	//		return (uint32_t)sheet.size();
-	//	}
-
-	//	const AttributeColumn* column(const char* key) const {
-	//		auto it = std::lower_bound(sheet.begin(), sheet.end(), key, [](const char* a, const char* b) {
-	//			return strcmp(a, b) < 0;
-	//			});
-	//		if (it == sheet.end()) {
-	//			return nullptr;
-	//		}
-	//		if (strcmp(it->key.c_str(), key) != 0) {
-	//			return nullptr;
-	//		}
-	//		return it->column.get();
-	//	}
-
-	//	struct Attribute {
-	//		Attribute() {}
-	//		Attribute(std::string k, std::shared_ptr<AttributeColumn> c) : key(k), column(c) {}
-	//		std::string key;
-	//		std::shared_ptr<AttributeColumn> column;
-
-	//		operator const char* () const {
-	//			return key.c_str();
-	//		}
-	//		bool operator<(const Attribute& rhs) const {
-	//			return key < rhs.key;
-	//		}
-	//	};
-	//	std::vector<Attribute> sheet;
-	//};
-
+	
 	/*
 	Flat Scene Entities
 	*/
-	enum FSceneEntityType {
-		FSceneEntityType_PolygonMesh,
-		//FSceneEntityType_Point,
-		//FSceneEntityType_Curve,
-		FSceneEntityType_Camera,
+	enum class FSceneEntityType {
+		PolygonMesh,
 	};
 	class FSceneEntity {
 	public:
@@ -244,7 +177,7 @@ namespace pr {
 
 	class FPolyMeshEntity : public FSceneEntity {
 	public:
-		FSceneEntityType type() const override { return FSceneEntityType_PolygonMesh; }
+		FSceneEntityType type() const override { return FSceneEntityType::PolygonMesh; }
 
 		/*
 		  These return the same data if it refer the same kind of instance.

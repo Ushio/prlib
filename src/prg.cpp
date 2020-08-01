@@ -222,26 +222,55 @@ namespace pr {
 		}
 	}
 
+	inline std::string getPodName(const PropertyHeader* header)
+	{
+		if (header == nullptr)
+		{
+			return "";
+		}
+		return header->getMetaData().get("podName");
+	}
+	inline int getArrayExtent(const PropertyHeader* header)
+	{
+		if (header == nullptr)
+		{
+			return 1;
+		}
+		std::string e = header->getMetaData().get("arrayExtent");
+		if (e.empty())
+		{
+			return 1;
+		}
+		return std::atoi(e.c_str());
+	}
+	inline int getPodExtent(const PropertyHeader* header)
+	{
+		if (header == nullptr)
+		{
+			return 1;
+		}
+		std::string e = header->getMetaData().get("podExtent");
+		if (e.empty())
+		{
+			return 1;
+		}
+		return std::atoi(e.c_str());
+	}
+	inline int getNumCompornent(const PropertyHeader* header)
+	{
+		return getArrayExtent(header) * getPodExtent(header);
+	}
+
 	class IHoudiniFloatGeomParam
 	{
 	public:
-		static bool matches(const AbcA::PropertyHeader& iHeader)
+		static bool matches(const PropertyHeader& iHeader)
 		{
-			DataType srcDataType = iHeader.getDataType();
-			if (iHeader.isScalar())
-			{
-				return iHeader.getDataType().getPod() == kFloat32POD;
-			}
-			if (iHeader.isCompound())
-			{
-				//auto p = iHeader.getDataType();
-				//printf("");
-			}
-			else if (iHeader.isArray())
-			{
-				return iHeader.getDataType().getPod() == kFloat32POD;
-			}
-			return false;
+			std::string podName = getPodName(&iHeader);
+			int numCompornent = getNumCompornent(&iHeader);
+			return
+				podName == Float32PODTraits::name() &&
+				numCompornent <= 4;
 		}
 
 		class Sample
@@ -277,12 +306,12 @@ namespace pr {
 			const PropertyHeader* header = _prop.getPropertyHeader(_key);
 			if( header == nullptr )
 			{
-				sample._isIndexed = false;
+				return;
 			}
 			if( header->isScalar() )
 			{
 				IScalarProperty val(_prop, _key);
-				int nVals = getPodExtent();
+				int nVals = getPodExtent(header);
 				float* values = (float*)malloc(sizeof(float) * nVals);
 				val.get(values, selector);
 				sample._isIndexed = false;
@@ -292,7 +321,7 @@ namespace pr {
 				});
 				sample._scope = GetGeometryScope(header->getMetaData());
 			}
-			else if(header->isArray())
+			else if( header->isArray() )
 			{
 				IFloatArrayProperty vals(_prop, _key);
 				IFloatArrayProperty::sample_ptr_type floatSample;
@@ -303,40 +332,38 @@ namespace pr {
 			}
 			else
 			{
-				
+				ICompoundProperty comp(_prop, _key);
+				IFloatArrayProperty vals(comp, ".vals");
+				IUInt32ArrayProperty indices(comp, ".indices");
+
+				IFloatArrayProperty::sample_ptr_type floatSample;
+				vals.get(floatSample, selector);
+				IUInt32ArrayProperty::sample_ptr_type uintSample;
+				indices.get(uintSample, selector);
+
+				sample._isIndexed = true;
+				sample._vals = floatSample;
+				sample._indices = uintSample;
+				sample._scope = GetGeometryScope(header->getMetaData());
 			}
-		}
-		int getArrayExtent() const
-		{
-			const PropertyHeader* header = _prop.getPropertyHeader(_key);
-			if (header == nullptr)
-			{
-				return 1;
-			}
-			std::string e = header->getMetaData().get("arrayExtent");
-			if( e.empty() ) 
-			{ 
-				return 1; 
-			}
-			return std::atoi(e.c_str());
-		}
-		int getPodExtent() const
-		{
-			const PropertyHeader* header = _prop.getPropertyHeader(_key);
-			if (header == nullptr)
-			{
-				return 1;
-			}
-			return header->getDataType().getExtent();
-		}
-		int getNumCompornent() const
-		{
-			return getArrayExtent() * getPodExtent();
 		}
 
 		ICompoundProperty _prop;
 		std::string _key;
 	};
+
+	std::ostream& operator<<(std::ostream& out, const glm::vec2& v)
+	{
+		return out << v.x << ", " << v.y;
+	}
+	std::ostream& operator<<(std::ostream& out, const glm::vec3& v)
+	{
+		return out << v.x << ", " << v.y << ", " << v.z;
+	}
+	std::ostream& operator<<(std::ostream& out, const glm::vec4& v)
+	{
+		return out << v.x << ", " << v.y << ", " << v.z << ", " << v.w;
+	}
 
 	template <class T, int N, class BaseType>
 	class AttributeFloatNColumnImpl : public BaseType
@@ -347,7 +374,16 @@ namespace pr {
 			static_assert(std::is_same<T, decltype(get(0))>::value, "type mismatch");
 		}
 		virtual int64_t count() const {
-			return _sample.isIndexed() ? _sample.getIndices()->size() : _sample.getVals()->size();
+			if (_sample.isIndexed())
+			{
+				return _sample.getIndices()->size();
+			}
+			int nComp = _sample.getVals()->size();
+
+			FloatArraySamplePtr vals = _sample.getVals();
+			int64_t bytes = _sample.getVals()->size() * vals->getDataType().getNumBytes();
+			int64_t nFloats = bytes / sizeof(float);
+			return nFloats / N;
 		}
 		virtual T get( int64_t index ) const
 		{
@@ -366,6 +402,12 @@ namespace pr {
 			memcpy(&v, ptr + index * N, sizeof(float) * N);
 			return v;
 		}
+		virtual std::string getAsString(int64_t index) const
+		{
+			std::stringstream ss;
+			ss << get(index);
+			return ss.str();
+		}
 		IHoudiniFloatGeomParam::Sample _sample;
 	};
 	using AttributeFloatColumnImpl = AttributeFloatNColumnImpl<float, 1, AttributeFloatColumn>;
@@ -382,6 +424,18 @@ namespace pr {
 			{
 				free( (void *)it->first );
 			}
+		}
+		virtual int64_t rowCount() const override
+		{
+			if (_attributes.empty())
+			{
+				return 0;
+			}
+			return _attributes.begin()->second->count();
+		}
+		virtual int64_t columnCount() const override
+		{
+			return _attributes.size();
 		}
 		virtual const std::vector<std::string>& keys() const
 		{
@@ -418,7 +472,13 @@ namespace pr {
 				return v;
 			}
 		};
-		std::unordered_map<const char*, std::unique_ptr<AttributeColumn>, KeyHash> _attributes;
+		struct KeyEqual {
+			bool operator()(const char* a, const char* b) const
+			{
+				return strcmp(a, b) == 0;
+			}
+		};
+		std::unordered_map<const char*, std::unique_ptr<AttributeColumn>, KeyHash, KeyEqual> _attributes;
 		std::vector<std::string> _keys;
 	};
 	static const std::unique_ptr<AttributeSpreadsheet> kEmptySheet( new AttributeSpreadsheetImpl() );
@@ -479,6 +539,7 @@ namespace pr {
 		}
 
 		ICompoundProperty arbProps = schema.getArbGeomParams();
+		// ICompoundProperty arbProps = ICompoundProperty(polyMesh.getProperties(), ".geom");
 		if (arbProps)
 		{
 			std::unique_ptr<AttributeSpreadsheetImpl> attributeSpreadsheets[4];
@@ -491,13 +552,18 @@ namespace pr {
 				const PropertyHeader &propertyHeader = arbProps.getPropertyHeader(i);
 				auto key = propertyHeader.getName();
 
+				if (key[0] == '.')
+				{
+					continue;
+				}
+
 				if (IHoudiniFloatGeomParam::matches(propertyHeader))
 				{
 					std::unique_ptr<AttributeColumn> col;
 					IHoudiniFloatGeomParam param(arbProps, key);
 					IHoudiniFloatGeomParam::Sample sample;
 					param.getSample(sample, selector);
-					switch (param.getNumCompornent())
+					switch (getNumCompornent(&propertyHeader))
 					{
 					case 1:
 						col = std::unique_ptr<AttributeColumn>(new AttributeFloatColumnImpl(sample));
@@ -506,10 +572,10 @@ namespace pr {
 						col = std::unique_ptr<AttributeColumn>(new AttributeVector2ColumnImpl(sample));
 						break;
 					case 3:
-						col = std::unique_ptr<AttributeColumn>(new AttributeFloatColumnImpl(sample));
+						col = std::unique_ptr<AttributeColumn>(new AttributeVector3ColumnImpl(sample));
 						break;
 					case 4:
-						col = std::unique_ptr<AttributeColumn>(new AttributeFloatColumnImpl(sample));
+						col = std::unique_ptr<AttributeColumn>(new AttributeVector4ColumnImpl(sample));
 						break;
 					default:
 						break;
