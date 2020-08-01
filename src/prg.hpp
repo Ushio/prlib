@@ -27,7 +27,6 @@ namespace pr {
 	public:
 		virtual ~IColumn() {}
 		virtual int64_t count() const = 0;
-		virtual int snprint(uint32_t i, char* dst, uint32_t buffersize) const = 0;
 	};
 	class IInt32Column : public IColumn {
 	public:
@@ -104,25 +103,44 @@ namespace pr {
 
 		virtual ~AttributeColumn() {}
 		virtual AttributeType attributeType() const = 0;
-		virtual uint32_t rowCount() const = 0;
-		virtual int snprint(uint32_t index, char* buffer, uint32_t buffersize) const = 0;
+		virtual int64_t count() const = 0;
+	};
+	class AttributeFloatColumn : public AttributeColumn {
+	public:
+		AttributeType attributeType() const override {
+			return AttributeType_Float;
+		}
+		virtual float get(int64_t index) const = 0;
+	};
+	class AttributeVector2Column : public AttributeColumn {
+	public:
+		AttributeType attributeType() const override {
+			return AttributeType_Vector2;
+		}
+		virtual glm::vec2 get(int64_t index) const = 0;
 	};
 	class AttributeVector3Column : public AttributeColumn {
 	public:
 		AttributeType attributeType() const override {
 			return AttributeType_Vector3;
 		}
-		virtual glm::vec3 get(uint32_t index) const = 0;
+		virtual glm::vec3 get(int64_t index) const = 0;
+	};
+	class AttributeVector4Column : public AttributeColumn {
+	public:
+		AttributeType attributeType() const override {
+			return AttributeType_Vector4;
+		}
+		virtual glm::vec4 get(int64_t index) const = 0;
 	};
 
 	class AttributeSpreadsheet {
 	public:
 		virtual ~AttributeSpreadsheet() {}
 
-		virtual std::vector<std::string> keys() const = 0;
-
+		virtual const std::vector<std::string>& keys() const = 0;
 		virtual const AttributeColumn* column(const char* key) const = 0;
-		virtual const AttributeVector3Column* columnAsVector3(const char* key) const = 0;
+		// virtual const AttributeVector3Column* columnAsVector3(const char* key) const = 0;
 	};
 	//class AttributeSpreadSheet {
 	//	template <class T>
@@ -209,6 +227,15 @@ namespace pr {
 		virtual bool visible() const = 0;
 		virtual glm::mat4 localToWorld() const = 0;
 	};
+
+	enum class AttributeSpreadsheetType : int
+	{
+		Points = 0,
+		Vertices,
+		Primitives,
+		Details,
+	};
+
 	class FPolyMeshEntity : public FSceneEntity {
 	public:
 		FSceneEntityType type() const override { return FSceneEntityType_PolygonMesh; }
@@ -224,9 +251,10 @@ namespace pr {
 		virtual IInt32Column* faceCounts() const = 0;
 		virtual IInt32Column* faceIndices() const = 0;
 
-		//AttributeSpreadSheet points;
-		//AttributeSpreadSheet vertices;
-		//AttributeSpreadSheet primitives;
+		/*
+			These are houdini specific.
+		*/
+		virtual AttributeSpreadsheet* attributeSpreadsheet(AttributeSpreadsheetType type) const = 0;
 
 		// return HashCode It's ok to use as key for identifying instance source.
 		virtual std::string propertyHash() const = 0;

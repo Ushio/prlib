@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <memory>
+#include <unordered_map>
 
 #include <Alembic/Abc/All.h>
 #include <Alembic/AbcCoreOgawa/All.h>
@@ -21,10 +22,6 @@ namespace pr {
 		virtual int64_t count() const override {
 			return _ints.size();
 		}
-		virtual int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
-			return snprintf(dst, buffersize, "%d", _ints[i]);
-		}
-
 		std::vector<int32_t> _ints;
 	};
 
@@ -36,9 +33,6 @@ namespace pr {
 		}
 		virtual int64_t count() const override {
 			return _ints->size();
-		}
-		virtual int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
-			return snprintf(dst, buffersize, "%d", _ints->get()[i]);
 		}
 		Int32ArraySamplePtr _ints;
 	};
@@ -57,10 +51,6 @@ namespace pr {
 		virtual int64_t count() const override {
 			return _vec3s->size();
 		}
-		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
-			auto p = _vec3s->get()[i];
-			return snprintf(dst, buffersize, "(%f, %f, %f)", p.x, p.y, p.z);
-		}
 		P3fArraySamplePtr _vec3s;
 	};
 	class IVector2ColumnV2fImpl : public IVector2Column {
@@ -75,10 +65,6 @@ namespace pr {
 		}
 		virtual int64_t count() const override {
 			return _vec2s->size();
-		}
-		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
-			auto p = _vec2s->get()[i];
-			return snprintf(dst, buffersize, "(%f, %f)", p.x, p.y);
 		}
 		V2fArraySamplePtr _vec2s;
 	};
@@ -96,10 +82,6 @@ namespace pr {
 		virtual int64_t count() const override {
 			return _vec3s->size();
 		}
-		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
-			V3f p = _vec3s->get()[i];
-			return snprintf(dst, buffersize, "(%f, %f, %f)", p.x, p.y, p.z);
-		}
 		N3fArraySamplePtr _vec3s;
 	};
 	template <class TVec2>
@@ -113,10 +95,6 @@ namespace pr {
 		}
 		virtual int64_t count() const override {
 			return _vec2s.size();
-		}
-		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
-			TVec2 p = _vec2s[i];
-			return snprintf( dst, buffersize, "(%f, %f)", p.x, p.y );
 		}
 		std::vector<TVec2> _vec2s;
 	};
@@ -132,10 +110,6 @@ namespace pr {
 		}
 		virtual int64_t count() const override {
 			return _vec3s.size();
-		}
-		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
-			TVec3 p = _vec3s[i];
-			return snprintf(dst, buffersize, "(%f, %f, %f)", p.x, p.y, p.z);
 		}
 		std::vector<TVec3> _vec3s;
 	};
@@ -181,6 +155,10 @@ namespace pr {
 			return _faceIndices.get();
 		}
 
+		virtual AttributeSpreadsheet* attributeSpreadsheet(AttributeSpreadsheetType type) const override
+		{
+			return _attributeSpreadsheets[(int)type].get();
+		}
 		virtual std::string propertyHash() const override {
 			return _propertyHash;
 		}
@@ -193,8 +171,12 @@ namespace pr {
 		std::unique_ptr<IInt32Column> _faceCounts;
 		std::unique_ptr<IInt32Column> _faceIndices;
 
+		// houdini sheet
+		std::unique_ptr<AttributeSpreadsheet> _attributeSpreadsheets[4];
+
 		// Instanced Mesh
 		std::string _propertyHash;
+
 	};
 
 	inline glm::mat4 to(M44d m) {
@@ -240,62 +222,206 @@ namespace pr {
 		}
 	}
 
-	class AttributeVector3ColumnImpl : public AttributeVector3Column
+	class IHoudiniFloatGeomParam
 	{
 	public:
-		virtual uint32_t rowCount() const {
-			return 0;
-		}
-		virtual int snprint(uint32_t index, char* buffer, uint32_t buffersize) const
-		{
-			return 0;
-		}
-		virtual glm::vec3 get(uint32_t index) const
-		{
-			const float* p = _vals->get();
-			if (_isIndexed)
-			{
-
-			}
-			float x = p[index * 3];
-			float y = p[index * 3 + 1];
-			float z = p[index * 3 + 2];
-			return glm::vec3(x, y, z);
-		}
 		static bool matches(const AbcA::PropertyHeader& iHeader)
 		{
 			DataType srcDataType = iHeader.getDataType();
+			if (iHeader.isScalar())
+			{
+				return iHeader.getDataType().getPod() == kFloat32POD;
+			}
 			if (iHeader.isCompound())
 			{
-
+				//auto p = iHeader.getDataType();
+				//printf("");
 			}
 			else if (iHeader.isArray())
 			{
-				return
-					iHeader.getDataType() == DataType(kFloat32POD, 3) ||
-					(iHeader.getDataType() == DataType(kFloat32POD, 1) && iHeader.getMetaData().get("arrayExtent") == "3");
+				return iHeader.getDataType().getPod() == kFloat32POD;
 			}
 			return false;
 		}
-		static std::shared_ptr<AttributeVector3Column> Get(ICompoundProperty parent, const char* key, ISampleSelector selector )
+
+		class Sample
 		{
-			const PropertyHeader* header = parent.getPropertyHeader(key);
-			if( header->isArray() )
+		public:
+			UInt32ArraySamplePtr getIndices() const { return _indices; }
+			FloatArraySamplePtr getVals() const { return _vals; }
+			GeometryScope getScope() const { return _scope; }
+			bool isIndexed() const { return _isIndexed; }
+
+			void reset()
 			{
-				IFloatArrayProperty vals(parent, key);
-				IFloatArrayProperty::sample_ptr_type sample;
-				vals.get(sample, selector);
-				std::shared_ptr<AttributeVector3ColumnImpl> col(new AttributeVector3ColumnImpl());
-				col->_vals = sample;
-				return col;
+				_vals.reset();
+				_indices.reset();
+				_scope = kUnknownScope;
+				_isIndexed = false;
 			}
-			return std::shared_ptr<AttributeVector3Column>();
+
+			bool valid() const { return _vals.get() != NULL; }
+
+			FloatArraySamplePtr _vals;
+			UInt32ArraySamplePtr _indices;
+			GeometryScope _scope;
+			bool _isIndexed = false;
+		};
+		IHoudiniFloatGeomParam(ICompoundProperty prop, std::string key):_prop(prop), _key(key)
+		{
+		}
+		void getSample(Sample& sample, ISampleSelector selector) const
+		{
+			sample.reset();
+
+			const PropertyHeader* header = _prop.getPropertyHeader(_key);
+			if( header == nullptr )
+			{
+				sample._isIndexed = false;
+			}
+			if( header->isScalar() )
+			{
+				IScalarProperty val(_prop, _key);
+				int nVals = getPodExtent();
+				float* values = (float*)malloc(sizeof(float) * nVals);
+				val.get(values, selector);
+				sample._isIndexed = false;
+				sample._vals = FloatArraySamplePtr(new FloatArraySample(values, nVals), [values](FloatArraySample* p) {
+					delete p;
+					free(values);
+				});
+				sample._scope = GetGeometryScope(header->getMetaData());
+			}
+			else if(header->isArray())
+			{
+				IFloatArrayProperty vals(_prop, _key);
+				IFloatArrayProperty::sample_ptr_type floatSample;
+				vals.get(floatSample, selector);
+				sample._isIndexed = false;
+				sample._vals = floatSample;
+				sample._scope = GetGeometryScope(header->getMetaData());
+			}
+			else
+			{
+				
+			}
+		}
+		int getArrayExtent() const
+		{
+			const PropertyHeader* header = _prop.getPropertyHeader(_key);
+			if (header == nullptr)
+			{
+				return 1;
+			}
+			std::string e = header->getMetaData().get("arrayExtent");
+			if( e.empty() ) 
+			{ 
+				return 1; 
+			}
+			return std::atoi(e.c_str());
+		}
+		int getPodExtent() const
+		{
+			const PropertyHeader* header = _prop.getPropertyHeader(_key);
+			if (header == nullptr)
+			{
+				return 1;
+			}
+			return header->getDataType().getExtent();
+		}
+		int getNumCompornent() const
+		{
+			return getArrayExtent() * getPodExtent();
 		}
 
-		FloatArraySamplePtr _vals;
-		bool _isIndexed = false;
+		ICompoundProperty _prop;
+		std::string _key;
 	};
 
+	template <class T, int N, class BaseType>
+	class AttributeFloatNColumnImpl : public BaseType
+	{
+	public:
+		AttributeFloatNColumnImpl(IHoudiniFloatGeomParam::Sample sample) :_sample(sample) {
+			static_assert(sizeof(T) == sizeof(float) * N, "type mismatch");
+			static_assert(std::is_same<T, decltype(get(0))>::value, "type mismatch");
+		}
+		virtual int64_t count() const {
+			return _sample.isIndexed() ? _sample.getIndices()->size() : _sample.getVals()->size();
+		}
+		virtual T get( int64_t index ) const
+		{
+			if (_sample.valid() == 0)
+			{
+				return T();
+			}
+			if( _sample.isIndexed() )
+			{
+				index = _sample.getIndices()->get()[index];
+			}
+
+			const float *ptr = _sample.getVals()->get();
+
+			T v;
+			memcpy(&v, ptr + index * N, sizeof(float) * N);
+			return v;
+		}
+		IHoudiniFloatGeomParam::Sample _sample;
+	};
+	using AttributeFloatColumnImpl = AttributeFloatNColumnImpl<float, 1, AttributeFloatColumn>;
+	using AttributeVector2ColumnImpl = AttributeFloatNColumnImpl<glm::vec2, 2, AttributeVector2Column>;
+	using AttributeVector3ColumnImpl = AttributeFloatNColumnImpl<glm::vec3, 3, AttributeVector3Column>;
+	using AttributeVector4ColumnImpl = AttributeFloatNColumnImpl<glm::vec4, 4, AttributeVector4Column>;
+
+	class AttributeSpreadsheetImpl : public AttributeSpreadsheet
+	{
+	public:
+		~AttributeSpreadsheetImpl()
+		{
+            for( auto it = _attributes.begin() ; it != _attributes.end() ; ++it )
+			{
+				free( (void *)it->first );
+			}
+		}
+		virtual const std::vector<std::string>& keys() const
+		{
+			return _keys;
+		}
+		virtual const AttributeColumn* column(const char* key) const
+		{
+			auto it = _attributes.find(key);
+			if( it == _attributes.end() )
+			{
+				return nullptr;
+			}
+			return it->second.get();
+		}
+		void addAttribute( const char *key, std::unique_ptr<AttributeColumn> attribute ) {
+			char* allocatedKey = (char*)malloc(strlen(key) + 1);
+			strcpy(allocatedKey, key);
+			_attributes[allocatedKey] = std::move(attribute);
+			_keys.push_back(key);
+		}
+	private:
+		struct KeyHash {
+			using KeyType = const char*;
+			std::size_t operator()(const KeyType& key) const
+			{
+				std::hash<char> h;
+				std::size_t v = h( key[0] );
+				int i = 0;
+				while( key[i] != '\0' )
+				{
+					i++;
+					v = v ^ h( key[i] );
+				}
+				return v;
+			}
+		};
+		std::unordered_map<const char*, std::unique_ptr<AttributeColumn>, KeyHash> _attributes;
+		std::vector<std::string> _keys;
+	};
+	static const std::unique_ptr<AttributeSpreadsheet> kEmptySheet( new AttributeSpreadsheetImpl() );
 
 	inline std::shared_ptr<FPolyMeshEntity> parse_polymesh(IPolyMesh &polyMesh, const CommonAttribute& common, ISampleSelector selector) {
 		IPolyMeshSchema& schema = polyMesh.getSchema();
@@ -355,49 +481,65 @@ namespace pr {
 		ICompoundProperty arbProps = schema.getArbGeomParams();
 		if (arbProps)
 		{
+			std::unique_ptr<AttributeSpreadsheetImpl> attributeSpreadsheets[4];
+			for (int i = 0; i < 4; ++i)
+			{
+				attributeSpreadsheets[i] = std::unique_ptr<AttributeSpreadsheetImpl>(new AttributeSpreadsheetImpl());
+			}
+
 			for (int i = 0; i < arbProps.getNumProperties(); ++i) {
 				const PropertyHeader &propertyHeader = arbProps.getPropertyHeader(i);
 				auto key = propertyHeader.getName();
 
-				if (AttributeVector3ColumnImpl::matches(propertyHeader))
+				if (IHoudiniFloatGeomParam::matches(propertyHeader))
 				{
-					auto data = AttributeVector3ColumnImpl::Get(arbProps, key.c_str(), selector);
+					std::unique_ptr<AttributeColumn> col;
+					IHoudiniFloatGeomParam param(arbProps, key);
+					IHoudiniFloatGeomParam::Sample sample;
+					param.getSample(sample, selector);
+					switch (param.getNumCompornent())
+					{
+					case 1:
+						col = std::unique_ptr<AttributeColumn>(new AttributeFloatColumnImpl(sample));
+						break;
+					case 2:
+						col = std::unique_ptr<AttributeColumn>(new AttributeVector2ColumnImpl(sample));
+						break;
+					case 3:
+						col = std::unique_ptr<AttributeColumn>(new AttributeFloatColumnImpl(sample));
+						break;
+					case 4:
+						col = std::unique_ptr<AttributeColumn>(new AttributeFloatColumnImpl(sample));
+						break;
+					default:
+						break;
+					}
+
+					GeometryScope scope = sample.getScope();
+					switch (scope)
+					{
+					case kVaryingScope: /* points */
+						attributeSpreadsheets[(int)AttributeSpreadsheetType::Points]->addAttribute(key.c_str(), std::move(col));
+						break;
+					case kFacevaryingScope: /* vertices */
+						attributeSpreadsheets[(int)AttributeSpreadsheetType::Vertices]->addAttribute(key.c_str(), std::move(col));
+						break;
+					case kUniformScope: /* primitives */
+						attributeSpreadsheets[(int)AttributeSpreadsheetType::Primitives]->addAttribute(key.c_str(), std::move(col));
+						break;
+					case kConstantScope: /* details */
+						attributeSpreadsheets[(int)AttributeSpreadsheetType::Details]->addAttribute(key.c_str(), std::move(col));
+						break;
+					default:
+						// ?
+						break;
+					}
 				}
-				//if (IFloatGeomParam::matches(propertyHeader))
-				//{
-				//	IFloatGeomParam param = IFloatGeomParam(arbProps, key);
-				//	IFloatGeomParam::Sample sample;
-				//	param.getIndexed(sample, selector);
-				//	int arraysize = sample.getVals()->size();
-				//	int indexsize = sample.getIndices()->size();
-				//	int arrayExtent = param.getArrayExtent();
-				//	printf("");
-				//}
-				//if (IV2fGeomParam::matches(child_header, kNoMatching /* just checking extent and type */))
-				//{
-				//	IV2fGeomParam param = IV2fGeomParam(arbProps, key);
-				//	IV2fGeomParam::Sample sample;
-				//	param.getIndexed(sample, selector);
-				//}
-				//if (IV3fGeomParam::matches(child_header, kNoMatching /* just checking extent and type */))
-				//{
-				//	IV3fGeomParam param = IV3fGeomParam(arbProps, key);
-				//	IV3fGeomParam::Sample sample;
-				//	param.getIndexed(sample, selector);
-				//}
+			}
 
-				//std::string geoScope = propertyHeader.getMetaData().get("");
-
-				// std::string geoScope = child_header.getMetaData().get("geoScope");
-			
-				// m_positionsProperty = Abc::IP3fArrayProperty(polyMesh, "P", kNoMatching, ErrorHandler::kQuietNoopPolicy);
-
-				//m_indicesProperty = Abc::IInt32ArrayProperty(polyMesh, ".faceIndices",
-				//	iArg0, iArg1);
-				//m_countsProperty = Abc::IInt32ArrayProperty(polyMesh, ".faceCounts",
-				//	iArg0, iArg1);
-				// ALEMBIC_ABC_DECLARE_TYPE_TRAITS( V3f, kFloat32POD, 3, "point", P3fTPTraits );
-				//IV3fGeomParam prop = 
+			for (int i = 0; i < 4; ++i)
+			{
+				e->_attributeSpreadsheets[i] = std::move(attributeSpreadsheets[i]);
 			}
 		}
 
@@ -606,6 +748,10 @@ namespace pr {
 	class FPolyMeshEntityTinyObjLoaderImpl : public FPolyMeshEntity
 	{
 	public:
+		FPolyMeshEntityTinyObjLoaderImpl()
+		{
+
+		}
 		virtual std::string fullname() const override {
 			return _common.fullname;
 		}
@@ -633,7 +779,10 @@ namespace pr {
 		virtual IInt32Column* faceIndices() const override {
 			return _faceIndices.get();
 		}
-
+		virtual AttributeSpreadsheet* attributeSpreadsheet(AttributeSpreadsheetType type) const override
+		{
+			return kEmptySheet.get();
+		}
 		virtual std::string propertyHash() const override {
 			return _propertyHash;
 		}
@@ -663,11 +812,6 @@ namespace pr {
 		virtual int64_t count() const override {
 			return _count;
 		}
-		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
-			float x = _ptr[i * 2];
-			float y = _ptr[i * 2 + 1];
-			return snprintf(dst, buffersize, "(%f, %f)", x, y);
-		}
 		const float* _ptr = nullptr;
 		int64_t _count = 0;
 	};
@@ -680,12 +824,6 @@ namespace pr {
 		}
 		virtual int64_t count() const override {
 			return _count;
-		}
-		int snprint(uint32_t i, char* dst, uint32_t buffersize) const override {
-			float x = _ptr[i * 3];
-			float y = _ptr[i * 3 + 1];
-			float z = _ptr[i * 3 + 2];
-			return snprintf(dst, buffersize, "(%f, %f, %f)", x, y, z);
 		}
 		const float* _ptr = nullptr;
 		int64_t _count = 0;
