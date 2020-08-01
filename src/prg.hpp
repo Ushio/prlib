@@ -1,12 +1,18 @@
 #pragma once
 
+/*
+ Geometry Modules
+ You can use this as also itself only. but usually #include "pr.hpp" is an easy way.
+*/
+
 #include <vector>
 #include <functional>
 #include <string>
 #include <cmath>
 #include <memory>
 
-#include "pr.hpp"
+#include "glm/glm.hpp"
+#include "glm/ext.hpp"
 
 namespace pr {
 	//enum IColumnType {

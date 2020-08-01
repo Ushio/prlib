@@ -1,5 +1,9 @@
 ﻿#pragma once
 
+/*
+ Please include me.
+*/
+
 #include <string>
 #include <vector>
 #include <functional>
@@ -33,6 +37,7 @@
 #define PR_ASSERT(ExpectTrue) if((ExpectTrue) == 0) { __debugbreak(); }
 
 #include "prp.hpp"
+#include "prg.hpp"
 
 namespace pr {
     struct Config {

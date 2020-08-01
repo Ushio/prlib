@@ -1,5 +1,10 @@
 ﻿#pragma once
 
+/*
+ Potable Modules
+ You can use this as also itself only. but usually #include "pr.hpp" is an easy way.
+*/
+
 #include <vector>
 #include <functional>
 #include <string>
@@ -7,12 +12,10 @@
 #include <functional>
 #include <random>
 #include <cmath>
+
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
-/*
- Potable Modules
-*/
 namespace pr {
     enum class Result {
         Sucess,
