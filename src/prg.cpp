@@ -228,6 +228,10 @@ namespace pr {
 		{
 			return "";
 		}
+		if( header->isScalar() )
+		{
+			return PODName(header->getDataType().getPod());
+		}
 		return header->getMetaData().get("podName");
 	}
 	inline int getArrayExtent(const PropertyHeader* header)
@@ -248,6 +252,10 @@ namespace pr {
 		if (header == nullptr)
 		{
 			return 1;
+		}
+		if (header->isScalar())
+		{
+			return header->getDataType().getExtent();
 		}
 		std::string e = header->getMetaData().get("podExtent");
 		if (e.empty())
@@ -296,10 +304,7 @@ namespace pr {
 		IHoudiniFloatGeomParam(ICompoundProperty prop, std::string key):_prop(prop), _key(key), _scope(kUnknownScope)
 		{
 			const PropertyHeader* header = _prop.getPropertyHeader(_key);
-			if (header)
-			{
-				_scope = GetGeometryScope(header->getMetaData());
-			}
+			_scope = GetGeometryScope(header->getMetaData());
 		}
 		void getSample(Sample& sample, ISampleSelector selector) const
 		{
@@ -313,11 +318,16 @@ namespace pr {
 			if( header->isScalar() )
 			{
 				IScalarProperty val(_prop, _key);
-				int nVals = getPodExtent(header);
+				
+				// In Scalar case, you need to check "iHeader.getDataType()"
+				int nVals = getNumCompornent(header);
+				
 				float* values = (float*)malloc(sizeof(float) * nVals);
 				val.get(values, selector);
 				sample._isIndexed = false;
+
 				sample._vals = FloatArraySamplePtr(new FloatArraySample(values, nVals), [values](FloatArraySample* p) {
+					const float *ptr = p->get();
 					delete p;
 					free(values);
 				});
@@ -386,20 +396,13 @@ namespace pr {
 		IHoudiniIntGeomParam(ICompoundProperty prop, std::string key) :_prop(prop), _key(key), _scope(kUnknownScope)
 		{
 			const PropertyHeader* header = _prop.getPropertyHeader(_key);
-			if (header)
-			{
-				_scope = GetGeometryScope(header->getMetaData());
-			}
+			_scope = GetGeometryScope(header->getMetaData());
 		}
 		void getSample(Sample& sample, ISampleSelector selector) const
 		{
 			sample.reset();
 
 			const PropertyHeader* header = _prop.getPropertyHeader(_key);
-			if (header == nullptr)
-			{
-				return;
-			}
 			if (header->isScalar())
 			{
 				IInt32Property val(_prop, _key);
@@ -424,7 +427,96 @@ namespace pr {
 		std::string _key;
 		GeometryScope _scope;
 	};
+	class IHoudiniStringGeomParam
+	{
+	public:
+		static bool matches(const PropertyHeader& iHeader)
+		{
+			std::string podName = getPodName(&iHeader);
+			int numCompornent = getNumCompornent(&iHeader);
+			return
+				podName == StringPODTraits::name() &&
+				numCompornent == 1;
+		}
 
+		class Sample
+		{
+		public:
+			UInt32ArraySamplePtr getIndices() const { return _indices; }
+			StringArraySamplePtr getVals() const { return _vals; }
+			bool isIndexed() const { return _isIndexed; }
+
+			void reset()
+			{
+				_vals.reset();
+				_indices.reset();
+				_isIndexed = false;
+			}
+
+			bool valid() const { return _vals.get() != NULL; }
+
+			StringArraySamplePtr _vals;
+			UInt32ArraySamplePtr _indices;
+			bool _isIndexed = false;
+		};
+		IHoudiniStringGeomParam(ICompoundProperty prop, std::string key) :_prop(prop), _key(key), _scope(kUnknownScope)
+		{
+			const PropertyHeader* header = _prop.getPropertyHeader(_key);
+			if (header)
+			{
+				_scope = GetGeometryScope(header->getMetaData());
+			}
+		}
+		void getSample(Sample& sample, ISampleSelector selector) const
+		{
+			sample.reset();
+
+			const PropertyHeader* header = _prop.getPropertyHeader(_key);
+			if (header == nullptr)
+			{
+				return;
+			}
+			if (header->isScalar())
+			{
+				IScalarProperty val(_prop, _key);
+				std::string* value = new std::string;
+				val.get(value, selector);
+				sample._isIndexed = false;
+				sample._vals = StringArraySamplePtr(new StringArraySample(value, 1), [value](StringArraySample* p) {
+					delete p;
+					delete value;
+				});
+			}
+			else if (header->isArray())
+			{
+				IStringArrayProperty vals(_prop, _key);
+				IStringArrayProperty::sample_ptr_type stringSample;
+				vals.get(stringSample, selector);
+				sample._isIndexed = false;
+				sample._vals = stringSample;
+			}
+			else
+			{
+				ICompoundProperty comp(_prop, _key);
+				IStringArrayProperty vals(comp, ".vals");
+				IUInt32ArrayProperty indices(comp, ".indices");
+
+				IStringArrayProperty::sample_ptr_type stringSample;
+				vals.get(stringSample, selector);
+				IUInt32ArrayProperty::sample_ptr_type uintSample;
+				indices.get(uintSample, selector);
+
+				sample._isIndexed = true;
+				sample._vals = stringSample;
+				sample._indices = uintSample;
+			}
+		}
+		GeometryScope getScope() const { return _scope; }
+
+		ICompoundProperty _prop;
+		std::string _key;
+		GeometryScope _scope;
+	};
 	std::ostream& operator<<(std::ostream& out, const glm::vec2& v)
 	{
 		return out << v.x << ", " << v.y;
@@ -451,7 +543,7 @@ namespace pr {
 			{
 				return _sample.getIndices()->size();
 			}
-			int nComp = _sample.getVals()->size();
+			int64_t nComp = _sample.getVals()->size();
 
 			FloatArraySamplePtr vals = _sample.getVals();
 			int64_t bytes = _sample.getVals()->size() * vals->getDataType().getNumBytes();
@@ -508,6 +600,38 @@ namespace pr {
 			return std::to_string(get(index));
 		}
 		Int32ArraySamplePtr _values;
+	};
+	class AttributeStringColumnImpl : public AttributeStringColumn
+	{
+	public:
+		AttributeStringColumnImpl(IHoudiniStringGeomParam::Sample sample) :_sample(sample) {
+
+		}
+		virtual int64_t count() const {
+			if (_sample.isIndexed())
+			{
+				return _sample.getIndices()->size();
+			}
+			return _sample.getVals()->size();
+		}
+		virtual const std::string& get(int64_t index) const
+		{
+			if (_sample.valid() == 0)
+			{
+				return "";
+			}
+			if (_sample.isIndexed())
+			{
+				index = _sample.getIndices()->get()[index];
+			}
+			const std::string* ptr = _sample.getVals()->get();
+			return ptr[index];
+		}
+		virtual std::string getAsString(int64_t index) const
+		{
+			return get(index);
+		}
+		IHoudiniStringGeomParam::Sample _sample;
 	};
 
 	class AttributeSpreadsheetImpl : public AttributeSpreadsheet
@@ -685,6 +809,14 @@ namespace pr {
 					IHoudiniIntGeomParam::Sample sample;
 					param.getSample(sample, selector);
 					col = std::unique_ptr<AttributeColumn>(new AttributeIntColumnImpl(sample.getVals()));
+					scope = param.getScope();
+				}
+				else if (IHoudiniStringGeomParam::matches(propertyHeader))
+				{
+					IHoudiniStringGeomParam param(arbProps, key);
+					IHoudiniStringGeomParam::Sample sample;
+					param.getSample(sample, selector);
+					col = std::unique_ptr<AttributeColumn>(new AttributeStringColumnImpl(sample));
 					scope = param.getScope();
 				}
 

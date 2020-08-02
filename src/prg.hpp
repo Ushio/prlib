@@ -139,6 +139,13 @@ namespace pr {
 		}
 		virtual glm::vec4 get(int64_t index) const = 0;
 	};
+	class AttributeStringColumn : public AttributeColumn {
+	public:
+		AttributeType attributeType() const override {
+			return AttributeType::String;
+		}
+		virtual const std::string& get(int64_t index) const = 0;
+	};
 
 	class AttributeSpreadsheet {
 	public:
