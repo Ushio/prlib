@@ -10,6 +10,7 @@ enum DemoMode {
     DemoMode_Manip,
     DemoMode_Benchmark,
     DemoMode_Alembic,
+    DemoMode_AlembicHoudini,
 };
 const char* DemoModes[] = { 
     "DemoMode_Point",
@@ -18,7 +19,8 @@ const char* DemoModes[] = {
     "DemoMode_Rays",
     "DemoMode_Manip",
     "DemoMode_Benchmark",
-    "DemoMode_Alembic"
+    "DemoMode_Alembic",
+    "DemoMode_AlembicHoudini",
 };
 
 class IDemo {
@@ -399,7 +401,72 @@ struct AlembicDemo : public IDemo {
     std::shared_ptr<pr::FScene> _scene;
 };
 
+struct AlembicHoudiniDemo : public IDemo {
+    AlembicHoudiniDemo()
+    {
+        using namespace pr;
+        pr::AbcArchive abcArchive;
+        std::string errorMessage;
+        if (abcArchive.open(GetDataPath("edobee.abc"), errorMessage) == AbcArchive::Result::Failure)
+        {
+            printf("Alembic Error: %s\n", errorMessage.c_str());
+        }
+        else
+        {
+            _scene = abcArchive.readFlat(0, errorMessage);
+        }
+    }
+    void OnDraw() override {
+        using namespace pr;
 
+        if (!_scene) {
+            return;
+        }
+        _scene->visitPolyMesh([](std::shared_ptr<const FPolyMeshEntity> polymesh) {
+            if (polymesh->visible() == false)
+            {
+                return;
+            }
+            ColumnView<int32_t> faceCounts(polymesh->faceCounts());
+            ColumnView<int32_t> indices(polymesh->faceIndices());
+            ColumnView<glm::vec3> positions(polymesh->positions());
+            ColumnView<glm::vec3> normals(polymesh->normals());
+
+            pr::SetObjectTransform(polymesh->localToWorld());
+
+            auto sheet = polymesh->attributeSpreadsheet(pr::AttributeSpreadsheetType::Points);
+            auto Cd = sheet->columnAsVector3("Cd");
+
+            // Geometry
+            pr::PrimBegin(pr::PrimitiveMode::Lines);
+            for (int i = 0; i < positions.count(); i++)
+            {
+                glm::vec3 p = positions[i];
+                glm::ivec3 color = glm::ivec3(Cd->get(i) * 255.0f + 0.5f);
+                pr::PrimVertex(p, { color });
+            }
+            int indexBase = 0;
+            for (int i = 0; i < faceCounts.count(); i++)
+            {
+                int nVerts = faceCounts[i];
+                for (int j = 0; j < nVerts; ++j)
+                {
+                    int i0 = indices[indexBase + j];
+                    int i1 = indices[indexBase + (j + 1) % nVerts];
+                    pr::PrimIndex(i0);
+                    pr::PrimIndex(i1);
+                }
+                indexBase += nVerts;
+            }
+            pr::PrimEnd();
+            pr::SetObjectIdentify();
+        });
+    }
+    void OnImGui() override {
+
+    }
+    std::shared_ptr<pr::FScene> _scene;
+};
 std::vector<IDemo*> demos;
 
 int main() {
@@ -425,6 +492,7 @@ int main() {
        new ManipDemo(),
        new BenchmarkDemo(),
        new AlembicDemo(),
+       new AlembicHoudiniDemo(),
     };
 
     Config config;

@@ -155,7 +155,31 @@ namespace pr {
 		virtual int64_t columnCount() const = 0;
 		virtual const std::vector<std::string>& keys() const = 0;
 		virtual const AttributeColumn* column(const char* key) const = 0;
-		// virtual const AttributeVector3Column* columnAsVector3(const char* key) const = 0;
+
+		const AttributeFloatColumn* columnAsFloat(const char* key) const
+		{
+			return dynamic_cast<const AttributeFloatColumn*>(column(key));
+		}
+		const AttributeIntColumn* columnAsInt(const char* key) const
+		{
+			return dynamic_cast<const AttributeIntColumn*>(column(key));
+		}
+		const AttributeStringColumn* columnAsString(const char* key) const
+		{
+			return dynamic_cast<const AttributeStringColumn*>(column(key));
+		}
+		const AttributeVector2Column* columnAsVector2(const char* key) const
+		{
+			return dynamic_cast<const AttributeVector2Column*>(column(key));
+		}
+		const AttributeVector3Column* columnAsVector3(const char* key) const
+		{
+			return dynamic_cast<const AttributeVector3Column*>(column(key));
+		}
+		const AttributeVector4Column* columnAsVector4(const char* key) const
+		{
+			return dynamic_cast<const AttributeVector4Column*>(column(key));
+		}
 	};
 	
 	/*

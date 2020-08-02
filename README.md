@@ -15,6 +15,20 @@ curl "https://raw.githubusercontent.com/Ushio/prlib/master/example_as_submodule/
 ```
 
 ## demo
+> basic shape
+
 ![image](demo0.png)
+
+> ray gen
+
 ![image](demo1.png)
+
+> position manip
+
 ![image](demo2.gif)
+
+> alembic importer
+
+![image](demo3.gif)
+![image](demo4.png)
+
