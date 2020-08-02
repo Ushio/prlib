@@ -33,8 +33,13 @@
 /*
  Macros
 */
+#ifdef _WIN32
 #include <intrin.h>
 #define PR_ASSERT(ExpectTrue) if((ExpectTrue) == 0) { __debugbreak(); }
+#else
+#include <signal.h>
+#define PR_ASSERT(ExpectTrue) if((ExpectTrue) == 0) { raise(SIGTRAP); }
+#endif
 
 #include "prp.hpp"
 #include "prg.hpp"

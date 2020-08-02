@@ -231,9 +231,11 @@ namespace pr {
     void ParallelFor(int n, std::function<void(int)> f /* f(index) */);
     void SerialFor(int n, std::function<void(int)> f /* f(index) */);
 
+#ifdef _WIN32
     // warning: we assume "std::string s" use the current code page (CP_ACP)
     std::wstring string_to_wstring(const std::string& s);
     std::string wstring_to_string(const std::wstring& s);
+#endif
 
     class BinaryLoader
     {

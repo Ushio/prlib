@@ -9,14 +9,20 @@
 #include "cwalk.h"
 
 #include <algorithm>
-#include <ppl.h>
 
-#include <Windows.h>
-#ifdef max
-#undef max
-#endif
-#ifdef min
-#undef min
+#ifdef _WIN32
+    #include <ppl.h>
+    #include <Windows.h>
+    #ifdef max
+    #undef max
+    #endif
+    #ifdef min
+    #undef min
+    #endif
+#else
+    #include <unistd.h>
+    #include <linux/limits.h>
+    // https://stackoverflow.com/questions/23943239/how-to-get-path-to-current-exe-file-on-linux
 #endif
 
 namespace pr {
@@ -397,9 +403,13 @@ namespace pr {
         return normname.data();
     }
     std::string ExecutableDir() {
+#ifdef _WIN32
         char *p;
         _get_pgmptr(&p);
-
+#else
+        char p[PATH_MAX];
+        ssize_t count = readlink("/proc/self/exe", p, PATH_MAX);
+#endif
         std::size_t dirLength;
         cwk_path_get_dirname(p, &dirLength);
 
@@ -464,7 +474,12 @@ namespace pr {
         return NormalizePath(JoinPath(g_dataPath, filename));
     }
     void ParallelFor(int n, std::function<void(int)> f /* f(index) */) {
+#ifdef _WIN32
         concurrency::parallel_for(0, n, f);
+#else
+        // not supported yet...
+        SerialFor(n, f);
+#endif
     }
     void SerialFor(int n, std::function<void(int)> f /* f(index) */) {
         for (int i = 0; i < n; ++i) {
@@ -472,6 +487,7 @@ namespace pr {
         }
     }
 
+#ifdef _WIN32
     std::wstring string_to_wstring(const std::string& s)
     {
         int in_length = (int)s.length();
@@ -492,6 +508,7 @@ namespace pr {
         }
         return std::string(buffer.begin(), buffer.end());
     }
+#endif
 
     Result BinaryLoader::load(const char* file)
     {

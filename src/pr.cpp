@@ -1,9 +1,11 @@
 ﻿#include "pr.hpp"
 
-#define NOMINMAX
-#include <Windows.h>
-#if defined(DrawText)
-#undef DrawText
+#ifdef _WIN32
+    #define NOMINMAX
+    #include <Windows.h>
+    #if defined(DrawText)
+    #undef DrawText
+    #endif
 #endif
 
 #include "GL/glew.h"
