@@ -278,14 +278,12 @@ namespace pr {
 		public:
 			UInt32ArraySamplePtr getIndices() const { return _indices; }
 			FloatArraySamplePtr getVals() const { return _vals; }
-			GeometryScope getScope() const { return _scope; }
 			bool isIndexed() const { return _isIndexed; }
 
 			void reset()
 			{
 				_vals.reset();
 				_indices.reset();
-				_scope = kUnknownScope;
 				_isIndexed = false;
 			}
 
@@ -293,11 +291,15 @@ namespace pr {
 
 			FloatArraySamplePtr _vals;
 			UInt32ArraySamplePtr _indices;
-			GeometryScope _scope;
 			bool _isIndexed = false;
 		};
-		IHoudiniFloatGeomParam(ICompoundProperty prop, std::string key):_prop(prop), _key(key)
+		IHoudiniFloatGeomParam(ICompoundProperty prop, std::string key):_prop(prop), _key(key), _scope(kUnknownScope)
 		{
+			const PropertyHeader* header = _prop.getPropertyHeader(_key);
+			if (header)
+			{
+				_scope = GetGeometryScope(header->getMetaData());
+			}
 		}
 		void getSample(Sample& sample, ISampleSelector selector) const
 		{
@@ -319,7 +321,6 @@ namespace pr {
 					delete p;
 					free(values);
 				});
-				sample._scope = GetGeometryScope(header->getMetaData());
 			}
 			else if( header->isArray() )
 			{
@@ -328,7 +329,6 @@ namespace pr {
 				vals.get(floatSample, selector);
 				sample._isIndexed = false;
 				sample._vals = floatSample;
-				sample._scope = GetGeometryScope(header->getMetaData());
 			}
 			else
 			{
@@ -344,12 +344,85 @@ namespace pr {
 				sample._isIndexed = true;
 				sample._vals = floatSample;
 				sample._indices = uintSample;
-				sample._scope = GetGeometryScope(header->getMetaData());
 			}
 		}
+		GeometryScope getScope() const { return _scope; }
 
 		ICompoundProperty _prop;
 		std::string _key;
+		GeometryScope _scope;
+	};
+
+	class IHoudiniIntGeomParam
+	{
+	public:
+		static bool matches(const PropertyHeader& iHeader)
+		{
+			// just support non indexed.
+			// But it's ok because 32bit single interger and 32bit indexed is pointless.
+			if( iHeader.isCompound() ) 
+			{
+				return false;
+			}
+			std::string podName = getPodName(&iHeader);
+			int numCompornent = getNumCompornent(&iHeader);
+			return
+				podName == Int32PODTraits::name() &&
+				numCompornent == 1;
+		}
+
+		class Sample
+		{
+		public:
+			Int32ArraySamplePtr getVals() const { return _vals; }
+			void reset()
+			{
+				_vals.reset();
+			}
+			bool valid() const { return _vals.get() != NULL; }
+			Int32ArraySamplePtr _vals;
+		};
+
+		IHoudiniIntGeomParam(ICompoundProperty prop, std::string key) :_prop(prop), _key(key), _scope(kUnknownScope)
+		{
+			const PropertyHeader* header = _prop.getPropertyHeader(_key);
+			if (header)
+			{
+				_scope = GetGeometryScope(header->getMetaData());
+			}
+		}
+		void getSample(Sample& sample, ISampleSelector selector) const
+		{
+			sample.reset();
+
+			const PropertyHeader* header = _prop.getPropertyHeader(_key);
+			if (header == nullptr)
+			{
+				return;
+			}
+			if (header->isScalar())
+			{
+				IInt32Property val(_prop, _key);
+				int32_t* value = (int32_t*)malloc(sizeof(int32_t));
+				val.get(*value, selector);
+				sample._vals = Int32ArraySamplePtr(new Int32ArraySample(value, 1), [value](Int32ArraySample* p) {
+					delete p;
+					free(value);
+				});
+			}
+			else if (header->isArray())
+			{
+				IInt32ArrayProperty vals(_prop, _key);
+				IInt32ArrayProperty::sample_ptr_type intSample;
+				vals.get(intSample, selector);
+				sample._vals = intSample;
+			}
+		}
+		GeometryScope getScope() const { return _scope; }
+
+		ICompoundProperty _prop;
+		std::string _key;
+		GeometryScope _scope;
 	};
 
 	std::ostream& operator<<(std::ostream& out, const glm::vec2& v)
@@ -414,6 +487,28 @@ namespace pr {
 	using AttributeVector2ColumnImpl = AttributeFloatNColumnImpl<glm::vec2, 2, AttributeVector2Column>;
 	using AttributeVector3ColumnImpl = AttributeFloatNColumnImpl<glm::vec3, 3, AttributeVector3Column>;
 	using AttributeVector4ColumnImpl = AttributeFloatNColumnImpl<glm::vec4, 4, AttributeVector4Column>;
+
+	class AttributeIntColumnImpl : public AttributeIntColumn
+	{
+	public:
+		AttributeIntColumnImpl(Int32ArraySamplePtr values) :_values(values) 
+		{
+		}
+		virtual int64_t count() const 
+		{
+			return _values->size();
+		}
+		virtual int32_t get(int64_t index) const
+		{
+			const int32_t* ptr = _values->get();
+			return ptr[index];
+		}
+		virtual std::string getAsString(int64_t index) const
+		{
+			return std::to_string(get(index));
+		}
+		Int32ArraySamplePtr _values;
+	};
 
 	class AttributeSpreadsheetImpl : public AttributeSpreadsheet
 	{
@@ -552,14 +647,16 @@ namespace pr {
 				const PropertyHeader &propertyHeader = arbProps.getPropertyHeader(i);
 				auto key = propertyHeader.getName();
 
-				if (key[0] == '.')
-				{
-					continue;
-				}
+				//if (key[0] == '.')
+				//{
+				//	continue;
+				//}
+
+				std::unique_ptr<AttributeColumn> col;
+				GeometryScope scope = kUnknownScope;
 
 				if (IHoudiniFloatGeomParam::matches(propertyHeader))
 				{
-					std::unique_ptr<AttributeColumn> col;
 					IHoudiniFloatGeomParam param(arbProps, key);
 					IHoudiniFloatGeomParam::Sample sample;
 					param.getSample(sample, selector);
@@ -580,8 +677,19 @@ namespace pr {
 					default:
 						break;
 					}
+					scope = param.getScope();
+				}
+				else if (IHoudiniIntGeomParam::matches(propertyHeader))
+				{
+					IHoudiniIntGeomParam param(arbProps, key);
+					IHoudiniIntGeomParam::Sample sample;
+					param.getSample(sample, selector);
+					col = std::unique_ptr<AttributeColumn>(new AttributeIntColumnImpl(sample.getVals()));
+					scope = param.getScope();
+				}
 
-					GeometryScope scope = sample.getScope();
+				if( col )
+				{
 					switch (scope)
 					{
 					case kVaryingScope: /* points */
