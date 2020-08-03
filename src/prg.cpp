@@ -618,7 +618,8 @@ namespace pr {
 		{
 			if (_sample.valid() == 0)
 			{
-				return "";
+				static std::string e;
+				return e;
 			}
 			if (_sample.isIndexed())
 			{

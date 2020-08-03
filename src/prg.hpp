@@ -317,7 +317,7 @@ namespace pr {
 		uint32_t _frameCount = 0;
 		std::string _applicationWriter;
 		std::string _alembicVersion;
-		uint32_t _alembicApiVersion;
+		uint32_t _alembicApiVersion = 0;
 		std::string _dateWritten;
 		std::string _userDescription;
 		double _DCCFPS = 0.0;
