@@ -1,3 +1,5 @@
+#if defined (_WIN32) 
+
 ///////////////////////////////////////////////////////////////////////////
 //
 // Copyright (c) 2005-2012, Industrial Light & Magic, a division of Lucas
@@ -93,3 +95,6 @@ Thread::start ()
 
 
 ILMTHREAD_INTERNAL_NAMESPACE_SOURCE_EXIT
+
+
+#endif
