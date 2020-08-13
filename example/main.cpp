@@ -478,6 +478,7 @@ int main() {
         {
             std::cout << file << std::endl;
             std::cout << GetPathBasename(file) << std::endl;
+            std::cout << GetPathBasenameWithoutExtension(file) << std::endl;
             std::cout << GetPathDirname(file) << std::endl;
             std::cout << GetPathExtension(file) << std::endl;
             std::cout << ChangePathExtension(file, "hogehogehoge") << std::endl;

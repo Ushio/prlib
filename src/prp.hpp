@@ -222,6 +222,7 @@ namespace pr {
     std::string JoinPath(std::string a, std::string b, std::string c, std::string d, std::string e);
 
     std::string GetPathBasename(std::string path); // note: includes extension 
+    std::string GetPathBasenameWithoutExtension(std::string path);
     std::string GetPathDirname(std::string path);
     std::string GetPathExtension(std::string path);
     std::string ChangePathExtension(std::string path, std::string newExtension);

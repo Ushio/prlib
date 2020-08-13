@@ -444,6 +444,12 @@ namespace pr {
         cwk_path_get_basename(path.c_str(), &basename, &length);
         return std::string(basename);
     }
+    std::string GetPathBasenameWithoutExtension(std::string path)
+    {
+        std::string base = GetPathBasename(path);
+        std::string e = GetPathExtension(path);
+        return base.substr(0, base.length() - e.length());
+    }
     std::string GetPathDirname(std::string path)
     {
         size_t length = 0;
