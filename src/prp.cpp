@@ -472,11 +472,18 @@ namespace pr {
         size_t should_be_zero = cwk_path_change_extension(path.c_str(), newExtension.c_str(), dirname.data(), dirname.size());
         return dirname.data();
     }
-
+    bool IsPathAbsolute(std::string path)
+    {
+        return cwk_path_is_absolute( path.c_str() );
+    }
     void SetDataDir(std::string dir) {
         g_dataPath = NormalizePath(dir);
     }
     std::string GetDataPath(std::string filename) {
+        if (IsPathAbsolute(filename))
+        {
+            return filename;
+        }
         return NormalizePath(JoinPath(g_dataPath, filename));
     }
     void ParallelFor(int n, std::function<void(int)> f /* f(index) */) {

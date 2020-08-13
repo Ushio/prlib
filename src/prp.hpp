@@ -226,6 +226,7 @@ namespace pr {
     std::string GetPathDirname(std::string path);
     std::string GetPathExtension(std::string path);
     std::string ChangePathExtension(std::string path, std::string newExtension);
+    bool IsPathAbsolute(std::string path);
 
     std::string GetDataPath(std::string filename);
 
