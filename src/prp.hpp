@@ -276,7 +276,28 @@ namespace pr {
 			_i2x = LinearTransform(0, (float)width, -1, 1);
 			_j2y = LinearTransform(0, (float)height, 1, -1);
 		}
+        /*
+        a----b----+
+        |    |    |
+        |    |    |
+        c----d----+
+        |    |    |
+        |    |    |
+        +----+----+
 
+        x: 0, y: 0 => shoot from a
+        x: 1, y: 0 => shoot from b
+        x: 0, y: 1 => shoot from c
+        x: 1, y: 1 => shoot from d
+
+        a------------------
+        |    |
+        |    |
+        |    v
+        |--->(xoffsetInPixel, yoffsetInPixel)
+        |
+        |
+        */
 		void shoot(glm::vec3 *ro, glm::vec3 *rd, int x, int y, float xoffsetInPixel = 0.0f, float yoffsetInPixel = 0.0f) const {
 			auto h = [](glm::vec4 v) {
 				return glm::vec3(v / v.w);

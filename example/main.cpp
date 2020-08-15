@@ -169,7 +169,7 @@ struct RaysDemo : public IDemo {
             for (int i = 0; i < image.width(); ++i)
             {
 				glm::vec3 ro, rd;
-				rayGenerator.shoot(&ro, &rd, i, j);
+				rayGenerator.shoot(&ro, &rd, i, j, 0.5f, 0.5f);
 
                 auto isect = glm::vec4(-1);
                 isect = combine(isect, intersect_sphere(ro, rd, { -2, 0, 0 }, 0.5f));
