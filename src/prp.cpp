@@ -489,6 +489,19 @@ namespace pr {
 	int Image2DRGBA32::height() const {
 		return _height;
 	}
+    Image2DRGBA32 Image2DRGBA32::map(std::function<PixelType(PixelType)> f) const
+    {
+        Image2DRGBA32 image;
+        image.allocate(width(), height());
+        for (int j = 0; j < image.height(); ++j)
+        {
+            for (int i = 0; i < image.width(); ++i)
+            {
+                image(i, j) = f((*this)(i, j));
+            }
+        }
+        return image;
+    }
 
 	// Simple Linear Translate
 	Image2DRGBA32 Image2DRGBA8_to_Image2DRGBA32(const Image2DRGBA8 &src) {

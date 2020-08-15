@@ -202,6 +202,8 @@ namespace pr {
 
 		int width() const;
 		int height() const;
+
+        Image2DRGBA32 map(std::function<PixelType(PixelType)> f) const;
 	private:
 		int _width = 0;
 		int _height = 0;

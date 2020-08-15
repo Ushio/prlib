@@ -484,14 +484,18 @@ struct ImagesDemo : public IDemo {
         {
             pr::Image2DRGBA32 image;
             PR_ASSERT(image.loadFromHDR("blaubeuren_night_1k.hdr") == pr::Result::Sucess);
-            _image1->upload(image);
+            _image1->upload(image.map([](glm::vec4 c) { 
+                return glm::pow(c, glm::vec4(0.454545f)); 
+            }));
         }
 
         _image2 = pr::CreateTexture();
         {
             pr::Image2DRGBA32 image;
             PR_ASSERT(image.loadFromEXR("StillLife.exr") == pr::Result::Sucess);
-            _image2->upload(image);
+            _image2->upload(image.map([](glm::vec4 c) {
+                return glm::pow(c, glm::vec4(0.454545f));
+             }));
         }
     }
     void OnDraw() override {
