@@ -6,19 +6,17 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#include "tinyexr.h"
+
 #include "cwalk.h"
 
 #include <algorithm>
+#include <mutex>
 
 #ifdef _WIN32
+    #define NOMINMAX
     #include <ppl.h>
     #include <Windows.h>
-    #ifdef max
-    #undef max
-    #endif
-    #ifdef min
-    #undef min
-    #endif
 #else
     #include <unistd.h>
     #include <linux/limits.h>
@@ -171,7 +169,12 @@ namespace pr {
         _values.resize(_width * _height);
     }
     Result Image2DRGBA8::load(const char *filename) {
-        stbi_uc *pixels = stbi_load(GetDataPath(filename).c_str(), &_width, &_height, 0, 4);
+        std::string fullPath = GetDataPath(filename);
+        if( stbi_is_hdr(fullPath.c_str()) )
+        {
+            return Result::Failure;
+        }
+        stbi_uc *pixels = stbi_load(fullPath.c_str(), &_width, &_height, 0, 4);
         if (pixels == nullptr) {
             return Result::Failure;
         }
@@ -181,6 +184,10 @@ namespace pr {
         return Result::Sucess;
     }
     Result Image2DRGBA8::load(const uint8_t *data, int bytes) {
+        if (stbi_is_hdr_from_memory(data, bytes))
+        {
+            return Result::Failure;
+        }
         stbi_uc *pixels = stbi_load_from_memory(data, bytes, &_width, &_height, 0, 4);
         if (pixels == nullptr) {
             return Result::Failure;
@@ -190,7 +197,7 @@ namespace pr {
         stbi_image_free(pixels);
         return Result::Sucess;
     }
-    Result Image2DRGBA8::save(const char* filename) const {
+    Result Image2DRGBA8::saveAsPng(const char* filename) const {
         if (stbi_write_png(GetDataPath(filename).c_str(), width(), height(), 4, _values.data(), 0)) {
             return Result::Sucess;
         }
@@ -244,7 +251,12 @@ namespace pr {
         _values.resize(_width * _height);
     }
     Result Image2DMono8::load(const char *filename) {
-        stbi_uc *pixels = stbi_load(GetDataPath(filename).c_str(), &_width, &_height, 0, 1);
+        std::string fullPath = GetDataPath(filename);
+        if (stbi_is_hdr(fullPath.c_str()))
+        {
+            return Result::Failure;
+        }
+        stbi_uc *pixels = stbi_load(fullPath.c_str(), &_width, &_height, 0, 1);
         if (pixels == nullptr) {
             return Result::Failure;
         }
@@ -254,6 +266,10 @@ namespace pr {
         return Result::Sucess;
     }
     Result Image2DMono8::load(const uint8_t *data, int bytes) {
+        if (stbi_is_hdr_from_memory(data, bytes))
+        {
+            return Result::Failure;
+        }
         stbi_uc *pixels = stbi_load_from_memory(data, bytes, &_width, &_height, 0, 1);
         if (pixels == nullptr) {
             return Result::Failure;
@@ -263,7 +279,7 @@ namespace pr {
         stbi_image_free(pixels);
         return Result::Sucess;
     }
-	Result Image2DMono8::save(const char* filename) const {
+	Result Image2DMono8::saveAsPng(const char* filename) const {
 		if (stbi_write_png(GetDataPath(filename).c_str(), width(), height(), 1, _values.data(), 0)) {
 			return Result::Sucess;
 		}
@@ -316,7 +332,12 @@ namespace pr {
 		_values.clear();
 		_values.resize(_width * _height);
 	}
-	Result Image2DRGBA32::load(const char *filename) {
+	Result Image2DRGBA32::loadFromHDR(const char *filename) {
+        std::string fullPath = GetDataPath(filename);
+        if (stbi_is_hdr(fullPath.c_str()) == false)
+        {
+            return Result::Failure;
+        }
 		float *pixels = stbi_loadf(GetDataPath(filename).c_str(), &_width, &_height, 0, 4);
 		if (pixels == nullptr) {
 			return Result::Failure;
@@ -326,22 +347,109 @@ namespace pr {
 		stbi_image_free(pixels);
 		return Result::Sucess;
 	}
-	Result Image2DRGBA32::load(const uint8_t *data, int bytes) {
+	Result Image2DRGBA32::loadFromHDR(const uint8_t *data, int bytes) {
+        if (stbi_is_hdr_from_memory(data, bytes) == false)
+        {
+            return Result::Failure;
+        }
 		float *pixels = stbi_loadf_from_memory(data, bytes, &_width, &_height, 0, 4);
 		if (pixels == nullptr) {
 			return Result::Failure;
 		}
 		_values.resize(_width * _height);
-		memcpy(_values.data(), pixels, _width * _height * 4);
+		memcpy(_values.data(), pixels, _width * _height * 4 * sizeof(float));
 		stbi_image_free(pixels);
 		return Result::Sucess;
 	}
-	Result Image2DRGBA32::save(const char* filename) const {
+    Result Image2DRGBA32::loadFromEXR(const char* filename)
+    {
+        std::string fullPath = GetDataPath(filename);
+        float* pixels; // width * height * RGBA
+        const char* err = nullptr;
+        int ret = LoadEXRWithLayer(&pixels, &_width, &_height, fullPath.c_str(), nullptr, &err);
+
+        if (ret != TINYEXR_SUCCESS) {
+            if (err) {
+                FreeEXRErrorMessage(err);
+            }
+            return Result::Failure;
+        }
+        _values.resize(_width * _height);
+        memcpy(_values.data(), pixels, _width * _height * 4 * sizeof(float));
+        free(pixels);
+        return Result::Sucess;
+    }
+	Result Image2DRGBA32::saveAsHDR(const char* filename) const {
 		if (stbi_write_hdr(GetDataPath(filename).c_str(), width(), height(), 4, glm::value_ptr(*_values.data()))) {
 			return Result::Sucess;
 		}
 		return Result::Failure;
 	}
+    Result Image2DRGBA32::saveAsEXR(const char* filename) const
+    {
+        EXRHeader header;
+        InitEXRHeader(&header);
+
+        EXRImage image;
+        InitEXRImage(&image);
+
+        enum
+        {
+            NUM_CHANNELS = 4
+        };
+        image.num_channels = NUM_CHANNELS;
+        header.num_channels = NUM_CHANNELS;
+
+        std::vector<float> images[NUM_CHANNELS]; // RGBA
+        for (int i = 0; i < NUM_CHANNELS; ++i)
+        {
+            images[i].resize(_width * _height);
+        }
+
+        for (int i = 0; i < _width * _height; i++) {
+            glm::vec4 color = _values[i];
+            for (int j = 0; j < NUM_CHANNELS; ++j)
+            {
+                images[j][i] = color[j];
+            }
+        }
+
+        float* image_ptr[NUM_CHANNELS];
+        for (int i = 0; i < NUM_CHANNELS; ++i)
+        {
+            image_ptr[i] = &(images[NUM_CHANNELS - i - 1].at(0)); // (A)BGR
+        }
+
+        image.images = (unsigned char**)image_ptr;
+        image.width = _width;
+        image.height = _height;
+
+        header.channels = (EXRChannelInfo*)malloc(sizeof(EXRChannelInfo) * header.num_channels);
+        // Must be (A)BGR order, since most of EXR viewers expect this channel order.
+        strncpy(header.channels[0].name, "A", 255); header.channels[0].name[strlen("A")] = '\0';
+        strncpy(header.channels[1].name, "B", 255); header.channels[1].name[strlen("B")] = '\0';
+        strncpy(header.channels[2].name, "G", 255); header.channels[2].name[strlen("G")] = '\0';
+        strncpy(header.channels[3].name, "R", 255); header.channels[3].name[strlen("R")] = '\0';
+
+        header.pixel_types = (int*)malloc(sizeof(int) * header.num_channels);
+        header.requested_pixel_types = (int*)malloc(sizeof(int) * header.num_channels);
+        for (int i = 0; i < header.num_channels; i++) {
+            header.pixel_types[i] = TINYEXR_PIXELTYPE_FLOAT; // pixel type of input image
+            header.requested_pixel_types[i] = TINYEXR_PIXELTYPE_HALF; // pixel type of output image to be stored in .EXR
+        }
+
+        const char* err = NULL; // or nullptr in C++11 or later.
+        int ret = SaveEXRImageToFile(&image, &header, GetDataPath(filename).c_str(), &err);
+        if (ret != TINYEXR_SUCCESS) {
+            FreeEXRErrorMessage(err); // free's buffer for an error message
+            return Result::Failure;
+        }
+
+        free(header.channels);
+        free(header.pixel_types);
+        free(header.requested_pixel_types);
+        return Result::Sucess;
+    }
 	Image2DRGBA32::PixelType *Image2DRGBA32::data() {
 		return _values.data();
 	}

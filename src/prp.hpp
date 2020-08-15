@@ -132,7 +132,7 @@ namespace pr {
         void allocate(int w, int h);
         Result load(const char *filename);
         Result load(const uint8_t *data, int bytes);
-        Result save(const char* filename) const;
+        Result saveAsPng(const char* filename) const;
 
         glm::u8vec4 *data();
         const glm::u8vec4 *data() const;
@@ -157,7 +157,7 @@ namespace pr {
         Result load(const char *filename);
         Result load(const uint8_t *data, int bytes);
 
-		Result save(const char* filename) const;
+		Result saveAsPng(const char* filename) const;
 
         uint8_t *data();
         const uint8_t *data() const;
@@ -183,11 +183,12 @@ namespace pr {
 
 		void allocate(int w, int h);
 
-		// warning: image will be degamma when you load 8bit image.
-		Result load(const char *filename);
-		Result load(const uint8_t *data, int bytes);
+		Result loadFromHDR(const char *filename);
+		Result loadFromHDR(const uint8_t *data, int bytes);
+        Result loadFromEXR(const char* filename);
 
-		Result save(const char* filename) const;
+        Result saveAsHDR(const char* filename) const;
+        Result saveAsEXR(const char* filename) const;
 
 		PixelType *data();
 		const PixelType *data() const;

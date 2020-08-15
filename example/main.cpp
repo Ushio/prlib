@@ -11,6 +11,7 @@ enum DemoMode {
     DemoMode_Benchmark,
     DemoMode_Alembic,
     DemoMode_AlembicHoudini,
+    DemoMode_Images,
 };
 const char* DemoModes[] = { 
     "DemoMode_Point",
@@ -21,6 +22,7 @@ const char* DemoModes[] = {
     "DemoMode_Benchmark",
     "DemoMode_Alembic",
     "DemoMode_AlembicHoudini",
+    "DemoMode_Images",
 };
 
 class IDemo {
@@ -467,6 +469,65 @@ struct AlembicHoudiniDemo : public IDemo {
     }
     std::shared_ptr<pr::FScene> _scene;
 };
+
+struct ImagesDemo : public IDemo {
+    ImagesDemo()
+    {
+        _image0 = pr::CreateTexture();
+        {
+            pr::Image2DRGBA8 image;
+            PR_ASSERT(image.load("edobee.jpg") == pr::Result::Sucess);
+            _image0->upload(image);
+        }
+
+        _image1 = pr::CreateTexture();
+        {
+            pr::Image2DRGBA32 image;
+            PR_ASSERT(image.loadFromHDR("blaubeuren_night_1k.hdr") == pr::Result::Sucess);
+            _image1->upload(image);
+        }
+
+        _image2 = pr::CreateTexture();
+        {
+            pr::Image2DRGBA32 image;
+            PR_ASSERT(image.loadFromEXR("StillLife.exr") == pr::Result::Sucess);
+            _image2->upload(image);
+        }
+    }
+    void OnDraw() override {
+
+    }
+    void OnImGui() override {
+        using namespace pr;
+
+        if (ImGui::Button("Save Images -> imageN.png"))
+        {
+            {
+                pr::Image2DRGBA8 image;
+                PR_ASSERT(image.load("edobee.jpg") == pr::Result::Sucess);
+                image.saveAsPng("image0.png");
+            }
+            {
+                pr::Image2DRGBA32 image;
+                PR_ASSERT(image.loadFromHDR("blaubeuren_night_1k.hdr") == pr::Result::Sucess);
+                image.saveAsHDR("image1.hdr");
+            }
+            {
+                pr::Image2DRGBA32 image;
+                PR_ASSERT(image.loadFromEXR("StillLife.exr") == pr::Result::Sucess);
+                image.saveAsEXR("image2.exr");
+            }
+        }
+
+        ImGui::Image(_image0, ImVec2(_image0->width(), _image0->height()));
+        ImGui::Image(_image1, ImVec2(_image1->width(), _image1->height()));
+        ImGui::Image(_image2, ImVec2(_image2->width(), _image2->height()));
+    }
+    pr::ITexture* _image0 = nullptr;
+    pr::ITexture* _image1 = nullptr;
+    pr::ITexture* _image2 = nullptr;
+};
+
 std::vector<IDemo*> demos;
 
 int main() {
@@ -485,7 +546,13 @@ int main() {
         }
     });
 
-    demos  = {
+    Config config;
+    config.ScreenWidth = 1920;
+    config.ScreenHeight = 1080;
+    config.SwapInterval = 1;
+    Initialize(config);
+
+    demos = {
        new PointDemo(),
        new LineDemo(),
        new TextDemo(),
@@ -494,13 +561,8 @@ int main() {
        new BenchmarkDemo(),
        new AlembicDemo(),
        new AlembicHoudiniDemo(),
+       new ImagesDemo(),
     };
-
-    Config config;
-    config.ScreenWidth = 1920;
-    config.ScreenHeight = 1080;
-    config.SwapInterval = 1;
-    Initialize(config);
 
     Camera3D camera;
     camera.origin = { 4, 4, 4 };

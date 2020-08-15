@@ -99,6 +99,7 @@ project "prlib"
 
     -- lib
     includedirs { "libs/stb" }
+    files {"libs/stb/*.h"}
 
     -- alembic
     includedirs { "libs/alembic" }
@@ -109,6 +110,11 @@ project "prlib"
     includedirs { "libs/tiny_obj_loader" }
     files { "libs/tiny_obj_loader/tiny_obj_loader.cc" }
     files { "libs/tiny_obj_loader/tiny_obj_loader.h" }
+
+    -- TinyExr
+    includedirs { "libs/tinyexr" }
+    files { "libs/tinyexr/tinyexr.cc" }
+    files { "libs/tinyexr/tinyexr.h" }
 
     -- Lib Core
     files {"src/*.cpp", "src/*.h", "src/*.hpp"}
