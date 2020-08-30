@@ -302,7 +302,7 @@ namespace pr {
     };
     ITexture *CreateTexture();
 
-    void     TriBegin(ITexture *texture);
+    void     TriBegin(const ITexture *texture);
     uint32_t TriVertex(glm::vec3 p, glm::vec2 uv, glm::u8vec4 c);
     void     TriIndex(uint32_t index);
     void     TriEnd();

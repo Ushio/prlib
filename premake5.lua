@@ -119,6 +119,7 @@ project "prlib"
     -- Lib Core
     files {"src/*.cpp", "src/*.h", "src/*.hpp"}
     includedirs { "src/" }
+    files {"src/*.natvis"}
 
     filter { "system:Windows" }
         links { "opengl32" }

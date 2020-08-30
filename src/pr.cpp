@@ -662,7 +662,7 @@ namespace pr {
             }
         }
     public:
-        void draw(ITexture *texture) {
+        void draw(const ITexture *texture) {
             if (!_white) {
                 _white = std::unique_ptr<ITexture>(CreateTexture());
                 uint8_t white[4] = { 255, 255, 255, 255 };
@@ -2534,9 +2534,9 @@ suspend_event_handle:
     namespace {
         bool g_triangleEnabled = false;
         TexturedTriangleDam g_texturedTriangleDam;
-        ITexture *g_texture = nullptr;
+        const ITexture *g_texture = nullptr;
     }
-    void TriBegin(ITexture *texture) {
+    void TriBegin(const ITexture *texture) {
         PR_ASSERT(g_triangleEnabled == false);
         g_triangleEnabled = true;
         g_texture = texture;

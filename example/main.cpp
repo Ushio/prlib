@@ -285,6 +285,7 @@ struct BenchmarkDemo : public IDemo {
 };
 
 std::vector<const char*> abcList = {
+    "teapot.abc",
     "blend_abc.abc",
     "maya_abc.abc",
     "houdini_abc.abc",
@@ -302,6 +303,11 @@ struct AlembicDemo : public IDemo {
         {
             _scene = _abcArchive.readFlat(_sample_index, errorMessage);
         }
+
+        _texture = std::shared_ptr<pr::ITexture>( pr::CreateTexture() );
+        pr::Image2DRGBA8 image;
+        image.load("2048x2048 Texel Density Texture 5.png");
+        _texture->upload(image);
     }
     void OnDraw() override {
         using namespace pr;
@@ -309,7 +315,7 @@ struct AlembicDemo : public IDemo {
         if (! _scene) {
             return;
         }
-        _scene->visitPolyMesh([](std::shared_ptr<const FPolyMeshEntity> polymesh) {
+        _scene->visitPolyMesh([this](std::shared_ptr<const FPolyMeshEntity> polymesh) {
             if (polymesh->visible() == false)
             {
                 return;
@@ -318,11 +324,41 @@ struct AlembicDemo : public IDemo {
             ColumnView<int32_t> indices(polymesh->faceIndices());
             ColumnView<glm::vec3> positions(polymesh->positions());
             ColumnView<glm::vec3> normals(polymesh->normals());
+            ColumnView<glm::vec2> uvs(polymesh->uvs());
 
             pr::SetObjectTransform(polymesh->localToWorld());
 
-            // Geometry
-            pr::PrimBegin(pr::PrimitiveMode::Lines);
+            // Show as Textured Polygon
+            if( 0 < uvs.count() )
+            {
+                pr::TriBegin(_texture.get());
+
+                int indexBase = 0;
+                for (int i = 0; i < faceCounts.count(); i++)
+                {
+                    int nVerts = faceCounts[i];
+                    for (int j = 0; j < nVerts - 2 ; ++j)
+                    {
+                        int iv0 = indexBase;
+                        int iv1 = indexBase + j + 1;
+                        int iv2 = indexBase + j + 2;
+                        int ip0 = indices[iv0];
+                        int ip1 = indices[iv1];
+                        int ip2 = indices[iv2];
+
+                        auto revUV = [](glm::vec2 uv) { return glm::vec2 { uv.x, 1.0f - uv.y }; };
+                        pr::TriVertex(positions[ip0], revUV( uvs[iv0] ), { 255, 255, 255, 255 });
+                        pr::TriVertex(positions[ip1], revUV( uvs[iv1] ), { 255, 255, 255, 255 });
+                        pr::TriVertex(positions[ip2], revUV( uvs[iv2] ), { 255, 255, 255, 255 });
+                    }
+                    indexBase += nVerts;
+                }
+
+                pr::TriEnd();
+            }
+
+            // Show as Line Geometry
+            pr::PrimBegin(pr::PrimitiveMode::Lines, 2);
             for (int i = 0; i < positions.count(); i++)
             {
                 glm::vec3 p = positions[i];
@@ -343,7 +379,7 @@ struct AlembicDemo : public IDemo {
             }
             pr::PrimEnd();
 
-            // Normal
+            // Show Normal
             if (normals.empty() == false)
             {
                 pr::PrimBegin(pr::PrimitiveMode::Lines);
@@ -401,6 +437,7 @@ struct AlembicDemo : public IDemo {
     pr::AbcArchive _abcArchive;
     int _sample_index = 0;
     std::shared_ptr<pr::FScene> _scene;
+    std::shared_ptr<pr::ITexture> _texture;
 };
 
 struct AlembicHoudiniDemo : public IDemo {
@@ -568,6 +605,8 @@ int main() {
        new ImagesDemo(),
     };
 
+    pr::SetDepthTest(true);
+
     Camera3D camera;
     camera.origin = { 4, 4, 4 };
     camera.lookat = { 0, 0, 0 };
@@ -623,6 +662,8 @@ int main() {
         }
         EndImGui();
     }
+
+    demos.clear();
 
     pr::CleanUp();
 }
