@@ -379,7 +379,7 @@ struct AlembicDemo : public IDemo {
             }
             pr::PrimEnd();
 
-            // Show Normal
+            // Normal
             if (normals.empty() == false)
             {
                 pr::PrimBegin(pr::PrimitiveMode::Lines);

@@ -268,8 +268,8 @@ namespace pr {
 		void visitPolyMesh(std::function<void(std::shared_ptr<const FPolyMeshEntity>)> visitor) const { visit(visitor); }
 		void visitPolyMesh(std::function<VisitorAction(std::shared_ptr<const FPolyMeshEntity>)> visitor) const { visit(visitor); }
 
-		int size() const { return _entities.size(); }
-		std::shared_ptr<FSceneEntity> operator[](int i) { return _entities[i]; }
+		int entityCount() const { return _entities.size(); }
+		std::shared_ptr<FSceneEntity> entityAt(int i) { return _entities[i]; }
 	private:
 		std::vector<std::shared_ptr<FSceneEntity>> _entities;
 	};
