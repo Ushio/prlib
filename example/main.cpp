@@ -286,6 +286,7 @@ struct BenchmarkDemo : public IDemo {
 
 std::vector<const char*> abcList = {
     "teapot.abc",
+    "PointUV.abc",
     "blend_abc.abc",
     "maya_abc.abc",
     "houdini_abc.abc",
