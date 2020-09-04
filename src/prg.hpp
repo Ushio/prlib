@@ -193,6 +193,7 @@ namespace pr {
 		virtual ~FSceneEntity() {}
 		virtual FSceneEntityType type() const = 0;
 
+		// This is a unique name if this is from alembic
 		virtual std::string fullname() const = 0;
 		virtual bool visible() const = 0;
 		virtual glm::mat4 localToWorld() const = 0;
@@ -226,8 +227,10 @@ namespace pr {
 		*/
 		virtual AttributeSpreadsheet* attributeSpreadsheet(AttributeSpreadsheetType type) const = 0;
 
-		// return HashCode It's ok to use as key for identifying instance source.
-		virtual std::string propertyHash() const = 0;
+		// return instance fullname if this is instance. otherwise return ""
+		virtual std::string instanceSourceFullname() const = 0;
+
+		bool isInstance() const { return instanceSourceFullname().empty() == false; }
 	};
 	class FScene {
 	public:

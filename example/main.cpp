@@ -285,6 +285,7 @@ struct BenchmarkDemo : public IDemo {
 };
 
 std::vector<const char*> abcList = {
+    "instancing.abc",
     "teapot.abc",
     "PointUV.abc",
     "blend_abc.abc",
@@ -328,6 +329,11 @@ struct AlembicDemo : public IDemo {
             ColumnView<glm::vec2> uvs(polymesh->uvs());
 
             pr::SetObjectTransform(polymesh->localToWorld());
+
+            if( polymesh->isInstance() )
+            {
+                pr::DrawText({ 0, 0, 0 }, "instance", 14);
+            }
 
             // Show as Textured Polygon
             if( 0 < uvs.count() )
@@ -618,7 +624,7 @@ int main() {
 
     bool showImGuiDemo = false;
     float fontSize = 16.0f;
-    int demoMode = DemoMode_Point;
+    int demoMode = DemoMode_Alembic;
 
     while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {

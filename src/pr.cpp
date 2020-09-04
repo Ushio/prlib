@@ -2562,7 +2562,7 @@ suspend_event_handle:
     }
     void DrawText(glm::vec3 p_world, std::string text, float fontSize, glm::u8vec3 fontColor, float outlineWidth, glm::u8vec3 outlineColor) {
         auto camera = GetCurrentCamera();
-        auto screen = glm::project(p_world, camera->getViewMatrix(), camera->getProjectionMatrix(), glm::vec4(0, 0, GetScreenWidth(), GetScreenHeight()));
+        auto screen = glm::project(p_world, camera->getViewMatrix() * g_objectTransform, camera->getProjectionMatrix(), glm::vec4(0, 0, GetScreenWidth(), GetScreenHeight()));
         
         // back cliping
         if (screen.z > 1.0f) {

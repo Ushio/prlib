@@ -159,8 +159,8 @@ namespace pr {
 		{
 			return _attributeSpreadsheets[(int)type].get();
 		}
-		virtual std::string propertyHash() const override {
-			return _propertyHash;
+		virtual std::string instanceSourceFullname() const override {
+			return "";
 		}
 		CommonAttribute _common;
 
@@ -173,10 +173,55 @@ namespace pr {
 
 		// houdini sheet
 		std::unique_ptr<AttributeSpreadsheet> _attributeSpreadsheets[4];
+	};
 
-		// Instanced Mesh
-		std::string _propertyHash;
+	class FPolyMeshEntityInstance : public FPolyMeshEntity
+	{
+	public:
+		FPolyMeshEntityInstance()
+		{
+		}
+		virtual WindingOrder winingOrder() const override {
+			return _ref->winingOrder();
+		}
 
+		virtual std::string fullname() const override {
+			return _common.fullname;
+		}
+		virtual bool visible() const override {
+			return _common.bakedVisibility;
+		}
+		virtual glm::mat4 localToWorld() const override {
+			return _common.localToWorld;
+		}
+
+		virtual IVector3Column* positions() const override {
+			return _ref->positions();
+		}
+		virtual IVector3Column* normals() const override {
+			return _ref->normals();
+		}
+		virtual IVector2Column* uvs() const override {
+			return _ref->uvs();
+		}
+		virtual IInt32Column* faceCounts() const override {
+			return _ref->faceCounts();
+		}
+		virtual IInt32Column* faceIndices() const override {
+			return _ref->faceIndices();
+		}
+
+		virtual AttributeSpreadsheet* attributeSpreadsheet(AttributeSpreadsheetType type) const override
+		{
+			return _ref->attributeSpreadsheet(type);
+		}
+		virtual std::string instanceSourceFullname() const override {
+			return _instanceSource;
+		}
+
+		CommonAttribute _common;
+		std::shared_ptr<FPolyMeshEntity> _ref;
+		std::string _instanceSource;
 	};
 
 	inline glm::mat4 to(M44d m) {
@@ -850,15 +895,17 @@ namespace pr {
 			}
 		}
 
-		Digest d;
-		if (polyMesh.getPropertiesHash(d))
-		{
-			e->_propertyHash = d.str();
-		}
 		e->_common = common;
 		return e;
 	}
-	inline void parse_object(IObject o, ISampleSelector selector, std::vector<M44d> xforms, bool visible, std::vector<std::shared_ptr<FSceneEntity>> &entities) 
+
+	enum class ParseMode
+	{
+		Standard,
+		Instance
+	};
+
+	inline void parse_object(IObject o, ISampleSelector selector, std::vector<M44d> xforms, bool visible, std::vector<std::shared_ptr<FSceneEntity>> &entities, ParseMode parseMode, std::map<std::string, std::shared_ptr<FPolyMeshEntity>> &instances)
 	{
 		auto header = o.getHeader();
 
@@ -876,14 +923,33 @@ namespace pr {
 
 		CommonAttribute common;
 		common.bakedVisibility = visible;
-		common.fullname = header.getFullName();
+		common.fullname = o.getFullName();
 		common.localToWorld = to(combineXform(xforms));
-
+		
 		if (IPolyMesh::matches(header)) {
 			IPolyMesh polyMesh(o);
-			//parse_common_property(o, object.get(), xforms, selector);
+			std::string instanceSourcePath = o.instanceSourcePath();
 
-			entities.emplace_back(parse_polymesh(polyMesh, common, selector));
+			if( parseMode == ParseMode::Standard )
+			{
+				if( instanceSourcePath.empty() )
+				{
+					std::shared_ptr<FPolyMeshEntity> e = parse_polymesh(polyMesh, common, selector);
+					entities.emplace_back(e);
+					instances[common.fullname] = e;
+				}
+			}
+			else if( parseMode == ParseMode::Instance )
+			{
+				if( instanceSourcePath.empty() == false )
+				{
+					std::shared_ptr<FPolyMeshEntityInstance> e(new FPolyMeshEntityInstance());
+					e->_common = common;
+					e->_ref = instances[instanceSourcePath];
+					e->_instanceSource = instanceSourcePath;
+					entities.emplace_back(e);
+				}
+			}
 		}
 		else if (IPoints::matches(header)) {
 			//IPoints points(o);
@@ -994,13 +1060,13 @@ namespace pr {
 
 			for (int i = 0; i < o.getNumChildren(); ++i) {
 				IObject child = o.getChild(i);
-				parse_object(child, selector, xforms, visible, entities);
+				parse_object(child, selector, xforms, visible, entities, parseMode, instances);
 			}
 		}
 		else {
 			for (int i = 0; i < o.getNumChildren(); ++i) {
 				IObject child = o.getChild(i);
-				parse_object(child, selector, xforms, visible, entities);
+				parse_object(child, selector, xforms, visible, entities, parseMode, instances);
 			}
 		}
 	}
@@ -1043,7 +1109,9 @@ namespace pr {
 			ISampleSelector selector((index_t)index);
 			std::vector<std::shared_ptr<FSceneEntity>> entities;
 			IArchive* archive = static_cast<IArchive*>(_alembicArchive.get());
-			parse_object(archive->getTop(), selector, std::vector<M44d>(), true /* visible */, entities );
+			std::map<std::string, std::shared_ptr<FPolyMeshEntity>> instances;
+			parse_object( archive->getTop(), selector, std::vector<M44d>(), true /* visible */, entities, ParseMode::Standard, instances );
+			parse_object( archive->getTop(), selector, std::vector<M44d>(), true /* visible */, entities, ParseMode::Instance, instances );
 			return std::shared_ptr<FScene>(new FScene(std::move(entities)));
 		}
 		catch (std::exception& e) {
@@ -1090,8 +1158,8 @@ namespace pr {
 		{
 			return kEmptySheet.get();
 		}
-		virtual std::string propertyHash() const override {
-			return _propertyHash;
+		virtual std::string instanceSourceFullname() const override {
+			return "";
 		}
 
 		std::shared_ptr<tinyobj::ObjReader> _sharedObjReader;
@@ -1104,9 +1172,6 @@ namespace pr {
 		std::unique_ptr<IVector2Column> _uvs;
 		std::unique_ptr<IInt32Column> _faceCounts;
 		std::unique_ptr<IInt32Column> _faceIndices;
-
-		// Instanced Mesh
-		std::string _propertyHash;
 	};
 
 	class IVector2ColumnFloatRefImpl : public IVector2Column {
