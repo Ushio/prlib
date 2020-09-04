@@ -297,20 +297,30 @@ namespace pr {
                 glFinish();
 
                 int requiredBytes = _head + bytes;
-                // printf("%d -> %d\n", _capacityBytes, std::max(_capacityBytes * 2, requiredBytes));
-                _capacityBytes = std::max(_capacityBytes * 2, requiredBytes);
 
-                GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
+                // If requiredBytes is bigger than limit and the bytes is small enough then skip allocation.
+                if( g_config.PersistentBufferLimitHint < requiredBytes && bytes <= _capacityBytes )
+                {
+                    // Just reset head 
+                    _head = 0;
+                }
+                else
+                {
+                    // expand buffer
+                    _capacityBytes = std::max(_capacityBytes * 2, requiredBytes);
 
-                for (int i = 0; i < BUFFER_COUNT; ++i) {
-                    if (_pointers[i]) {
-                        glUnmapNamedBuffer(_buffers[i]);
-                        glDeleteBuffers(1, _buffers + i);
+                    GLbitfield flags = GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT;
+
+                    for (int i = 0; i < BUFFER_COUNT; ++i) {
+                        if (_pointers[i]) {
+                            glUnmapNamedBuffer(_buffers[i]);
+                            glDeleteBuffers(1, _buffers + i);
+                        }
+                        glCreateBuffers(1, _buffers + i);
+                        glNamedBufferStorage(_buffers[i], _capacityBytes, nullptr, flags);
+                        _pointers[i] = glMapNamedBufferRange(_buffers[i], 0, _capacityBytes, flags);
+                        PR_ASSERT(_pointers[i]);
                     }
-                    glCreateBuffers(1, _buffers + i);
-                    glNamedBufferStorage(_buffers[i], _capacityBytes, nullptr, flags);
-                    _pointers[i] = glMapNamedBufferRange(_buffers[i], 0, _capacityBytes, flags);
-                    PR_ASSERT(_pointers[i]);
                 }
             }
             
