@@ -707,7 +707,14 @@ namespace pr {
 
             g_texturedTrianglePipeline->bindShaderAndBuffer();
 
-            texture->bind();
+            if( texture )
+            {
+                texture->bind();
+            }
+            else
+            {
+                _white->bind();
+            }
 
             if (_indices.empty()) {
                 glDrawArrays(GL_TRIANGLES, (GLint)vertexOffset, (GLsizei)_vertices.size());
