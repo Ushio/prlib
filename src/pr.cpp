@@ -2675,34 +2675,36 @@ suspend_event_handle:
         }
     }
 
-    float compMin(glm::vec3 v) {
-        return glm::min(glm::min(v.x, v.y), v.z);
-    }
-    float compMax(glm::vec3 v) {
-        return glm::max(glm::max(v.x, v.y), v.z);
-    }
-    glm::vec3 select(glm::vec3 a, glm::vec3 b, glm::bvec3 s) {
-        return {
-            s.x ? b.x : a.x,
-            s.y ? b.y : a.y,
-            s.z ? b.z : a.z
-        };
-    }
-    bool slabs(glm::vec3 p0, glm::vec3 p1, glm::vec3 ro, glm::vec3 one_over_rd) {
-        glm::vec3 t0 = (p0 - ro) * one_over_rd;
-        glm::vec3 t1 = (p1 - ro) * one_over_rd;
+    namespace {
+        float compMin(glm::vec3 v) {
+            return glm::min(glm::min(v.x, v.y), v.z);
+        }
+        float compMax(glm::vec3 v) {
+            return glm::max(glm::max(v.x, v.y), v.z);
+        }
+        glm::vec3 select(glm::vec3 a, glm::vec3 b, glm::bvec3 s) {
+            return {
+                s.x ? b.x : a.x,
+                s.y ? b.y : a.y,
+                s.z ? b.z : a.z
+            };
+        }
+        bool slabs(glm::vec3 p0, glm::vec3 p1, glm::vec3 ro, glm::vec3 one_over_rd) {
+            glm::vec3 t0 = (p0 - ro) * one_over_rd;
+            glm::vec3 t1 = (p1 - ro) * one_over_rd;
 
-        t0 = select(t0, -t1, glm::isnan(t0));
-        t1 = select(t1, -t0, glm::isnan(t1));
+            t0 = select(t0, -t1, glm::isnan(t0));
+            t1 = select(t1, -t0, glm::isnan(t1));
 
-        glm::vec3 tmin = min(t0, t1), tmax = max(t0, t1);
-        float region_min = compMax(tmin);
-        float region_max = compMin(tmax);
-        return region_min <= region_max && 0.0f <= region_max;
-    }
+            glm::vec3 tmin = min(t0, t1), tmax = max(t0, t1);
+            float region_min = compMax(tmin);
+            float region_max = compMin(tmax);
+            return region_min <= region_max && 0.0f <= region_max;
+        }
 
-    float project_on_plane(glm::vec3 ro, glm::vec3 rd, glm::vec3 o, glm::vec3 T) {
-        return -glm::dot(ro - o, T) / glm::dot(T, rd);
+        float project_on_plane(glm::vec3 ro, glm::vec3 rd, glm::vec3 o, glm::vec3 T) {
+            return -glm::dot(ro - o, T) / glm::dot(T, rd);
+        }
     }
     void ManipulatePlaneConstraint(glm::vec3* v,
         glm::vec3 ro_cur, glm::vec3 rd_cur,
