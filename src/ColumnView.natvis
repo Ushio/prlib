@@ -3,7 +3,7 @@
   <Type Name="pr::ColumnView&lt;*&gt;">
     <DisplayString>{{ size={_count} }}</DisplayString>
     <Expand>
-      <Item Name="[capacity]" ExcludeView="simple">_count</Item>
+      <Item Name="[size]" ExcludeView="simple">_count</Item>
       <ArrayItems>
         <Size>_count</Size>
         <ValuePointer>_ptr</ValuePointer>

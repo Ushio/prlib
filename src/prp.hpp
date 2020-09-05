@@ -12,11 +12,181 @@
 #include <functional>
 #include <random>
 #include <cmath>
+#include <algorithm>
 
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
+// #define TRIVIAL_VECTOR_ENABLE_OUT_OF_BOUNDS_DETECTION
+
+#if defined(TRIVIAL_VECTOR_ENABLE_OUT_OF_BOUNDS_DETECTION)
+#include <stdexcept>
+#include <inttypes.h>
+#endif
+
 namespace pr {
+    template <class T>
+    class trivial_vector
+    {
+    public:
+        trivial_vector()
+        {
+
+        }
+        trivial_vector(int64_t n):_size(n), _capacity(n), _data((T *)malloc(sizeof(T) * n))
+        {
+        }
+        trivial_vector(const trivial_vector<T>& rhs)
+        {
+            resize(rhs.size());
+            std::copy(rhs.begin(), rhs.end(), begin());
+        }
+        trivial_vector(trivial_vector<T>&& rhs) noexcept
+        {
+            _data = rhs._data;
+            _capacity = rhs._capacity;
+            _size = rhs._size;
+            rhs._data = nullptr;
+            rhs._capacity = 0;
+            rhs._size = 0;
+        }
+        ~trivial_vector()
+        {
+            if (_data)
+            {
+                free(_data);
+            }
+        }
+        trivial_vector<T>& operator=(const trivial_vector<T>& rhs)
+        {
+            resize(rhs.size());
+            std::copy(rhs.begin(), rhs.end(), begin());
+            return *this;
+        }
+        trivial_vector<T>& operator=(trivial_vector<T>&& rhs) noexcept
+        {
+            _data = rhs._data;
+            _capacity = rhs._capacity;
+            _size = rhs._size;
+            rhs._data = nullptr;
+            rhs._capacity = 0;
+            rhs._size = 0;
+            return *this;
+        }
+
+        const T &operator[](int64_t i) const {
+#if defined(TRIVIAL_VECTOR_ENABLE_OUT_OF_BOUNDS_DETECTION)
+            if (i < 0 || _size <= i)
+            {
+                printf("out of bounds! trivial_vector[%" PRId64 "] (size=%" PRId64 ")", i, _size);
+                abort();
+            }
+#endif
+            return _data[i];
+        }
+        T& operator[](int64_t i) {
+#if defined(TRIVIAL_VECTOR_ENABLE_OUT_OF_BOUNDS_DETECTION)
+            if (i < 0 || _size <= i)
+            {
+                printf("out of bounds! trivial_vector[%" PRId64 "] (size=%" PRId64 ")", i, _size);
+                abort();
+            }
+#endif
+            return _data[i];
+        }
+
+        T* begin() { return _data; }
+        T* end() { return _data + _size; }
+        const T* begin() const { return _data; }
+        const T* end() const  { return _data + _size; }
+        T* data() { return _data; }
+        const T* data() const { return _data; }
+
+        void clear()
+        {
+            _size = 0;
+        }
+        void reserve(int64_t n)
+        {
+            if( n <= _capacity )
+            {
+                return;
+            }
+
+            T* newPtr = (T *)realloc(_data, sizeof(T) * n);
+            if( newPtr == nullptr )
+            {
+                return;
+            }
+
+            _data = newPtr;
+            _capacity = n;
+        }
+        void resize(int64_t n)
+        {
+            if( n <= _capacity)
+            {
+                _size = n;
+                return;
+            }
+
+            T* newPtr = (T*)realloc(_data, sizeof(T) * n);
+            if (newPtr == nullptr)
+            {
+                return;
+            }
+            _data = newPtr;
+            _capacity = n;
+            _size = n;
+        }
+        void shrink_to_fit()
+        {
+            if (_size == _capacity)
+            {
+                return;
+            }
+            if (_size == 0)
+            {
+                free(_data);
+                _data = 0;
+                _capacity = 0;
+                return;
+            }
+
+            T* newPtr = (T*)realloc(_data, sizeof(T) * _size);
+            if (newPtr == nullptr)
+            {
+                return;
+            }
+            _data = newPtr;
+            _capacity = _size;
+        }
+        void push_back( const T &value )
+        {
+            if( _capacity == _size )
+            {
+                int64_t n = std::max( _capacity * 2, (int64_t)1 );
+                T* newPtr = (T*)realloc(_data, sizeof(T) * n);
+                if (newPtr == nullptr)
+                {
+                    return;
+                }
+                _data = newPtr;
+                _capacity = n;
+            }
+            _data[_size] = value;
+            _size++;
+        }
+        int64_t size() const { return _size; }
+        int64_t bytes() const { return _size * sizeof(T); }
+        int64_t capacity() const { return _capacity; }
+        bool empty() const { return _size == 0; }
+    private:
+        int64_t _size = 0;
+        int64_t _capacity = 0;
+        T* _data = nullptr;
+    };
+
     enum class Result {
         Sucess,
         Failure
