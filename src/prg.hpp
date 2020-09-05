@@ -227,7 +227,10 @@ namespace pr {
 		*/
 		virtual AttributeSpreadsheet* attributeSpreadsheet(AttributeSpreadsheetType type) const = 0;
 
-		// return instance fullname if this is instance. otherwise return ""
+		/*
+		return instance fullname if this is instance. otherwise return ""
+		if you are using houdini, Packed Transform: Transform Geometry is recommended
+		*/
 		virtual std::string instanceSourceFullname() const = 0;
 
 		bool isInstance() const { return instanceSourceFullname().empty() == false; }
