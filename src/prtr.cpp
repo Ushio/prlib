@@ -113,8 +113,30 @@ namespace pr
 		std::lock_guard<std::mutex> scoped_lock( g_mutex );
 		g_processList[ID].events.push_back( e );
 	}
-	void ChromeTraceSetProcessName( std::string process )
+	void ChromeTraceSetProcessName( const char* format, ... )
 	{
+		std::string process;
+		va_list ap;
+		va_start( ap, format );
+		char buffer[64];
+		int bytes = vsnprintf( buffer, sizeof( buffer ), format, ap );
+		va_end( ap );
+
+		if( sizeof( buffer ) <= bytes )
+		{
+			va_list ap;
+			va_start( ap, format );
+			char* dyBuffer = (char*)malloc( bytes + 1 );
+			vsnprintf( dyBuffer, bytes + 1, format, ap );
+			va_end( ap );
+			process = dyBuffer;
+			free( dyBuffer );
+		}
+		else
+		{
+			process = buffer;
+		}
+
 		auto ID = std::this_thread::get_id();
 		std::lock_guard<std::mutex> scoped_lock( g_mutex );
 		g_processList[ID].process = process;

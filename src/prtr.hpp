@@ -17,7 +17,7 @@ namespace pr
 	};
 
 	void ChromeTraceAddEvent( const ChromeTraceEvent& e );
-	void ChromeTraceSetProcessName( std::string process );
+	void ChromeTraceSetProcessName( const char* format, ... );
 	std::string ChromeTraceGetTrace();
 	void ChromeTraceClear();
 
