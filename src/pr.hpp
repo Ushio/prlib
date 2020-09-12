@@ -43,6 +43,7 @@
 
 #include "prp.hpp"
 #include "prg.hpp"
+#include "prtr.hpp"
 
 namespace pr {
     struct Config {

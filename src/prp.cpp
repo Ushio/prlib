@@ -644,6 +644,15 @@ namespace pr {
     }
 #endif
 
+    void SleepForMilliSeconds(int milliseconds)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+    }
+    void SleepForSeconds(int seconds)
+    {
+        std::this_thread::sleep_for(std::chrono::seconds(seconds));
+    }
+
     Result BinaryLoader::load(const char* file)
     {
         FILE* fp = fopen(GetDataPath(file).c_str(), "rb");

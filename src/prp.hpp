@@ -412,6 +412,9 @@ namespace pr {
     std::string wstring_to_string(const std::wstring& s);
 #endif
 
+    void SleepForMilliSeconds(int milliseconds);
+    void SleepForSeconds(int seconds);
+
     class BinaryLoader
     {
     public:

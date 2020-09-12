@@ -1,6 +1,7 @@
 ﻿#include "pr.hpp"
 #include <iostream>
 #include <memory>
+#include <fstream>
 
 enum DemoMode {
     DemoMode_Point,
@@ -40,7 +41,8 @@ struct PointDemo : public IDemo {
         using namespace pr;
 
         Xoshiro128StarStar random;
-        for (int i = 0; i < 1024; ++i) {
+		for( int i = 0; i < 1024; ++i )
+		{
             glm::vec3 p = GenerateUniformOnSphere(random.uniformf(), random.uniformf());
             DrawPoint(p, { 255 * color.r, 255 * color.g, 255 * color.b }, size);
         }
@@ -582,6 +584,30 @@ int main() {
     using namespace pr;
 
     SetDataDir(JoinPath(ExecutableDir(), "../data"));
+
+    //ChromeTraceTimer timer;
+    //ParallelFor(100, [](int i) {
+    //    ChromeTraceTimer timer;
+    //    timer.label("p[%d]", i);
+    //    timer["value"] = std::to_string(i);
+
+    //    SleepForMilliSeconds( rand() % 100 );
+    //    {
+    //        int n = rand() % 5;
+    //        for (int i = 0; i < n; ++i)
+    //        {
+    //            ChromeTraceTimer timer;
+    //            SleepForMilliSeconds(10);
+    //            ChromeTraceAddEvent(timer.getElapsedEvent());
+    //        }
+    //    }
+    //    ChromeTraceAddEvent(timer.getElapsedEvent());
+    //});
+
+    //std::ofstream ofs( GetDataPath("chrome.json") );
+    //ofs << ChromeTraceGetTrace();
+    //ofs.close();
+
     SetFileDropCallback([](std::vector<std::string> files) {
         for (auto file : files)
         {
