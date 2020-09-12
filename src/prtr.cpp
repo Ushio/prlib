@@ -106,6 +106,7 @@ namespace pr
 	{
 		return _event.metadata[key];
 	}
+
 	void ChromeTraceAddEvent( const ChromeTraceEvent& e )
 	{
 		auto ID = std::this_thread::get_id();
@@ -122,6 +123,7 @@ namespace pr
 	{
 		std::lock_guard<std::mutex> scoped_lock( g_mutex );
 		std::stringstream ss;
+		ss.imbue(std::locale("C"));
 		ss << "{" << std::endl;
 		ss << "    \"traceEvents\": [" << std::endl;
 
