@@ -62,9 +62,16 @@ namespace pr
 			return o.str();
 		}
 	} // namespace
-	ChromeTraceTimer::ChromeTraceTimer()
+	ChromeTraceTimer::ChromeTraceTimer(AddMode mode):_mode(mode)
 	{
 		_event.started_at = clock::now();
+	}
+	ChromeTraceTimer::~ChromeTraceTimer()
+	{
+		if( _mode == AddMode::Auto )
+		{
+			ChromeTraceAddEvent( getElapsedEvent() );
+		}
 	}
 	ChromeTraceEvent ChromeTraceTimer::getElapsedEvent() const
 	{

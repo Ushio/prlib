@@ -585,9 +585,8 @@ int main() {
 
     SetDataDir(JoinPath(ExecutableDir(), "../data"));
 
-    //ChromeTraceTimer timer;
-    //ParallelFor(100, [](int i) {
-    //    ChromeTraceTimer timer;
+    //ParallelFor(10, [](int i) {
+    //    ChromeTraceTimer timer( ChromeTraceTimer::AddMode::Auto );
     //    timer.label("p[%d]", i);
     //    timer["value"] = std::to_string(i);
 
@@ -596,14 +595,11 @@ int main() {
     //        int n = rand() % 5;
     //        for (int i = 0; i < n; ++i)
     //        {
-    //            ChromeTraceTimer timer;
+    //            ChromeTraceTimer timer( ChromeTraceTimer::AddMode::Auto );
     //            SleepForMilliSeconds(10);
-    //            ChromeTraceAddEvent(timer.getElapsedEvent());
     //        }
     //    }
-    //    ChromeTraceAddEvent(timer.getElapsedEvent());
     //});
-
     //std::ofstream ofs( GetDataPath("chrome.json") );
     //ofs << ChromeTraceGetTrace();
     //ofs.close();

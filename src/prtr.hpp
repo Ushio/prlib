@@ -24,12 +24,22 @@ namespace pr
 	class ChromeTraceTimer
 	{
 	public:
-		ChromeTraceTimer();
+		enum class AddMode
+		{
+			Auto,
+			Manual
+		};
+		ChromeTraceTimer( AddMode mode );
+		~ChromeTraceTimer();
+		ChromeTraceTimer( const ChromeTraceTimer& ) = delete;
+		ChromeTraceTimer& operator=( const ChromeTraceTimer& ) = delete;
+
 		ChromeTraceEvent ChromeTraceTimer::getElapsedEvent() const;
 		void label( const char* format, ... );
 		std::string& operator[]( std::string key );
 
 	private:
+		AddMode _mode;
 		ChromeTraceEvent _event;
 	};
 } // namespace pr
