@@ -25,7 +25,11 @@
 #endif
 
 namespace pr {
-    template <class T>
+	void* pr_aligned_malloc( int64_t bytes, int align );
+	void pr_aligned_free( void* ptr );
+	void* pr_aligned_realloc( void* p, int64_t bytes, int align );
+
+    template <class T, int alignment = 8>
     class trivial_vector
     {
     public:
@@ -33,7 +37,7 @@ namespace pr {
         {
 
         }
-        trivial_vector(int64_t n):_size(n), _capacity(n), _data((T *)malloc(sizeof(T) * n))
+        trivial_vector(int64_t n):_size(n), _capacity(n), _data((T *)pr_aligned_malloc(sizeof(T) * n, alignment))
         {
         }
         trivial_vector(const trivial_vector<T>& rhs)
@@ -54,7 +58,7 @@ namespace pr {
         {
             if (_data)
             {
-                free(_data);
+                pr_aligned_free(_data);
             }
         }
         trivial_vector<T>& operator=(const trivial_vector<T>& rhs)
@@ -113,7 +117,7 @@ namespace pr {
                 return;
             }
 
-            T* newPtr = (T *)realloc(_data, sizeof(T) * n);
+            T* newPtr = (T *)pr_aligned_realloc(_data, sizeof(T) * n, alignment);
             if( newPtr == nullptr )
             {
                 return;
@@ -130,7 +134,7 @@ namespace pr {
                 return;
             }
 
-            T* newPtr = (T*)realloc(_data, sizeof(T) * n);
+            T* newPtr = (T*)pr_aligned_realloc(_data, sizeof(T) * n, alignment);
             if (newPtr == nullptr)
             {
                 return;
@@ -147,13 +151,13 @@ namespace pr {
             }
             if (_size == 0)
             {
-                free(_data);
+                pr_aligned_free(_data);
                 _data = 0;
                 _capacity = 0;
                 return;
             }
 
-            T* newPtr = (T*)realloc(_data, sizeof(T) * _size);
+            T* newPtr = (T*)pr_aligned_realloc(_data, sizeof(T) * _size, alignment);
             if (newPtr == nullptr)
             {
                 return;
@@ -166,7 +170,7 @@ namespace pr {
             if( _capacity == _size )
             {
                 int64_t n = std::max( _capacity * 2, (int64_t)1 );
-                T* newPtr = (T*)realloc(_data, sizeof(T) * n);
+                T* newPtr = (T*)pr_aligned_realloc(_data, sizeof(T) * n, alignment);
                 if (newPtr == nullptr)
                 {
                     return;
