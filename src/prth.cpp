@@ -48,7 +48,7 @@ namespace pr
     {
         {
             std::unique_lock<std::mutex> lockGuard(_taskMutex);
-            int nSplit = _nThreads * 2;
+            int nSplit = _nThreads * 8; // this is really adhoc
             int cur = 0;
             for (int i = 0; i < nSplit; ++i)
             {
