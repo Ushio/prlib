@@ -56,6 +56,11 @@ namespace pr
                 int beg = cur;
                 cur += n;
                 int end = cur;
+                
+                if( beg == end )
+                {
+                    continue;
+                }
 
                 _tasks.emplace([beg, end, work](ThreadPool* p) {
                     work(beg, end, p);
