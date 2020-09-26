@@ -22,18 +22,27 @@ namespace pr
         ThreadPool& operator=(const ThreadPool&) = delete;
 
         void enqueueTask(Task task);
-        void enqueueFor(int64_t nExecute, std::function<void(int64_t, int64_t, ThreadPool*)> work);
+
+        // work will be separated into splitLevel * nThreads tasks
+        void enqueueFor(int64_t nExecute, int64_t splitLevel, std::function<void(int64_t, int64_t, ThreadPool*)> work);
         void addElements(int64_t nElements);
         void doneElements(int64_t nElements);
         void waitForDoneElements();
+
+        // process 1 task. you can use this even inside of Task function.
+        // It's useful for nested enqueueFor()
+        void pumpTask();
+
+        int threadCount() const { return _nThreads; }
+        float occupancy() const { return (float)_executingCount / _nThreads; };
     private:
         void launchThreads(int nThreads);
     private:
         int _nThreads = 0;
         std::future<void> _initThreads;
         bool _continue;
-        std::vector< std::thread > _workers;
-        std::queue< Task > _tasks;
+        std::vector<std::thread> _workers;
+        std::queue<Task> _tasks;
         std::mutex _taskMutex;
         std::condition_variable _taskCondition;
         std::atomic<int64_t> _nReminedElement;
@@ -41,5 +50,7 @@ namespace pr
         std::mutex _statusMutex;
         std::condition_variable _statusCondition;
         bool _hasElement;
+
+        std::atomic<int32_t> _executingCount;
     };
 }

@@ -7,6 +7,7 @@ namespace pr
     {
         _continue = true;
         _hasElement = 0 < _nReminedElement;
+        _executingCount = 0;
 
         launchThreads(1);
         if (1 < nThreads)
@@ -44,11 +45,11 @@ namespace pr
         }
         _taskCondition.notify_one();
     }
-    void ThreadPool::enqueueFor(int64_t nExecute, std::function<void(int64_t, int64_t, ThreadPool *)> work)
+    void ThreadPool::enqueueFor(int64_t nExecute, int64_t splitLevel, std::function<void(int64_t, int64_t, ThreadPool *)> work)
     {
         {
             std::unique_lock<std::mutex> lockGuard(_taskMutex);
-            int nSplit = _nThreads * 8; // this is really adhoc
+            int nSplit = _nThreads * splitLevel; // this is really adhoc
             int cur = 0;
             for (int i = 0; i < nSplit; ++i)
             {
@@ -129,11 +130,31 @@ namespace pr
 
                     if (task)
                     {
+                        _executingCount++;
                         task(this);
+                        _executingCount--;
                     }
                 }
             });
         }
     }
+	void ThreadPool::pumpTask()
+	{
+		Task task;
+
+		{
+			std::unique_lock<std::mutex> lockGuard( _taskMutex );
+			if( !_tasks.empty() )
+			{
+				task = std::move( _tasks.front() );
+				_tasks.pop();
+			}
+		}
+
+		if( task )
+		{
+			task( this );
+		}
+	}
 }
 
