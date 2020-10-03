@@ -144,50 +144,55 @@ namespace pr
 	std::string ChromeTraceGetTrace()
 	{
 		std::lock_guard<std::mutex> scoped_lock( g_mutex );
-		std::stringstream ss;
-		ss.imbue(std::locale("C"));
-		ss << "{" << std::endl;
-		ss << "    \"traceEvents\": [" << std::endl;
+		std::string ss;
+		ss.append( "{\n" );
+		ss.append("    \"traceEvents\": [\n");
 
 		for( auto it = g_processList.begin(); it != g_processList.end(); ++it )
 		{
+			std::string pid;
+			if (it->second.process.empty())
+			{
+				std::ostringstream s;
+				s.imbue(std::locale("C"));
+				s << it->first;
+				pid = s.str();
+			}
+			else
+			{
+				pid = escape_json(it->second.process);
+			}
+
 			for( const ChromeTraceEvent& e : it->second.events )
 			{
-				ss << "        ";
-				ss << R"({ "pid" : ")";
-				if( it->second.process.empty() )
-				{
-					ss << it->first;
-				}
-				else
-				{
-					ss << escape_json( it->second.process );
-				}
-				ss << R"(", "ts" : ")";
-				ss << std::chrono::duration_cast<std::chrono::microseconds>( e.started_at - g_timeBase ).count();
-				ss << R"(", "dur" : ")";
-				ss << std::chrono::duration_cast<std::chrono::microseconds>( e.duration ).count();
-				ss << R"(", "name" : ")";
-				ss << escape_json( e.name );
-				ss << R"(", "args" : { )";
+				ss.append("        ");
+				ss.append(R"({ "pid" : ")");
+				ss.append(pid);
+				ss.append(R"(", "ts" : ")");
+				ss.append(std::to_string(std::chrono::duration_cast<std::chrono::microseconds>( e.started_at - g_timeBase ).count()));
+				ss.append(R"(", "dur" : ")");
+				ss.append(std::to_string(std::chrono::duration_cast<std::chrono::microseconds>( e.duration ).count()));
+				ss.append(R"(", "name" : ")");
+				ss.append(escape_json( e.name ));
+				ss.append(R"(", "args" : { )");
 
 				for( auto it = e.metadata.begin(); it != e.metadata.end(); ++it )
 				{
-					ss << R"(")" << escape_json( it->first ) << R"(" : ")" << escape_json( it->second ) << R"(")";
+					ss.append( std::string(R"(")") + escape_json( it->first ) + R"(" : ")" + escape_json( it->second ) + R"(")");
 					if( std::next( it ) != e.metadata.end() )
 					{
-						ss << ", ";
+						ss.append( ", ");
 					}
 				}
 
-				ss << R"(}, "ph" : "X" },)" << std::endl;
+				ss.append(R"(}, "ph" : "X" },)"); ss.append("\n");
 			}
 		}
-		ss << "        {}" << std::endl;
+		ss.append("        {}\n");
 
-		ss << "    ]" << std::endl;
-		ss << "}" << std::endl;
-		return ss.str();
+		ss.append("    ]\n");
+		ss.append("}\n");
+		return ss;
 	}
 	void ChromeTraceClear()
 	{
