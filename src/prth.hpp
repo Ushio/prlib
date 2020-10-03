@@ -25,13 +25,21 @@ namespace pr
 
         // work will be separated into splitLevel * nThreads tasks
         void enqueueFor(int64_t nExecute, int64_t splitLevel, std::function<void(int64_t, int64_t, ThreadPool*)> work);
+        
+        // Manual task control
         void addElements(int64_t nElements);
         void doneElements(int64_t nElements);
+
         void waitForDoneElements();
 
         // process 1 task. you can use this even inside of Task function.
         // It's useful for nested enqueueFor()
-        void pumpTask();
+        enum class ProcessResult
+        {
+            NoTask,
+            Consumed,
+        };
+        ProcessResult processTask();
 
         int threadCount() const { return _nThreads; }
         float occupancy() const { return (float)_executingCount / _nThreads; };

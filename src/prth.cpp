@@ -138,7 +138,7 @@ namespace pr
             });
         }
     }
-	void ThreadPool::pumpTask()
+    ThreadPool::ProcessResult ThreadPool::processTask()
 	{
 		Task task;
 
@@ -154,7 +154,9 @@ namespace pr
 		if( task )
 		{
 			task( this );
+            return ProcessResult::Consumed;
 		}
+        return ProcessResult::NoTask;
 	}
 }
 
