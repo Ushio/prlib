@@ -360,6 +360,7 @@ namespace pr {
 		Result loadFromHDR(const char *filename);
 		Result loadFromHDR(const uint8_t *data, int bytes);
         Result loadFromEXR(const char* filename);
+        Result loadFromEXR(const char* filename, const char* layer);
 
         Result saveAsHDR(const char* filename) const;
         Result saveAsEXR(const char* filename) const;
@@ -383,6 +384,8 @@ namespace pr {
 		int _height = 0;
 		std::vector<PixelType> _values;
 	};
+
+    std::vector<std::string> LayerListFromEXR( const char* filename );
 
 	// Simple Linear Translate
 	Image2DRGBA32 Image2DRGBA8_to_Image2DRGBA32(const Image2DRGBA8 &src);

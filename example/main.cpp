@@ -519,14 +519,14 @@ struct AlembicHoudiniDemo : public IDemo {
 struct ImagesDemo : public IDemo {
     ImagesDemo()
     {
-        _image0 = pr::CreateTexture();
+        _image0 = std::shared_ptr<pr::ITexture>(pr::CreateTexture());
         {
             pr::Image2DRGBA8 image;
             PR_ASSERT(image.load("edobee.jpg") == pr::Result::Sucess);
             _image0->upload(image);
         }
 
-        _image1 = pr::CreateTexture();
+        _image1 = std::shared_ptr<pr::ITexture>(pr::CreateTexture());
         {
             pr::Image2DRGBA32 image;
             PR_ASSERT(image.loadFromHDR("blaubeuren_night_1k.hdr") == pr::Result::Sucess);
@@ -535,13 +535,26 @@ struct ImagesDemo : public IDemo {
             }));
         }
 
-        _image2 = pr::CreateTexture();
+        _image2 = std::shared_ptr<pr::ITexture>(pr::CreateTexture());
         {
             pr::Image2DRGBA32 image;
             PR_ASSERT(image.loadFromEXR("StillLife.exr") == pr::Result::Sucess);
             _image2->upload(image.map([](glm::vec4 c) {
                 return glm::pow(c, glm::vec4(0.454545f));
              }));
+        }
+
+        auto layers = pr::LayerListFromEXR("multilayer0001.exr");
+        for (int i = 0; i < layers.size(); ++i)
+        {
+            pr::Image2DRGBA32 image;
+            image.loadFromEXR("multilayer0001.exr", layers[i].c_str());
+            Layer layer = {
+                layers[i],
+                std::shared_ptr<pr::ITexture>( pr::CreateTexture() )
+            };
+            layer.image->upload(image);
+            _layers.emplace_back(std::move(layer));
         }
     }
     void OnDraw() override {
@@ -569,13 +582,37 @@ struct ImagesDemo : public IDemo {
             }
         }
 
-        ImGui::Image(_image0, ImVec2(_image0->width(), _image0->height()));
-        ImGui::Image(_image1, ImVec2(_image1->width(), _image1->height()));
-        ImGui::Image(_image2, ImVec2(_image2->width(), _image2->height()));
+        if (ImGui::BeginTabBar("Images", ImGuiTabBarFlags_None))
+        {
+            if (ImGui::BeginTabItem("Standard Images"))
+            {
+                ImGui::Image(_image0.get(), ImVec2(_image0->width(), _image0->height()));
+                ImGui::Image(_image1.get(), ImVec2(_image1->width(), _image1->height()));
+                ImGui::Image(_image2.get(), ImVec2(_image2->width(), _image2->height()));
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("MultiLayer Exr"))
+            {
+                for (int i = 0; i < _layers.size(); ++i)
+                {
+                    ImGui::Text(_layers[i].name.c_str());
+                    ImGui::Image(_layers[i].image.get(), ImVec2(_layers[i].image->width(), _layers[i].image->height()));
+                }
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
+        }
+
     }
-    pr::ITexture* _image0 = nullptr;
-    pr::ITexture* _image1 = nullptr;
-    pr::ITexture* _image2 = nullptr;
+     std::shared_ptr<pr::ITexture> _image0 = nullptr;
+     std::shared_ptr<pr::ITexture> _image1 = nullptr;
+     std::shared_ptr<pr::ITexture> _image2 = nullptr;
+
+    struct Layer {
+        std::string name;
+        std::shared_ptr<pr::ITexture> image;
+    };
+    std::vector<Layer> _layers;
 };
 
 std::vector<IDemo*> demos;
