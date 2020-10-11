@@ -78,17 +78,6 @@ namespace pr {
     // Realtime clock. this is available without Initialize
     double GetElapsedTime();
 
-    // Measure. this is available without Initialize
-    class Stopwatch {
-    public:
-        Stopwatch() :_time(GetElapsedTime()) {}
-        double elapsed() const {
-            return GetElapsedTime() - _time;
-        }
-    private:
-        double _time;
-    };
-
     // FrameBase clock
     double GetFrameTime();
     double GetFrameDeltaTime();

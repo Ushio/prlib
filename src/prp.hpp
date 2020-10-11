@@ -13,6 +13,7 @@
 #include <random>
 #include <cmath>
 #include <algorithm>
+#include <chrono>
 
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
@@ -189,6 +190,20 @@ namespace pr {
         int64_t _size = 0;
         int64_t _capacity = 0;
         T* _data = nullptr;
+    };
+
+    class Stopwatch {
+    public:
+        using clock = std::chrono::steady_clock;
+        Stopwatch() :_started(clock::now()) {}
+
+        // seconds
+        double elapsed() const {
+            auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(clock::now() - _started).count();
+            return (double)microseconds * 0.001 * 0.001;
+        }
+    private:
+        clock::time_point _started;
     };
 
     enum class Result {
