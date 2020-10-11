@@ -392,6 +392,51 @@ namespace pr {
         free(pixels);
         return Result::Sucess;
     }
+    Result Image2DRGBA32::loadFromEXR(const char* filename, const char* layer)
+    {
+        std::string fullPath = GetDataPath(filename);
+        float* pixels; // width * height * RGBA
+        const char* err = nullptr;
+
+		int ret = LoadEXRWithLayer( &pixels, &_width, &_height, fullPath.c_str(), layer, &err );
+		if( ret != TINYEXR_SUCCESS )
+		{
+			if( err )
+			{
+				FreeEXRErrorMessage( err );
+			}
+			return Result::Failure;
+		}
+		_values.resize( _width * _height );
+		memcpy( _values.data(), pixels, _width * _height * 4 * sizeof( float ) );
+		free( pixels );
+		return Result::Sucess;
+    }
+	std::vector<std::string> LayerListFromEXR( const char* filename )
+	{
+		std::string fullPath = GetDataPath( filename );
+		std::vector<std::string> layers;
+		const char** layer_names = nullptr;
+		int num_layers = 0;
+		const char* err = NULL;
+		if( EXRLayers( fullPath.c_str(), &layer_names, &num_layers, &err ) == 0 )
+		{
+			for( int i = 0; i < num_layers; ++i )
+			{
+				layers.push_back( std::string( layer_names[i] ) );
+				free( (void*)layer_names[i] );
+			}
+			free( layer_names );
+        }
+        else
+        {
+			if( err ) 
+            {
+				FreeEXRErrorMessage( err );
+            }
+        }
+		return layers;
+    }
 	Result Image2DRGBA32::saveAsHDR(const char* filename) const {
 		if (stbi_write_hdr(GetDataPath(filename).c_str(), width(), height(), 4, glm::value_ptr(*_values.data()))) {
 			return Result::Sucess;
