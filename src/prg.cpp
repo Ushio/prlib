@@ -127,7 +127,7 @@ namespace pr {
 	{
 	public:
 		virtual WindingOrder winingOrder() const override {
-			return WindingOrder::WindingOrder_CW;
+			return WindingOrder::CW;
 		}
 		virtual std::string fullname() const override {
 			return _common.fullname;
@@ -1137,7 +1137,7 @@ namespace pr {
 			return _common.localToWorld;
 		}
 		virtual WindingOrder winingOrder() const override {
-			return WindingOrder::WindingOrder_CCW;
+			return WindingOrder::CCW;
 		}
 		virtual IVector3Column* positions() const override {
 			return _positions.get();

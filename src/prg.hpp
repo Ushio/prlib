@@ -17,8 +17,8 @@
 namespace pr {
 	enum class WindingOrder
 	{
-		WindingOrder_CW,
-		WindingOrder_CCW
+		CW,
+		CCW
 	};
 
 	class IColumn
