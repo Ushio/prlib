@@ -28,19 +28,6 @@ namespace pr {
         std::string g_dataPath;
     }
 
-    void* pr_aligned_malloc(int64_t bytes, int align)
-    {
-        return _aligned_malloc(bytes, align);
-    }
-    void pr_aligned_free(void* ptr)
-    {
-        return _aligned_free(ptr);
-    }
-    void* pr_aligned_realloc(void* p, int64_t bytes, int align)
-    {
-        return _aligned_realloc(p, bytes, align);
-    }
-
     // http://xoshiro.di.unimi.it/splitmix64.c
     // for generate seed
     struct splitmix64 {
