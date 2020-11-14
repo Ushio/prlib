@@ -462,13 +462,24 @@ namespace pr {
 	class CameraRayGenerator
 	{
 	public:
-		CameraRayGenerator(glm::mat4 viewMatrix, glm::mat4 projMatrix, int width, int height)
+		CameraRayGenerator(glm::mat4 viewMatrix, glm::mat4 projMatrix, int width, int height):_width(width), _height(height)
 		{
 			glm::mat4 vp = projMatrix * viewMatrix;
-			_inverseVP = glm::inverse(vp);
 
-			_i2x = LinearTransform(0, (float)width, -1, 1);
-			_j2y = LinearTransform(0, (float)height, 1, -1);
+            auto h = [](glm::dvec4 v) {
+                return glm::dvec3(v / v.w);
+            };
+
+            glm::dmat4 inverseVP = glm::inverse(glm::dmat4(vp));
+            glm::dvec3 nearO = h(inverseVP * glm::vec4(-1, +1, -1 /*near*/, 1));
+            _nearO = nearO;
+            _nearRight = h(inverseVP * glm::vec4(+1, +1, -1 /*near*/, 1)) - nearO;
+            _nearDown = h(inverseVP * glm::vec4(-1, -1, -1 /*near*/, 1)) - nearO;
+
+            glm::dvec3 farO = h(inverseVP * glm::vec4(-1, +1, +1 /*far*/, 1));
+            _farO = farO;
+            _farRight = h(inverseVP * glm::vec4(+1, +1, +1 /*far*/, 1)) - farO;
+            _farDown = h(inverseVP * glm::vec4(-1, -1, +1 /*far*/, 1)) - farO;
 		}
         /*
         a----b----+
@@ -493,17 +504,22 @@ namespace pr {
         |
         */
 		void shoot(glm::vec3 *ro, glm::vec3 *rd, int x, int y, float xoffsetInPixel = 0.0f, float yoffsetInPixel = 0.0f) const {
-			auto h = [](glm::vec4 v) {
-				return glm::vec3(v / v.w);
-			};
-			*ro = h(_inverseVP * glm::vec4(_i2x((float)x + xoffsetInPixel), _j2y((float)y + yoffsetInPixel), -1 /*near*/, 1));
-			*rd = h(_inverseVP * glm::vec4(_i2x((float)x + xoffsetInPixel), _j2y((float)y + yoffsetInPixel), +1 /*far */, 1)) - *ro;
-			*rd = glm::normalize(*rd);
+
+            float xf = (x + xoffsetInPixel) / _width;
+            float yf = (y + yoffsetInPixel) / _height;
+            glm::vec3 near = _nearO + _nearRight * xf + _nearDown * yf;
+            glm::vec3 far = _farO + _farRight * xf + _farDown * yf;
+            *ro = near;
+            *rd = far - near;
 		}
 	private:
-		glm::mat4 _inverseVP;
-		LinearTransform _i2x;
-		LinearTransform _j2y;
+        int _width, _height;
+        glm::vec3 _nearO;
+        glm::vec3 _nearRight;
+        glm::vec3 _nearDown;
+        glm::vec3 _farO;
+        glm::vec3 _farRight;
+        glm::vec3 _farDown;
 	};
 
     template <class T>

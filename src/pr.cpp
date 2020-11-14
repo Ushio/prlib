@@ -1097,10 +1097,17 @@ namespace pr {
 
         }
         virtual glm::mat4 getProjectionMatrix() const override {
-            float zn = _camera.zNear;
-            float zf = _camera.zFar;
+			float zn = std::max( _camera.zNear, FLT_EPSILON );
+			float zf = std::max( _camera.zFar, FLT_EPSILON );
+			float fovy = std::max( _camera.fovy, FLT_EPSILON );
+            float aspect = (float)GetScreenWidth() / GetScreenHeight();
+            //glm::mat4 persp = glm::perspectiveFov(fovy, (float)GetScreenWidth(), (float)GetScreenHeight(), zn, zf);
+            //glm::mat4 ortho = glm::ortho(
+            //    -_camera.orthoy * aspect * 0.5f, _camera.orthoy * aspect * 0.5f,
+            //    -_camera.orthoy * 0.5f, _camera.orthoy * 0.5f, zn, zf);
 
-            float tanFovy = tan(_camera.fovy * 0.5f);
+            // https://github.com/Ushio/GenerizedPerspective2
+            float tanFovy = tan(fovy * 0.5f);
 
             float Rn_presp = zn * tanFovy;
             float Rf_presp = zf * tanFovy;
@@ -1110,39 +1117,31 @@ namespace pr {
             float Rn = glm::mix(R_ortho, Rn_presp, _camera.perspective);
             float Rf = glm::mix(R_ortho, Rf_presp, _camera.perspective);
 
-            // avoid singular
-            const float eps_Rf = 0.1f;
-            if (Rf < eps_Rf) {
-                // Rn + a * z == eps
-                // z == (eps - Rn) / a
-                float a = (Rf - Rn) / (zf - zn);
-                float z = (eps_Rf - Rn) / a;
-                zf = z;
-                Rf = Rn + a * z;
-            }
+            //// avoid singular
+            //const float eps_Rf = 0.1f;
+            //if (Rf < eps_Rf) {
+            //    // Rn + a * z == eps
+            //    // z == (eps - Rn) / a
+            //    float a = (Rf - Rn) / (zf - zn);
+            //    float z = (eps_Rf - Rn) / a;
+            //    zf = z;
+            //    Rf = Rn + a * z;
+            //}
 
             float width = (float)GetScreenWidth();
             float height = (float)GetScreenHeight();
 
-            float K = Rf * zn - Rn * zf;
-            float e = (Rf - Rn);
-            float b = (-e * zf + K) / Rf;
-            float a = height / width * b;
-            float c = (e * (zn + zf) - 2.0f * K) / (zf - zn);
-            float d = e * zn - K + c * zn;
-
-            a = -a;
-            b = -b;
-            c = -c;
-            d = -d;
-            e = -e;
-            K = -K;
-
+            float b = zf - zn;
+            float a = b / aspect;
+            float c = -Rn - Rf;
+            float d = -Rn * zf - Rf * zn;
+            float f =  Rn * zf - Rf * zn;
+            float e = Rn - Rf;
             glm::mat4 persp = glm::mat4(
                 a, 0, 0, 0,
                 0, b, 0, 0,
                 0, 0, c, e,
-                0, 0, d, K
+                0, 0, d, f
             );
             return persp;
         }
