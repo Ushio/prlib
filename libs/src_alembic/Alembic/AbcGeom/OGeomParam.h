@@ -141,7 +141,12 @@ public:
 
     }
 
-    OTypedGeomParam() {}
+    OTypedGeomParam()
+    : m_isIndexed(false)
+    , m_scope(kUnknownScope)
+
+    {
+    }
 
     OTypedGeomParam( OCompoundProperty iParent,
                      const std::string &iName,

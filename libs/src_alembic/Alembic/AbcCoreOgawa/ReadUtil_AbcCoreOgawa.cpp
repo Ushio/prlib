@@ -1812,17 +1812,30 @@ ReadPropertyHeaders( Ogawa::IGroupPtr iGroup,
             {
                 ABCA_THROW("Read invalid: Property Header MetaData string.");
             }
+            // found empty metadata
+            else if (pos == bufSize)
+            {
+                pos += metaDataSize;
+                AbcA::MetaData md;
+                header->header.setMetaData( md );
+            }
+            else
+            {
+                std::string metaData( &buf[pos], metaDataSize );
+                pos += metaDataSize;
 
-            std::string metaData( &buf[pos], metaDataSize );
-            pos += metaDataSize;
-
-            AbcA::MetaData md;
-            md.deserialize( metaData );
-            header->header.setMetaData( md );
+                AbcA::MetaData md;
+                md.deserialize( metaData );
+                header->header.setMetaData( md );
+            }
+        }
+        else if (metaDataIndex < iMetaDataVec.size())
+        {
+            header->header.setMetaData( iMetaDataVec[metaDataIndex] );
         }
         else
         {
-            header->header.setMetaData( iMetaDataVec[metaDataIndex] );
+            ABCA_THROW("Read invalid: Property Header MetaData index.");
         }
 
         oHeaders.push_back( header );
@@ -1862,12 +1875,20 @@ ReadIndexedMetaData( Ogawa::IDataPtr iData,
         {
             ABCA_THROW("Read invalid: Indexed MetaData string.");
         }
-
-        std::string metaData( &buf[pos], metaDataSize );
-        pos += metaDataSize;
-        AbcA::MetaData md;
-        md.deserialize( metaData );
-        oMetaDataVec.push_back( md );
+        else if (pos == bufSize)
+        {
+            pos += metaDataSize;
+            AbcA::MetaData md;
+            oMetaDataVec.push_back( md );
+        }
+        else
+        {
+            std::string metaData( &buf[pos], metaDataSize );
+            pos += metaDataSize;
+            AbcA::MetaData md;
+            md.deserialize( metaData );
+            oMetaDataVec.push_back( md );
+        }
     }
 }
 
