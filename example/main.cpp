@@ -519,32 +519,36 @@ struct AlembicHoudiniDemo : public IDemo {
 struct ImagesDemo : public IDemo {
     ImagesDemo()
     {
-        _image0 = std::shared_ptr<pr::ITexture>(pr::CreateTexture());
-        {
-            pr::Image2DRGBA8 image;
-            PR_ASSERT(image.load("edobee.jpg") == pr::Result::Sucess);
-            _image0->upload(image);
-        }
+		std::shared_ptr<pr::ITexture> image0 = std::shared_ptr<pr::ITexture>( pr::CreateTexture() );
+		{
+			pr::Image2DRGBA8 image;
+			PR_ASSERT( image.load( "edobee.jpg" ) == pr::Result::Sucess );
+			image0->upload( image );
+		}
+		_images.push_back( image0 );
 
-        _image1 = std::shared_ptr<pr::ITexture>(pr::CreateTexture());
-        {
-            pr::Image2DRGBA32 image;
-            PR_ASSERT(image.loadFromHDR("blaubeuren_night_1k.hdr") == pr::Result::Sucess);
-            _image1->upload(image.map([](glm::vec4 c) { 
-                return glm::pow(c, glm::vec4(0.454545f)); 
-            }));
-        }
+		std::shared_ptr<pr::ITexture> image1 = std::shared_ptr<pr::ITexture>( pr::CreateTexture() );
+		{
+			pr::Image2DRGBA32 image;
+			PR_ASSERT( image.loadFromHDR( "blaubeuren_night_1k.hdr" ) == pr::Result::Sucess );
+			image1->upload( image.map( []( glm::vec4 c ) {
+				return glm::pow( c, glm::vec4( 0.454545f ) );
+			} ) );
+		}
+		_images.push_back( image1 );
 
-        _image2 = std::shared_ptr<pr::ITexture>(pr::CreateTexture());
-        {
-            pr::Image2DRGBA32 image;
-            PR_ASSERT(image.loadFromEXR("StillLife.exr") == pr::Result::Sucess);
-            _image2->upload(image.map([](glm::vec4 c) {
-                return glm::pow(c, glm::vec4(0.454545f));
-             }));
-        }
+		std::shared_ptr<pr::ITexture> image2 = std::shared_ptr<pr::ITexture>( pr::CreateTexture() );
+		{
+			pr::Image2DRGBA32 image;
+			PR_ASSERT( image.loadFromEXR( "StillLife.exr" ) == pr::Result::Sucess );
+			image2->upload( image.map( []( glm::vec4 c ) {
+				return glm::pow( c, glm::vec4( 0.454545f ) );
+			} ) );
+		}
+		_images.push_back( image2 );
 
-        auto layers = pr::LayerListFromEXR("multilayer0001.exr");
+        std::vector<std::string> layers;
+        pr::LayerListFromEXR(layers, "multilayer0001.exr");
         for (int i = 0; i < layers.size(); ++i)
         {
             pr::Image2DRGBA32 image;
@@ -586,10 +590,11 @@ struct ImagesDemo : public IDemo {
         {
             if (ImGui::BeginTabItem("Standard Images"))
             {
-                ImGui::Image(_image0.get(), ImVec2(_image0->width(), _image0->height()));
-                ImGui::Image(_image1.get(), ImVec2(_image1->width(), _image1->height()));
-                ImGui::Image(_image2.get(), ImVec2(_image2->width(), _image2->height()));
-                ImGui::EndTabItem();
+				for( auto image : _images )
+				{
+					ImGui::Image( image.get(), ImVec2( image->width(), image->height() ) );
+				}
+				ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("MultiLayer Exr"))
             {
@@ -604,9 +609,8 @@ struct ImagesDemo : public IDemo {
         }
 
     }
-     std::shared_ptr<pr::ITexture> _image0 = nullptr;
-     std::shared_ptr<pr::ITexture> _image1 = nullptr;
-     std::shared_ptr<pr::ITexture> _image2 = nullptr;
+
+    std::vector< std::shared_ptr<pr::ITexture> > _images;
 
     struct Layer {
         std::string name;
@@ -683,7 +687,7 @@ int main() {
 
     bool showImGuiDemo = false;
     float fontSize = 16.0f;
-    int demoMode = DemoMode_Alembic;
+    int demoMode = DemoMode_Images;
 
     while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {
