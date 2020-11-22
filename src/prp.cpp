@@ -6,11 +6,14 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#include "tinyexr.h"
+#include "ImfInputFile.h"
+#include "ImfChannelList.h"
+#include "ImfOutputFile.h"
 
 #include "cwalk.h"
 
 #include <algorithm>
+#include <set>
 #include <mutex>
 
 #ifdef _WIN32
@@ -330,7 +333,7 @@ namespace pr {
 		_width = w;
 		_height = h;
 		_values.clear();
-		_values.resize(_width * _height);
+		_values.resize( _width * _height, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f) );
 	}
 	Result Image2DRGBA32::loadFromHDR(const char *filename) {
         std::string fullPath = GetDataPath(filename);
@@ -363,67 +366,184 @@ namespace pr {
 	}
     Result Image2DRGBA32::loadFromEXR(const char* filename)
     {
-        std::string fullPath = GetDataPath(filename);
-        float* pixels; // width * height * RGBA
-        const char* err = nullptr;
-        int ret = LoadEXRWithLayer(&pixels, &_width, &_height, fullPath.c_str(), nullptr, &err);
-
-        if (ret != TINYEXR_SUCCESS) {
-            if (err) {
-                FreeEXRErrorMessage(err);
-            }
+        std::vector<std::string> layers;
+		pr::LayerListFromEXR( layers, filename );
+		if( layers.empty() )
+		{
             return Result::Failure;
-        }
-        _values.resize(_width * _height);
-        memcpy(_values.data(), pixels, _width * _height * 4 * sizeof(float));
-        free(pixels);
-        return Result::Sucess;
+		}
+		return loadFromEXR( filename, layers[0].c_str() );
     }
     Result Image2DRGBA32::loadFromEXR(const char* filename, const char* layer)
     {
         std::string fullPath = GetDataPath(filename);
-        float* pixels; // width * height * RGBA
-        const char* err = nullptr;
+        using namespace OPENEXR_IMF_NAMESPACE;
+        using namespace IMATH_NAMESPACE;
 
-		int ret = LoadEXRWithLayer( &pixels, &_width, &_height, fullPath.c_str(), layer, &err );
-		if( ret != TINYEXR_SUCCESS )
-		{
-			if( err )
+        try
+        {
+		    InputFile file( fullPath.c_str() );
+            const ChannelList& channels = file.header().channels();
+
+            ChannelList::ConstIterator layerBegin, layerEnd;
+			
+            ChannelList defaultChannelList;
+            if( strlen( layer ) == 0 ) // default layer
+            {
+				if( auto bChannel = channels.findChannel( "B" ) )
+				{
+					defaultChannelList.insert( "B", *bChannel );
+				}
+				if( auto gChannel = channels.findChannel( "G" ) )
+				{
+					defaultChannelList.insert( "G", *gChannel );
+				}
+				if( auto rChannel = channels.findChannel( "R" ) )
+				{
+					defaultChannelList.insert( "R", *rChannel );
+				}
+				if( auto aChannel = channels.findChannel( "A" ) )
+				{
+					defaultChannelList.insert( "A", *aChannel );
+				}
+                layerBegin = defaultChannelList.begin();
+                layerEnd = defaultChannelList.end();
+            }
+            else
+            {
+				channels.channelsInLayer( layer, layerBegin, layerEnd );
+            }
+
+			if( layerBegin == layerEnd )
 			{
-				FreeEXRErrorMessage( err );
+                return Result::Failure;
 			}
-			return Result::Failure;
-		}
-		_values.resize( _width * _height );
-		memcpy( _values.data(), pixels, _width * _height * 4 * sizeof( float ) );
-		free( pixels );
+
+			Box2i dw = file.header().dataWindow();
+			_width = dw.max.x - dw.min.x + 1;
+			_height = dw.max.y - dw.min.y + 1;
+			int dx = dw.min.x;
+			int dy = dw.min.y;
+
+            _values.resize(_width * _height, glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+            float* rHead = glm::value_ptr(_values[dy * _width + dx]);
+            float* gHead = rHead + 1;
+            float* bHead = rHead + 2;
+            float* aHead = rHead + 3;
+        
+            FrameBuffer frameBuffer;
+
+            int channelIndex = 0;
+		    for( auto it = layerBegin; it != layerEnd; ++it )
+		    {
+			    std::string channelName( it.name() );
+			    if( channelName.length() == 0 )
+			    {
+				    continue;
+			    }
+
+			    char tail = std::toupper( channelName.back() );
+			    switch( tail )
+			    {
+			    case 'R':
+                case 'X':
+                case 'U':
+				    frameBuffer.insert( channelName,
+									    Slice(
+										    OPENEXR_IMF_NAMESPACE::FLOAT,
+										    (char*)rHead,
+										    sizeof( glm::vec4 ) * 1,	   // x stride
+										    sizeof( glm::vec4 ) * _width ) // y stride
+				    );
+				    break;
+			    case 'G':
+                case 'Y':
+                case 'V':
+				    frameBuffer.insert( channelName,
+									    Slice(
+										    OPENEXR_IMF_NAMESPACE::FLOAT,
+										    (char*)gHead,
+										    sizeof( glm::vec4 ) * 1,	   // x stride
+										    sizeof( glm::vec4 ) * _width ) // y stride
+				    );
+				    break;
+                case 'B':
+                case 'Z':
+				    frameBuffer.insert( channelName,
+									    Slice(
+										    OPENEXR_IMF_NAMESPACE::FLOAT,
+										    (char*)bHead,
+										    sizeof( glm::vec4 ) * 1,	   // x stride
+										    sizeof( glm::vec4 ) * _width ) // y stride
+				    );
+				    break;
+			    case 'A':
+                case 'W':
+				    frameBuffer.insert( channelName,
+									    Slice(
+										    OPENEXR_IMF_NAMESPACE::FLOAT,
+										    (char*)aHead,
+										    sizeof( glm::vec4 ) * 1,	   // x stride
+										    sizeof( glm::vec4 ) * _width ) // y stride
+				    );
+				    break;
+                default:
+				    if( channelIndex < 4 )
+				    {
+					    frameBuffer.insert( channelName,
+										    Slice(
+											    OPENEXR_IMF_NAMESPACE::FLOAT,
+											    (char*)( rHead + 3 - channelIndex ),
+											    sizeof( glm::vec4 ) * 1,	   // x stride
+											    sizeof( glm::vec4 ) * _width ) // y stride
+					    );
+				    }
+                    break;
+			    }
+
+                channelIndex++;
+		    }
+
+		    file.setFrameBuffer( frameBuffer );
+		    file.readPixels( dw.min.y, dw.max.y );
+
+        }
+        catch (std::exception& e)
+        {
+            // printf( "%s\n", e.what() );
+            return Result::Failure;
+        }
+
 		return Result::Sucess;
     }
-	std::vector<std::string> LayerListFromEXR( const char* filename )
+	Result LayerListFromEXR( std::vector<std::string>& list, const char* filename )
 	{
 		std::string fullPath = GetDataPath( filename );
-		std::vector<std::string> layers;
-		const char** layer_names = nullptr;
-		int num_layers = 0;
-		const char* err = NULL;
-		if( EXRLayers( fullPath.c_str(), &layer_names, &num_layers, &err ) == 0 )
+		using namespace OPENEXR_IMF_NAMESPACE;
+		using namespace IMATH_NAMESPACE;
+
+		try
 		{
-			for( int i = 0; i < num_layers; ++i )
+			InputFile file( fullPath.c_str() );
+			const ChannelList& channels = file.header().channels();
+			std::set<std::string> layerNames;
+			channels.layers( layerNames );
+
+			list = std::vector<std::string>( layerNames.begin(), layerNames.end() );
+			if( channels.findChannel( "R" ) )
 			{
-				layers.push_back( std::string( layer_names[i] ) );
-				free( (void*)layer_names[i] );
+				list.insert( list.begin(), "" );
 			}
-			free( layer_names );
-        }
-        else
-        {
-			if( err ) 
-            {
-				FreeEXRErrorMessage( err );
-            }
-        }
-		return layers;
-    }
+		}
+		catch( std::exception& e )
+		{
+			// printf( "%s\n", e.what() );
+			return Result::Failure;
+		}
+
+		return Result::Sucess;
+	}
 	Result Image2DRGBA32::saveAsHDR(const char* filename) const {
 		if (stbi_write_hdr(GetDataPath(filename).c_str(), width(), height(), 4, glm::value_ptr(*_values.data()))) {
 			return Result::Sucess;
@@ -432,67 +552,65 @@ namespace pr {
 	}
     Result Image2DRGBA32::saveAsEXR(const char* filename) const
     {
-        EXRHeader header;
-        InitEXRHeader(&header);
+        using namespace OPENEXR_IMF_NAMESPACE;
+        using namespace IMATH_NAMESPACE;
 
-        EXRImage image;
-        InitEXRImage(&image);
-
-        enum
+        try
         {
-            NUM_CHANNELS = 4
-        };
-        image.num_channels = NUM_CHANNELS;
-        header.num_channels = NUM_CHANNELS;
+		    Header header( _width, _height );
 
-        std::vector<float> images[NUM_CHANNELS]; // RGBA
-        for (int i = 0; i < NUM_CHANNELS; ++i)
+		    header.compression() = OPENEXR_IMF_NAMESPACE::ZIPS_COMPRESSION;
+
+		    header.channels().insert( "R", Channel( OPENEXR_IMF_NAMESPACE::FLOAT ) );
+		    header.channels().insert( "G", Channel( OPENEXR_IMF_NAMESPACE::FLOAT ) );
+		    header.channels().insert( "B", Channel( OPENEXR_IMF_NAMESPACE::FLOAT ) );
+		    header.channels().insert( "A", Channel( OPENEXR_IMF_NAMESPACE::FLOAT ) );
+
+		    const float* rHead = glm::value_ptr( _values[0] );
+		    const float* gHead = rHead + 1;
+		    const float* bHead = rHead + 2;
+		    const float* aHead = rHead + 3;
+
+		    FrameBuffer frameBuffer;
+		    frameBuffer.insert( "A",
+							    Slice(
+								    OPENEXR_IMF_NAMESPACE::FLOAT,
+								    (char*)aHead,
+								    sizeof( glm::vec4 ) * 1,	   // x stride
+								    sizeof( glm::vec4 ) * _width ) // y stride
+		    );
+		    frameBuffer.insert( "B",
+							    Slice(
+								    OPENEXR_IMF_NAMESPACE::FLOAT,
+								    (char*)bHead,
+								    sizeof( glm::vec4 ) * 1,	   // x stride
+								    sizeof( glm::vec4 ) * _width ) // y stride
+		    );
+		    frameBuffer.insert( "G",
+							    Slice(
+								    OPENEXR_IMF_NAMESPACE::FLOAT,
+								    (char*)gHead,
+								    sizeof( glm::vec4 ) * 1,	   // x stride
+								    sizeof( glm::vec4 ) * _width ) // y stride
+		    );
+		    frameBuffer.insert( "R",
+							    Slice(
+								    OPENEXR_IMF_NAMESPACE::FLOAT,
+								    (char*)rHead,
+								    sizeof( glm::vec4 ) * 1,	   // x stride
+								    sizeof( glm::vec4 ) * _width ) // y stride
+		    );
+
+		    OutputFile file( GetDataPath( filename ).c_str(), header );
+		    file.setFrameBuffer( frameBuffer );
+		    file.writePixels( _height );
+        }
+        catch (std::exception& e)
         {
-            images[i].resize(_width * _height);
-        }
-
-        for (int i = 0; i < _width * _height; i++) {
-            glm::vec4 color = _values[i];
-            for (int j = 0; j < NUM_CHANNELS; ++j)
-            {
-                images[j][i] = color[j];
-            }
-        }
-
-        float* image_ptr[NUM_CHANNELS];
-        for (int i = 0; i < NUM_CHANNELS; ++i)
-        {
-            image_ptr[i] = &(images[NUM_CHANNELS - i - 1].at(0)); // (A)BGR
-        }
-
-        image.images = (unsigned char**)image_ptr;
-        image.width = _width;
-        image.height = _height;
-
-        header.channels = (EXRChannelInfo*)malloc(sizeof(EXRChannelInfo) * header.num_channels);
-        // Must be (A)BGR order, since most of EXR viewers expect this channel order.
-        strncpy(header.channels[0].name, "A", 255); header.channels[0].name[strlen("A")] = '\0';
-        strncpy(header.channels[1].name, "B", 255); header.channels[1].name[strlen("B")] = '\0';
-        strncpy(header.channels[2].name, "G", 255); header.channels[2].name[strlen("G")] = '\0';
-        strncpy(header.channels[3].name, "R", 255); header.channels[3].name[strlen("R")] = '\0';
-
-        header.pixel_types = (int*)malloc(sizeof(int) * header.num_channels);
-        header.requested_pixel_types = (int*)malloc(sizeof(int) * header.num_channels);
-        for (int i = 0; i < header.num_channels; i++) {
-            header.pixel_types[i] = TINYEXR_PIXELTYPE_FLOAT; // pixel type of input image
-            header.requested_pixel_types[i] = TINYEXR_PIXELTYPE_HALF; // pixel type of output image to be stored in .EXR
-        }
-
-        const char* err = NULL; // or nullptr in C++11 or later.
-        int ret = SaveEXRImageToFile(&image, &header, GetDataPath(filename).c_str(), &err);
-        if (ret != TINYEXR_SUCCESS) {
-            FreeEXRErrorMessage(err); // free's buffer for an error message
+            // printf( "%s\n", e.what() );
             return Result::Failure;
         }
 
-        free(header.channels);
-        free(header.pixel_types);
-        free(header.requested_pixel_types);
         return Result::Sucess;
     }
 	Image2DRGBA32::PixelType *Image2DRGBA32::data() {
