@@ -400,9 +400,20 @@ namespace pr {
 		std::vector<PixelType> _values;
 	};
 
+    void SetEnableMultiThreadExrProceccing( bool enabled );
+
     // enum layers. "" means default layer.
     Result LayerListFromEXR( std::vector<std::string>& list, const char* filename );
 
+    class MultiLayerExrWriter
+    {
+    public:
+        void add(const Image2DRGBA32* image, std::string layer) { _images.push_back(image); _layers.push_back(layer); }
+        Result saveAs( const char* filename );
+    private:
+        std::vector<const Image2DRGBA32*> _images;
+        std::vector<std::string> _layers;
+    };
 
 	// Simple Linear Translate
 	Image2DRGBA32 Image2DRGBA8_to_Image2DRGBA32(const Image2DRGBA8 &src);
