@@ -61,7 +61,7 @@ namespace pr
     public:
         using Task = std::function<void(void)>;
 
-        ThreadPool(int nThreads, int64_t nReminedElement = 0);
+        ThreadPool(int nThreads);
         ~ThreadPool();
         ThreadPool(const ThreadPool&) = delete;
         ThreadPool& operator=(const ThreadPool&) = delete;
@@ -87,11 +87,6 @@ namespace pr
         std::queue<Task> _tasks;
         std::mutex _taskMutex;
         std::condition_variable _taskCondition;
-        std::atomic<int64_t> _nReminedElement;
-
-        std::mutex _statusMutex;
-        std::condition_variable _statusCondition;
-        bool _hasElement;
 
         std::atomic<int32_t> _executingCount;
     };

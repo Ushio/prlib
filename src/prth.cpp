@@ -2,11 +2,10 @@
 
 namespace pr
 {
-	ThreadPool::ThreadPool(int nThreads, int64_t nReminedElement)
-        :_nThreads(nThreads), _nReminedElement(nReminedElement)
+	ThreadPool::ThreadPool(int nThreads)
+        :_nThreads(nThreads)
     {
         _continue = true;
-        _hasElement = 0 < _nReminedElement;
         _executingCount = 0;
 
         launchThreads(1);
