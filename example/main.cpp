@@ -567,22 +567,40 @@ struct ImagesDemo : public IDemo {
     void OnImGui() override {
         using namespace pr;
 
-        if (ImGui::Button("Save Images -> imageN.png"))
+        if (ImGui::Button("Save Images -> saveX.png"))
         {
             {
-                pr::Image2DRGBA8 image;
+                Image2DRGBA8 image;
                 PR_ASSERT(image.load("edobee.jpg") == pr::Result::Sucess);
-                image.saveAsPng("image0.png");
+                image.saveAsPng("saveA.png");
             }
             {
-                pr::Image2DRGBA32 image;
+                Image2DRGBA32 image;
                 PR_ASSERT(image.loadFromHDR("blaubeuren_night_1k.hdr") == pr::Result::Sucess);
-                image.saveAsHDR("image1.hdr");
+                image.saveAsHDR("saveB.hdr");
             }
             {
-                pr::Image2DRGBA32 image;
+                Image2DRGBA32 image;
                 PR_ASSERT(image.loadFromEXR("StillLife.exr") == pr::Result::Sucess);
-                image.saveAsEXR("image2.exr");
+                image.saveAsEXR("saveC.exr");
+            }
+
+            {
+				std::vector<std::string> layers;
+				LayerListFromEXR( layers, "multilayer0001.exr" );
+                std::vector<std::shared_ptr<Image2DRGBA32>> images;
+
+                MultiLayerExrWriter writer;
+				for( int i = 0; i < layers.size(); ++i )
+				{
+                    std::shared_ptr<Image2DRGBA32> image = std::make_shared<Image2DRGBA32>();
+                    images.push_back(image);
+					image->loadFromEXR( "multilayer0001.exr", layers[i].c_str());
+
+                    writer.add(image.get(), layers[i]);
+				}
+                Result r = writer.saveAs("saveD.exr");
+                PR_ASSERT(r == Result::Sucess);
             }
         }
 
@@ -626,6 +644,7 @@ int main() {
 
     SetDataDir(JoinPath(ExecutableDir(), "../data"));
 
+    SetEnableMultiThreadExrProceccing( true );
     //ParallelFor(10, [](int i) {
     //    ChromeTraceTimer timer( ChromeTraceTimer::AddMode::Auto );
     //    timer.label("p[%d]", i);

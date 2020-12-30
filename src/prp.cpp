@@ -379,7 +379,6 @@ namespace pr {
         std::string fullPath = GetDataPath(filename);
         using namespace OPENEXR_IMF_NAMESPACE;
         using namespace IMATH_NAMESPACE;
-
         try
         {
 		    InputFile file( fullPath.c_str() );
@@ -516,6 +515,17 @@ namespace pr {
         }
 
 		return Result::Sucess;
+	}
+	void SetEnableMultiThreadExrProceccing( bool enabled )
+	{
+		if( enabled )
+		{
+			OPENEXR_IMF_NAMESPACE::setGlobalThreadCount( std::thread::hardware_concurrency() );
+		}
+		else
+		{
+			OPENEXR_IMF_NAMESPACE::setGlobalThreadCount( 0 );
+		}
     }
 	Result LayerListFromEXR( std::vector<std::string>& list, const char* filename )
 	{
@@ -611,6 +621,107 @@ namespace pr {
             return Result::Failure;
         }
 
+        return Result::Sucess;
+    }
+    Result MultiLayerExrWriter::saveAs( const char* filename )
+    {
+        using namespace OPENEXR_IMF_NAMESPACE;
+        using namespace IMATH_NAMESPACE;
+
+        std::vector<const Image2DRGBA32*> images = _images;
+        std::vector<std::string> layers = _layers;
+
+        if( images.empty() )
+		{
+			return Result::Failure;
+		}
+		if( images.size() != layers.size() )
+		{
+			return Result::Failure;
+		}
+        int width = images[0]->width();
+        int height = images[0]->height();
+		if( width == 0 || height == 0 )
+        {
+            return Result::Failure;
+        }
+		for( const Image2DRGBA32* image : images )
+		{
+			if( image->width() != width || image->height() != height )
+			{
+				return Result::Failure;
+			}
+		}
+
+		try
+        {
+            Header header(width, height);
+
+            header.compression() = OPENEXR_IMF_NAMESPACE::ZIPS_COMPRESSION;
+
+            FrameBuffer frameBuffer;
+
+            for (int i = 0; i < layers.size(); ++i)
+            {
+                auto join = [](std::string a, std::string b)
+                {
+                    return a == "" ? b : ( a + "." + b );
+                };
+                std::string R = join(layers[i], "R");
+                std::string G = join(layers[i], "G");
+                std::string B = join(layers[i], "B");
+                std::string A = join(layers[i], "A");
+
+                header.channels().insert(A.c_str(), Channel(OPENEXR_IMF_NAMESPACE::FLOAT));
+                header.channels().insert(B.c_str(), Channel(OPENEXR_IMF_NAMESPACE::FLOAT));
+                header.channels().insert(G.c_str(), Channel(OPENEXR_IMF_NAMESPACE::FLOAT));
+                header.channels().insert(R.c_str(), Channel(OPENEXR_IMF_NAMESPACE::FLOAT));
+
+                const float* rHead = glm::value_ptr(*images[i]->data());
+                const float* gHead = rHead + 1;
+                const float* bHead = rHead + 2;
+                const float* aHead = rHead + 3;
+
+                frameBuffer.insert(A.c_str(),
+                    Slice(
+                        OPENEXR_IMF_NAMESPACE::FLOAT,
+                        (char*)aHead,
+                        sizeof(glm::vec4) * 1,	   // x stride
+                        sizeof(glm::vec4) * width) // y stride
+                );
+                frameBuffer.insert(B.c_str(),
+                    Slice(
+                        OPENEXR_IMF_NAMESPACE::FLOAT,
+                        (char*)bHead,
+                        sizeof(glm::vec4) * 1,	   // x stride
+                        sizeof(glm::vec4) * width) // y stride
+                );
+                frameBuffer.insert(G.c_str(),
+                    Slice(
+                        OPENEXR_IMF_NAMESPACE::FLOAT,
+                        (char*)gHead,
+                        sizeof(glm::vec4) * 1,	   // x stride
+                        sizeof(glm::vec4) * width) // y stride
+                );
+                frameBuffer.insert(R.c_str(),
+                    Slice(
+                        OPENEXR_IMF_NAMESPACE::FLOAT,
+                        (char*)rHead,
+                        sizeof(glm::vec4) * 1,	   // x stride
+                        sizeof(glm::vec4) * width) // y stride
+                );
+            }
+
+
+            OutputFile file(GetDataPath(filename).c_str(), header);
+            file.setFrameBuffer(frameBuffer);
+            file.writePixels(height);
+        }
+        catch (std::exception& e)
+        {
+            // printf( "%s\n", e.what() );
+            return Result::Failure;
+        }
         return Result::Sucess;
     }
 	Image2DRGBA32::PixelType *Image2DRGBA32::data() {
