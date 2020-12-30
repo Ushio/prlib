@@ -70,38 +70,6 @@ namespace pr
         }
         _taskCondition.notify_all();
     }
-    void ThreadPool::addElements(int64_t nElements)
-    {
-        assert(0 < nElements);
-
-        int64_t prev = _nReminedElement.fetch_add(nElements);
-        if (prev == 0)
-        {
-            std::unique_lock<std::mutex> lockGuard(_statusMutex);
-            _hasElement = true;
-        }
-    }
-    void ThreadPool::doneElements(int64_t nElements)
-    {
-        assert(0 < nElements);
-
-        int64_t previous = _nReminedElement.fetch_sub(nElements);
-        if (previous == nElements)
-        {
-            {
-                std::unique_lock<std::mutex> lockGuard(_statusMutex);
-                _hasElement = false;
-            }
-            _statusCondition.notify_all();
-        }
-    }
-    void ThreadPool::waitForDoneElements()
-    {
-        std::unique_lock<std::mutex> lockGuard(_statusMutex);
-        _statusCondition.wait(lockGuard, [this] {
-            return _hasElement == false;
-        });
-    }
 
     void ThreadPool::launchThreads(int nThreads)
     {
@@ -138,7 +106,7 @@ namespace pr
             });
         }
     }
-    ThreadPool::ProcessResult ThreadPool::processTask()
+    void ThreadPool::processTask()
 	{
 		Task task;
 
@@ -154,9 +122,11 @@ namespace pr
 		if( task )
 		{
 			task( this );
-            return ProcessResult::Consumed;
 		}
-        return ProcessResult::NoTask;
+        else
+        {
+            std::this_thread::yield();
+        }
 	}
 }
 

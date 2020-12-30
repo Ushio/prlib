@@ -12,6 +12,51 @@
 
 namespace pr
 {
+    // Manual task control
+
+    class TaskGroup
+    {
+    public:
+        TaskGroup():_parentGroup( nullptr )
+        {
+        }
+        TaskGroup( TaskGroup* parentGroup ):_parentGroup( parentGroup )
+        {
+        }
+        void addElements(int64_t nElements)
+        {
+            _nReminedElement.fetch_add(nElements);
+            if( _parentGroup )
+                _parentGroup->addElements( nElements );
+        }
+        void doneElements(int64_t nElements)
+        {
+            int64_t previous = _nReminedElement.fetch_sub( nElements );
+            if( previous == nElements )
+            {
+                _condition.notify_all();
+            }
+            if( _parentGroup )
+                _parentGroup->doneElements( nElements );
+        }
+        void waitForAllElementsToFinish()
+        {
+            std::unique_lock<std::mutex> lockGuard(_conditionMutex);
+            _condition.wait(lockGuard, [this] {
+                return _nReminedElement.load() == 0;
+            });
+        }
+        bool isFinished() const
+        {
+            return _nReminedElement.load() == 0;
+        }
+    private:
+        TaskGroup* _parentGroup;
+        std::atomic<int64_t> _nReminedElement;
+        std::mutex _conditionMutex;
+        std::condition_variable _condition;
+    };
+
     class ThreadPool {
     public:
         using Task = std::function<void(ThreadPool*)>;
@@ -26,20 +71,9 @@ namespace pr
         // work will be separated into splitLevel * nThreads tasks
         void enqueueFor(int64_t nExecute, int64_t splitLevel, std::function<void(int64_t, int64_t, ThreadPool*)> work);
         
-        // Manual task control
-        void addElements(int64_t nElements);
-        void doneElements(int64_t nElements);
-
-        void waitForDoneElements();
-
         // process 1 task. you can use this even inside of Task function.
         // It's useful for nested enqueueFor()
-        enum class ProcessResult
-        {
-            NoTask,
-            Consumed,
-        };
-        ProcessResult processTask();
+        void processTask();
 
         int threadCount() const { return _nThreads; }
         float occupancy() const { return (float)_executingCount / _nThreads; };
