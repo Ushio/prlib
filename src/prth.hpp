@@ -17,10 +17,10 @@ namespace pr
     class TaskGroup
     {
     public:
-        TaskGroup():_parentGroup( nullptr )
+        TaskGroup() :_parentGroup(nullptr), _nReminedElement(0)
         {
         }
-        TaskGroup( TaskGroup* parentGroup ):_parentGroup( parentGroup )
+        TaskGroup(TaskGroup* parentGroup) :_parentGroup(parentGroup), _nReminedElement(0)
         {
         }
         void addElements(int64_t nElements)
