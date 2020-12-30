@@ -17,17 +17,12 @@ namespace pr
     class TaskGroup
     {
     public:
-        TaskGroup() :_parentGroup(nullptr), _nReminedElement(0)
-        {
-        }
-        TaskGroup(TaskGroup* parentGroup) :_parentGroup(parentGroup), _nReminedElement(0)
+        TaskGroup() : _nReminedElement(0)
         {
         }
         void addElements(int64_t nElements)
         {
             _nReminedElement.fetch_add(nElements);
-            if( _parentGroup )
-                _parentGroup->addElements( nElements );
         }
         void doneElements(int64_t nElements)
         {
@@ -36,8 +31,6 @@ namespace pr
             {
                 _condition.notify_all();
             }
-            if( _parentGroup )
-                _parentGroup->doneElements( nElements );
         }
         void waitForAllElementsToFinish()
         {
@@ -51,7 +44,6 @@ namespace pr
             return _nReminedElement.load() == 0;
         }
     private:
-        TaskGroup* _parentGroup;
         std::atomic<int64_t> _nReminedElement;
         std::mutex _conditionMutex;
         std::condition_variable _condition;
