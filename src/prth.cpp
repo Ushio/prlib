@@ -45,7 +45,7 @@ namespace pr
         }
         _taskCondition.notify_one();
     }
-    void ThreadPool::enqueueFor(int64_t nExecute, int64_t splitLevel, std::function<void(int64_t, int64_t, ThreadPool *)> work)
+    void ThreadPool::enqueueFor(int64_t nExecute, int64_t splitLevel, std::function<void(int64_t, int64_t)> work)
     {
         {
             std::unique_lock<std::mutex> lockGuard(_taskMutex);
@@ -63,8 +63,8 @@ namespace pr
                     continue;
                 }
 
-                _tasks.emplace([beg, end, work](ThreadPool* p) {
-                    work(beg, end, p);
+                _tasks.emplace([beg, end, work]() {
+                    work(beg, end);
                 });
             }
         }
@@ -99,7 +99,7 @@ namespace pr
                     if (task)
                     {
                         _executingCount++;
-                        task(this);
+                        task();
                         _executingCount--;
                     }
                 }
@@ -121,7 +121,7 @@ namespace pr
 
 		if( task )
 		{
-			task( this );
+			task( );
 		}
         else
         {

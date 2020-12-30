@@ -59,7 +59,7 @@ namespace pr
 
     class ThreadPool {
     public:
-        using Task = std::function<void(ThreadPool*)>;
+        using Task = std::function<void(void)>;
 
         ThreadPool(int nThreads, int64_t nReminedElement = 0);
         ~ThreadPool();
@@ -69,7 +69,7 @@ namespace pr
         void enqueueTask(Task task);
 
         // work will be separated into splitLevel * nThreads tasks
-        void enqueueFor(int64_t nExecute, int64_t splitLevel, std::function<void(int64_t, int64_t, ThreadPool*)> work);
+        void enqueueFor(int64_t nExecute, int64_t splitLevel, std::function<void(int64_t, int64_t)> work);
         
         // process 1 task. you can use this even inside of Task function.
         // It's useful for nested enqueueFor()
