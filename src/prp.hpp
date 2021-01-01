@@ -34,7 +34,7 @@ namespace pr {
         {
 
         }
-        trivial_vector(int64_t n):_size(n), _capacity(n), _data((T *)malloc(sizeof(T) * n, alignment))
+        trivial_vector(int64_t n):_size(n), _capacity(n), _data((T *)malloc(sizeof(T) * n))
         {
         }
         trivial_vector(const trivial_vector<T>& rhs)
