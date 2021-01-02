@@ -126,6 +126,11 @@ project "prlib"
     files { "libs/tiny_obj_loader/tiny_obj_loader.cc" }
     files { "libs/tiny_obj_loader/tiny_obj_loader.h" }
 
+    -- xxhash
+    includedirs { "libs/xxhash" }
+    files { "libs/xxhash/xxhash.c" }
+    files { "libs/xxhash/xxhash.h" }
+
     -- Lib Core
     files {"src/*.cpp", "src/*.h", "src/*.hpp"}
     includedirs { "src/" }

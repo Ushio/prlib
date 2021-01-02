@@ -450,6 +450,10 @@ namespace pr {
     void SleepForMilliSeconds(int milliseconds);
     void SleepForSeconds(int seconds);
 
+    // xxhash
+    uint32_t xxhash32( const void* input, size_t length, uint32_t seed );
+    uint64_t xxhash64( const void* input, size_t length, uint32_t seed );
+
     class BinaryLoader
     {
     public:

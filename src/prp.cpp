@@ -11,6 +11,7 @@
 #include "ImfOutputFile.h"
 
 #include "cwalk.h"
+#include "xxhash.h"
 
 #include <algorithm>
 #include <set>
@@ -925,6 +926,16 @@ namespace pr {
     void SleepForSeconds(int seconds)
     {
         std::this_thread::sleep_for(std::chrono::seconds(seconds));
+    }
+
+    // xxhash
+    uint32_t xxhash32( const void* input, size_t length, uint32_t seed )
+    {
+        return XXH32( input, length, seed );
+    }
+    uint64_t xxhash64( const void* input, size_t length, uint32_t seed )
+    {
+        return XXH64(input, length, seed );
     }
 
     Result BinaryLoader::load(const char* file)
