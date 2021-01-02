@@ -165,6 +165,11 @@ project "prlib_example"
     -- Src
     files { "example/main.cpp" }
 
+    -- UTF8
+    postbuildcommands { 
+        "mt.exe -manifest ../utf8.manifest -outputresource:$(TargetDir)$(TargetName).exe -nologo"
+    }
+
     -- lib
     dependson { "prlib" }
     links { "prlib" }

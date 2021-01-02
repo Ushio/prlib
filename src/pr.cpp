@@ -1971,11 +1971,6 @@ namespace pr {
     void Initialize(Config config) {
         g_config = config;
 
-        if (config.UTF8CodePageOnInit)
-        {
-            SetUTF8CodePage();
-        }
-
         glfwInit();
 
         glfwWindowHint(GLFW_SAMPLES, config.NumSamples);

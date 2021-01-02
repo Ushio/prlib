@@ -22,6 +22,11 @@ project "main"
     -- Src
     files { "main.cpp" }
 
+    -- UTF8
+    postbuildcommands { 
+        "mt.exe -manifest ../utf8.manifest -outputresource:$(TargetDir)$(TargetName).exe -nologo"
+    }
+
     -- prlib
     -- setup command
     -- git submodule add https://github.com/Ushio/prlib libs/prlib

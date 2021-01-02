@@ -55,8 +55,6 @@ namespace pr {
         int imguiFontSize = 20;
         std::string Title; // UTF-8 encoded
 
-        bool UTF8CodePageOnInit = true;
-
         int64_t PersistentBufferLimitHint = 1024 * 1024 * 64;
     };
     void Initialize(Config config);
