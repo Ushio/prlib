@@ -1023,7 +1023,7 @@ namespace pr {
             glNamedFramebufferRenderbuffer(_fb, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, _color);
             glNamedFramebufferRenderbuffer(_fb, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, _depth);
 
-            auto status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+            auto status = glCheckNamedFramebufferStatus(_fb, GL_DRAW_FRAMEBUFFER);
             PR_ASSERT(status == GL_FRAMEBUFFER_COMPLETE);
 
             float clearColor[4] = { 0.0f, 0, 0, 0 };
