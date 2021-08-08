@@ -533,7 +533,7 @@ namespace pr {
             *ro = near;
             *rd = far - near;
 		}
-	private:
+	public:
         int _width, _height;
         glm::vec3 _nearO;
         glm::vec3 _nearRight;
