@@ -63,6 +63,9 @@ namespace pr {
         double g_frameTime = 0.0;
         double g_frameDeltaTime = 0.0;
         double g_framePerSeconds = 0.0;
+
+        // extension 
+        bool g_hasExternalObjectsExt = false;
     }
 
     // Input System
@@ -1996,7 +1999,25 @@ namespace pr {
         }
 
         // Check Extensions
-        PR_ASSERT(GLEW_ARB_bindless_texture);
+        // PR_ASSERT(GLEW_ARB_bindless_texture);
+
+        bool has_GL_EXT_memory_object = false;
+		bool has_GL_EXT_memory_object_win32 = false;
+        GLint n = 0;
+		glGetIntegerv( GL_NUM_EXTENSIONS, &n );
+		for( GLint i = 0; i < n; i++ )
+		{
+			const char* extension = (const char*)glGetStringi( GL_EXTENSIONS, i );
+			if( strstr( extension, "GL_EXT_memory_object" ) )
+			{
+				has_GL_EXT_memory_object = true;
+            }
+			if( strstr( extension, "GL_EXT_memory_object_win32" ) )
+			{
+				has_GL_EXT_memory_object_win32 = true;
+			}
+		}
+		g_hasExternalObjectsExt = has_GL_EXT_memory_object && has_GL_EXT_memory_object_win32;
 
         glfwSwapInterval(config.SwapInterval);
 
@@ -2083,6 +2104,11 @@ namespace pr {
     }
     double GetFrameRate() {
         return g_framePerSeconds;
+    }
+
+    bool hasExternalObjectExtension() 
+    {
+		return g_hasExternalObjectsExt;
     }
 
     static void HandleInputEvents() {
@@ -2454,6 +2480,11 @@ suspend_event_handle:
                 glDeleteTextures(1, &_texture);
                 _texture = 0;
             }
+			if( _interopMem )
+			{
+				glDeleteMemoryObjectsEXT( 1, &_interopMem );
+				_interopMem = 0;
+            }
         }
         void upload(const Image2DRGBA8 &image) override {
             uploadAsRGBA8((const uint8_t *)image.data(), image.width(), image.height());
@@ -2465,23 +2496,38 @@ suspend_event_handle:
 			uploadAsRGBAF32(glm::value_ptr(*image.data()), image.width(), image.height());
 		}
         void uploadAsRGBA8(const uint8_t *source, int width, int height) override {
-            applyToStorage(width, height, GL_RGBA8, _filter);
+			applyToStorage( width, height, GL_RGBA8, _filter, _isInterlop );
 
             glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_UNSIGNED_BYTE, source);
         }
         void uploadAsMono8(const uint8_t *source, int width, int height) override {
-            applyToStorage(width, height, GL_RGB8, _filter);
+			applyToStorage( width, height, GL_RGB8, _filter, _isInterlop );
 
             glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
             glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_LUMINANCE, GL_UNSIGNED_BYTE, source);
         }
 		void uploadAsRGBAF32(const float *source, int width, int height) override
 		{
-			applyToStorage(width, height, GL_RGB8, _filter);
+			applyToStorage( width, height, GL_RGBA32F, _filter, _isInterlop );
 
 			glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 			glTextureSubImage2D(_texture, 0, 0, 0, _width, _height, GL_RGBA, GL_FLOAT, source);
 		}
+		void fromInteropRGBA8( void* handle, int width, int height ) override
+		{
+			if( hasExternalObjectExtension() )
+			{
+				applyToStorage( width, height, GL_RGBA8, _filter, true );
+
+                if( _interopMem == 0 )
+				{
+					glCreateMemoryObjectsEXT( 1, &_interopMem );
+                }
+
+                glImportMemoryWin32HandleEXT( _interopMem, 4 * _width * _height, GL_HANDLE_TYPE_OPAQUE_WIN32_EXT, handle );
+				glTextureStorageMem2DEXT( _texture, 1, GL_RGBA8, _width, _height, _interopMem, 0 );
+            }
+        }
         int width() const override {
             return _width;
         }
@@ -2489,17 +2535,18 @@ suspend_event_handle:
             return _height;
         }
         void setFilter(TextureFilter filter) override {
-            applyToStorage(_width, _height, _internalFormat, filter);
+			applyToStorage( _width, _height, _internalFormat, filter, _isInterlop );
         }
         void bind() const override {
             glBindTextureUnit(0, _texture);
         }
     private:
-        void applyToStorage(int w, int h, GLenum internalFormat, TextureFilter filter) {
+        void applyToStorage(int w, int h, GLenum internalFormat, TextureFilter filter, bool interlop ) {
             bool reallocate = false;
             reallocate = reallocate || _width != w;
             reallocate = reallocate || _height != h;
             reallocate = reallocate || _internalFormat != internalFormat;
+			reallocate = reallocate || _isInterlop != interlop;
             if (reallocate) {
                 if (_texture) {
                     glDeleteTextures(1, &_texture);
@@ -2508,9 +2555,13 @@ suspend_event_handle:
                 _width  = w;
                 _height = h;
                 _internalFormat = internalFormat;
+				_isInterlop = interlop;
 
                 glCreateTextures(GL_TEXTURE_2D, 1, &_texture);
-                glTextureStorage2D(_texture, 1, _internalFormat, _width, _height);
+				if( interlop == false )
+				{
+                    glTextureStorage2D( _texture, 1, _internalFormat, _width, _height );
+                }
             }
 
             if (_filter != filter || reallocate) {
@@ -2536,6 +2587,8 @@ suspend_event_handle:
         int _width = 0;
         int _height = 0;
         TextureFilter _filter = TextureFilter::None;
+		bool _isInterlop = false;
+		GLuint _interopMem = 0;
     };
    
     ITexture *CreateTexture() {

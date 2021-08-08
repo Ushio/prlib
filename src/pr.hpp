@@ -81,6 +81,9 @@ namespace pr {
     double GetFrameDeltaTime();
     double GetFrameRate();
 
+    // Extension
+	bool hasExternalObjectExtension();
+
     // Inputs
     extern int MOUSE_BUTTON_LEFT;
     extern int MOUSE_BUTTON_MIDDLE;
@@ -283,6 +286,7 @@ namespace pr {
         virtual void uploadAsRGBA8(const uint8_t *source, int width, int height) = 0;
 		virtual void uploadAsMono8(const uint8_t *source, int width, int height) = 0;
 		virtual void uploadAsRGBAF32(const float *source, int width, int height) = 0;
+		virtual void fromInteropRGBA8( void* handle, int width, int height ) = 0;
 
         virtual int width() const = 0;
         virtual int height() const = 0;
