@@ -1457,6 +1457,23 @@ namespace pr {
         }
         PrimEnd();
     }
+	void DrawFreeGrid( glm::vec3 o, glm::vec3 dir0, glm::vec3 dir1, int blockCountHalf, glm::u8vec3 c, float lineWidth )
+	{
+        PrimBegin( PrimitiveMode::Lines, lineWidth );
+
+		for( int i = -blockCountHalf; i <= blockCountHalf; ++i )
+		{
+			PrimVertex( o + dir0 * (float)i - (float)blockCountHalf * dir1, c );
+			PrimVertex( o + dir0 * (float)i + (float)blockCountHalf * dir1, c );
+		}
+		for( int i = -blockCountHalf; i <= blockCountHalf; ++i )
+		{
+			PrimVertex( o + dir1 * (float)i - (float)blockCountHalf * dir0, c );
+			PrimVertex( o + dir1 * (float)i + (float)blockCountHalf * dir0, c );
+		}
+
+		PrimEnd();
+	}
     void DrawTube(glm::vec3 p0, glm::vec3 p1, float radius0, float radius1, glm::u8vec3 c, int vertexCount, float lineWidth) {
         if (vertexCount <= 0) {
             return;
