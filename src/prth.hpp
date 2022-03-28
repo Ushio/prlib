@@ -37,11 +37,8 @@ namespace pr
         }
         void waitForAllElementsToFinish()
         {
-			// fetch_sub could fire ~TaskGroup() destructor
-			// so need to aquire instance of condition
-			std::shared_ptr<std::condition_variable> condition = _condition;
             std::unique_lock<std::mutex> lockGuard(_conditionMutex);
-			condition->wait( lockGuard, [this] {
+			_condition->wait( lockGuard, [this] {
                 return _nReminedElement.load() == 0;
             });
         }
