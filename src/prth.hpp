@@ -17,7 +17,7 @@ namespace pr
     class TaskGroup
     {
     public:
-        TaskGroup() : _nReminedElement(0)
+		TaskGroup() : _nReminedElement( 0 ), _condition( new std::condition_variable() )
         {
         }
         void addElements(int64_t nElements)
@@ -26,16 +26,22 @@ namespace pr
         }
         void doneElements(int64_t nElements)
         {
+            // fetch_sub could fire ~TaskGroup() destructor
+            // so need to aquire instance of condition
+			std::shared_ptr<std::condition_variable> condition = _condition;
             int64_t previous = _nReminedElement.fetch_sub( nElements );
             if( previous == nElements )
             {
-                _condition.notify_all();
+				condition->notify_all();
             }
         }
         void waitForAllElementsToFinish()
         {
+			// fetch_sub could fire ~TaskGroup() destructor
+			// so need to aquire instance of condition
+			std::shared_ptr<std::condition_variable> condition = _condition;
             std::unique_lock<std::mutex> lockGuard(_conditionMutex);
-            _condition.wait(lockGuard, [this] {
+			condition->wait( lockGuard, [this] {
                 return _nReminedElement.load() == 0;
             });
         }
@@ -46,7 +52,7 @@ namespace pr
     private:
         std::atomic<int64_t> _nReminedElement;
         std::mutex _conditionMutex;
-        std::condition_variable _condition;
+        std::shared_ptr<std::condition_variable> _condition;
     };
 
     class ThreadPool {
