@@ -172,7 +172,7 @@ project "prlib_example"
 
     -- UTF8
     postbuildcommands { 
-        "mt.exe -manifest ../utf8.manifest -outputresource:$(TargetDir)$(TargetName).exe -nologo"
+        "mt.exe -manifest ../utf8.manifest -outputresource:\"$(TargetDir)$(TargetName).exe\" -nologo"
     }
 
     -- lib
