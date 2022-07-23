@@ -1042,7 +1042,7 @@ namespace pr {
 				IFloatProperty resxProp( schema.getUserProperties(), "resx" );
 				resxProp.get( resx, selector );
 				IFloatProperty resyProp( schema.getUserProperties(), "resy" );
-				resxProp.get( resy, selector );
+				resyProp.get( resy, selector );
 				e->_imageWidth = resx;
 				e->_imageHeight = resy;
 			}
