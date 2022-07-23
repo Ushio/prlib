@@ -220,7 +220,7 @@ namespace pr {
     void SetObjectIdentify();
 
     // These are stack-managemented.
-    void GetCameraMatrix(Camera3D camera3d, glm::mat4 *proj, glm::mat4 *view);
+    void GetCameraMatrix( Camera3D camera3d, glm::mat4 *proj, glm::mat4 *view, int width, int height );
     void BeginCamera(Camera3D camera);
     void BeginCamera2DCanvas();
     void BeginCameraNone();

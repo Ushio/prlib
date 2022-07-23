@@ -1072,12 +1072,13 @@ namespace pr {
     class ICamera {
     public:
         virtual ~ICamera() {};
-        virtual glm::mat4 getProjectionMatrix() const = 0;
+		virtual glm::mat4 getProjectionMatrix( int width, int height ) const = 0;
         virtual glm::mat4 getViewMatrix() const = 0;
     };
     class CameraNone : public ICamera {
     public:
-        virtual glm::mat4 getProjectionMatrix() const override {
+		virtual glm::mat4 getProjectionMatrix( int width, int height ) const override
+		{
             return glm::identity<glm::mat4>();
         }
         virtual glm::mat4 getViewMatrix() const override {
@@ -1086,8 +1087,9 @@ namespace pr {
     };
     class Camera2DCanvas : public ICamera {
     public:
-        virtual glm::mat4 getProjectionMatrix() const override {
-            return glm::orthoLH<float>(0.0f, (float)GetScreenWidth(), (float)GetScreenHeight(), 0.0f, 1.0f, -1.0f);
+		virtual glm::mat4 getProjectionMatrix( int width, int height ) const override
+		{
+			return glm::orthoLH<float>( 0.0f, width, height, 0.0f, 1.0f, -1.0f );
         }
         virtual glm::mat4 getViewMatrix() const override {
             return glm::identity<glm::mat4>();
@@ -1099,11 +1101,12 @@ namespace pr {
         Camera3DObject(Camera3D camera):_camera(camera) {
 
         }
-        virtual glm::mat4 getProjectionMatrix() const override {
+		virtual glm::mat4 getProjectionMatrix( int width, int height ) const override
+		{
 			float zn = std::max( _camera.zNear, FLT_EPSILON );
 			float zf = std::max( _camera.zFar, FLT_EPSILON );
 			float fovy = std::max( _camera.fovy, FLT_EPSILON );
-            float aspect = (float)GetScreenWidth() / GetScreenHeight();
+			float aspect = (float)width / (float)height;
             //glm::mat4 persp = glm::perspectiveFov(fovy, (float)GetScreenWidth(), (float)GetScreenHeight(), zn, zf);
             //glm::mat4 ortho = glm::ortho(
             //    -_camera.orthoy * aspect * 0.5f, _camera.orthoy * aspect * 0.5f,
@@ -1130,9 +1133,6 @@ namespace pr {
             //    zf = z;
             //    Rf = Rn + a * z;
             //}
-
-            float width = (float)GetScreenWidth();
-            float height = (float)GetScreenHeight();
 
             float b = zf - zn;
             float a = b / aspect;
@@ -1174,15 +1174,16 @@ namespace pr {
     static void UpdateCurrentMatrix() {
         auto camera = GetCurrentCamera();
         auto v = camera->getViewMatrix() * g_objectTransform;
-        auto p = camera->getProjectionMatrix();
+        auto p = camera->getProjectionMatrix( GetScreenWidth(), GetScreenHeight() );
         g_primitivePipeline->setVP(v, p);
         g_texturedTrianglePipeline->setVP(v, p);
         g_fontPipeline->setVP(v, p);
     }
 
-    void GetCameraMatrix(Camera3D camera3d, glm::mat4 *proj, glm::mat4 *view) {
+    void GetCameraMatrix( Camera3D camera3d, glm::mat4* proj, glm::mat4* view, int width, int height )
+	{
         Camera3DObject camera(camera3d);
-        *proj = camera.getProjectionMatrix();
+		*proj = camera.getProjectionMatrix( width, height );
         *view = camera.getViewMatrix();
     }
 
@@ -1317,7 +1318,7 @@ namespace pr {
         UpdateCurrentMatrix();
     }
     glm::mat4 GetCurrentProjMatrix() {
-        return GetCurrentCamera()->getProjectionMatrix();
+		return GetCurrentCamera()->getProjectionMatrix( GetScreenWidth(), GetScreenHeight() );
     }
     glm::mat4 GetCurrentViewMatrix() {
         return GetCurrentCamera()->getViewMatrix();
@@ -2658,7 +2659,7 @@ suspend_event_handle:
     }
     void DrawText(glm::vec3 p_world, std::string text, float fontSize, glm::u8vec3 fontColor, float outlineWidth, glm::u8vec3 outlineColor) {
         auto camera = GetCurrentCamera();
-        auto screen = glm::project(p_world, camera->getViewMatrix() * g_objectTransform, camera->getProjectionMatrix(), glm::vec4(0, 0, GetScreenWidth(), GetScreenHeight()));
+		auto screen = glm::project( p_world, camera->getViewMatrix() * g_objectTransform, camera->getProjectionMatrix( GetScreenWidth(), GetScreenHeight() ), glm::vec4( 0, 0, GetScreenWidth(), GetScreenHeight() ) );
         
         // back cliping
         if (screen.z > 1.0f) {
@@ -2904,7 +2905,7 @@ suspend_event_handle:
         using namespace pr;
         glm::mat4 view;
         glm::mat4 proj;
-        GetCameraMatrix(camera, &proj, &view);
+		GetCameraMatrix( camera, &proj, &view, GetScreenWidth(), GetScreenHeight() );
         glm::mat4 inverse_vp = glm::inverse(proj * view);
 
         auto curMouse = GetMousePosition();

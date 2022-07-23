@@ -801,7 +801,7 @@ int main() {
 
     bool showImGuiDemo = false;
     float fontSize = 16.0f;
-    int demoMode = DemoMode_AlembicCamera;
+	int demoMode = DemoMode_Point;
 
     while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {
