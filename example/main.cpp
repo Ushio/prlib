@@ -12,6 +12,7 @@ enum DemoMode {
     DemoMode_Benchmark,
     DemoMode_Alembic,
     DemoMode_AlembicHoudini,
+	DemoMode_AlembicCamera,
     DemoMode_Images,
 };
 const char* DemoModes[] = { 
@@ -22,13 +23,15 @@ const char* DemoModes[] = {
     "DemoMode_Manip",
     "DemoMode_Benchmark",
     "DemoMode_Alembic",
-    "DemoMode_AlembicHoudini",
+	"DemoMode_AlembicHoudini",
+	"DemoMode_AlembicCamera",
     "DemoMode_Images",
 };
 
 class IDemo {
 public:
     ~IDemo() {}
+	virtual void OnUpdateCamera( pr::Camera3D* camera ) {}
     virtual void OnDraw() = 0;
     virtual void OnImGui() = 0;
     virtual pr::ITexture *GetBackground() { return nullptr; };
@@ -516,6 +519,97 @@ struct AlembicHoudiniDemo : public IDemo {
     std::shared_ptr<pr::FScene> _scene;
 };
 
+struct AlembicCameraDemo : public IDemo
+{
+	AlembicCameraDemo()
+	{
+		using namespace pr;
+		_archive = std::shared_ptr<pr::AbcArchive>( new pr::AbcArchive() );
+		std::string errorMessage;
+		if( _archive->open( GetDataPath( "camera.abc" ), errorMessage ) == AbcArchive::Result::Failure )
+		{
+			printf( "Alembic Error: %s\n", errorMessage.c_str() );
+		}
+		_scene = _archive->readFlat( _frame, errorMessage );
+	}
+	virtual void OnUpdateCamera( pr::Camera3D* camera ) 
+    {
+		_scene->visitCamera( [&]( std::shared_ptr<const pr::FCameraEntity> cameraEntity )
+		{ 
+            *camera = cameraFromEntity( cameraEntity.get() );
+		} );
+    }
+	void OnDraw() override
+	{
+		using namespace pr;
+		std::string errorMessage;
+        _scene = _archive->readFlat( _frame, errorMessage );
+
+		if( !_scene )
+		{
+			return;
+		}
+		_scene->visitCamera( []( std::shared_ptr<const FCameraEntity> camera )
+	    {
+            pr::SetObjectTransform( camera->localToWorld() );
+            DrawXYZAxis();
+			pr::SetObjectIdentify();
+		} );
+		_scene->visitPolyMesh( []( std::shared_ptr<const FPolyMeshEntity> polymesh )
+		{
+			if( polymesh->visible() == false )
+			{
+				return;
+			}
+			ColumnView<int32_t> faceCounts( polymesh->faceCounts() );
+			ColumnView<int32_t> indices( polymesh->faceIndices() );
+			ColumnView<glm::vec3> positions( polymesh->positions() );
+			ColumnView<glm::vec3> normals( polymesh->normals() );
+
+			pr::SetObjectTransform( polymesh->localToWorld() );
+
+			auto sheet = polymesh->attributeSpreadsheet( pr::AttributeSpreadsheetType::Points );
+
+			// Geometry
+			pr::PrimBegin( pr::PrimitiveMode::Lines );
+			for( int i = 0; i < positions.count(); i++ )
+			{
+				glm::vec3 p = positions[i];
+				pr::PrimVertex( p, { 255, 255, 255 } );
+			}
+			int indexBase = 0;
+			for( int i = 0; i < faceCounts.count(); i++ )
+			{
+				int nVerts = faceCounts[i];
+				for( int j = 0; j < nVerts; ++j )
+				{
+					int i0 = indices[indexBase + j];
+					int i1 = indices[indexBase + ( j + 1 ) % nVerts];
+					pr::PrimIndex( i0 );
+					pr::PrimIndex( i1 );
+				}
+				indexBase += nVerts;
+			}
+			pr::PrimEnd();
+			pr::SetObjectIdentify();
+		} );
+	}
+	void OnImGui() override
+	{
+		ImGui::SetNextItemOpen( true, ImGuiCond_Once );
+		if( ImGui::TreeNode( "Abc" ) )
+		{
+			ImGui::SliderInt( "frame", &_frame, 0, _archive->frameCount() - 1 );
+			ImGui::TreePop();
+		}
+	}
+
+	std::shared_ptr<pr::AbcArchive> _archive;
+	std::shared_ptr<pr::FScene> _scene;
+	int _frame = 0;
+};
+
+
 struct ImagesDemo : public IDemo {
     ImagesDemo()
     {
@@ -683,15 +777,16 @@ int main() {
     Initialize(config);
 
     demos = {
-       new PointDemo(),
-       new LineDemo(),
-       new TextDemo(),
-       new RaysDemo(),
-       new ManipDemo(),
-       new BenchmarkDemo(),
-       new AlembicDemo(),
-       new AlembicHoudiniDemo(),
-       new ImagesDemo(),
+        new PointDemo(),
+        new LineDemo(),
+        new TextDemo(),
+        new RaysDemo(),
+        new ManipDemo(),
+        new BenchmarkDemo(),
+        new AlembicDemo(),
+        new AlembicHoudiniDemo(),
+        new AlembicCameraDemo(),
+        new ImagesDemo(),
     };
 
     pr::SetDepthTest(true);
@@ -706,12 +801,13 @@ int main() {
 
     bool showImGuiDemo = false;
     float fontSize = 16.0f;
-    int demoMode = DemoMode_Images;
+    int demoMode = DemoMode_AlembicCamera;
 
     while (pr::NextFrame() == false) {
         if (IsImGuiUsingMouse() == false) {
             UpdateCameraBlenderLike(&camera);
         }
+		demos[demoMode]->OnUpdateCamera( &camera );
         demos[demoMode]->camera = camera;
 
         if (ITexture *bg = demos[demoMode]->GetBackground()) {

@@ -123,6 +123,62 @@ namespace pr {
 	};
 
 	// Alembic
+	class FCameraEntityImpl : public FCameraEntity
+	{
+	public:
+		FSceneEntityType type() const override { return FSceneEntityType::Camera; }
+
+		virtual std::string fullname() const override
+		{
+			return _common.fullname;
+		}
+		virtual bool visible() const override
+		{
+			return _common.bakedVisibility;
+		}
+		virtual glm::mat4 localToWorld() const override
+		{
+			return _common.localToWorld;
+		}
+		int imageWidth() const override
+		{
+			return _imageWidth;
+		}
+		int imageHeight() const override
+		{
+			return _imageHeight;
+		}
+		float fovH() const override
+		{
+			return _fovHorizontal;
+		}
+		float fovV() const override
+		{
+			return _fovVertical;
+		}
+		float nearClip() const override
+		{
+			return _nearClip;
+		}
+		float farClip() const override
+		{
+			return _farClip;
+		}
+		CommonAttribute _common;
+		int _imageWidth = 0;
+		int _imageHeight = 0;
+
+		// http://nomoreretake.net/2016/02/20/camera/
+		float _focalLength_mm = 0.0f;
+		float _apertureHorizontal_mm = 0.0f;
+		float _apertureVertical_mm = 0.0f;
+		float _fovHorizontal = 0.0f;
+		float _fovVertical = 0.0f;
+
+		float _nearClip = 0.0f;
+		float _farClip = 0.0f;
+	};
+
 	class FPolyMeshEntityAbcImpl : public FPolyMeshEntity
 	{
 	public:
@@ -973,81 +1029,39 @@ namespace pr {
 			// Implementation Notes
 			// https://docs.google.com/presentation/d/1f5EVQTul15x4Q30IbeA7hP9_Xc0AgDnWsOacSQmnNT8/edit?usp=sharing
 
-			//ICamera camera(o);
-			//auto schema = camera.getSchema();
+			ICamera camera(o);
+			auto schema = camera.getSchema();
 
-			//std::shared_ptr<CameraObject> object(new CameraObject());
+			std::shared_ptr<FCameraEntityImpl> e( new FCameraEntityImpl() );
+			e->_common = common;
 
-			//IXform parentXForm(o.getParent());
-			//object->name = parentXForm.getFullName();
+			float resx = 0.0f;
+			float resy = 0.0f;
+			try
+			{
+				IFloatProperty resxProp( schema.getUserProperties(), "resx" );
+				resxProp.get( resx, selector );
+				IFloatProperty resyProp( schema.getUserProperties(), "resy" );
+				resxProp.get( resy, selector );
+				e->_imageWidth = resx;
+				e->_imageHeight = resy;
+			}
+			catch( std::exception &e )
+			{
+			}
 
-			//for (int i = 0; i < xforms.size(); ++i) {
-			//	object->xforms.push_back(to(xforms[i]));
-			//}
-			//M44d combined = combine_xform(xforms);
-			//object->combinedXforms = to(combined);
+			CameraSample sample;
+			schema.get( sample, selector );
+			
+			e->_focalLength_mm = sample.getFocalLength();
+			e->_apertureHorizontal_mm = sample.getHorizontalAperture() * 10.0f;
+			e->_apertureVertical_mm = sample.getVerticalAperture() * 10.0f;
+			e->_fovHorizontal = DegreesToRadians( sample.getFieldOfView() );
+			e->_fovVertical = std::atan( e->_apertureVertical_mm * 0.5f / e->_focalLength_mm ) * 2.0f;
+			e->_nearClip = sample.getNearClippingPlane();
+			e->_farClip = sample.getFarClippingPlane();
 
-			//// http://www.sidefx.com/ja/docs/houdini/io/alembic.html#%E5%8F%AF%E8%A6%96%E6%80%A7
-			//auto parentProp = parentXForm.getProperties();
-			//if (parentProp.getPropertyHeader("visible")) {
-			//	int8_t visible = get_typed_scalar_property<ICharProperty>(parentProp, "visible", selector);
-			//	object->visible = visible == -1;
-			//}
-			//else {
-			//	object->visible = true;
-			//}
-
-			//M44d inverseTransposed = combined.inverse().transposed();
-
-			//V3d eye;
-			//combined.multVecMatrix(V3d(0, 0, 0), eye);
-			//V3d forward;
-			//V3d up;
-			//inverseTransposed.multDirMatrix(V3d(0, 0, -1), forward);
-			//inverseTransposed.multDirMatrix(V3d(0, 1, 0), up);
-
-			//V3d right;
-			//inverseTransposed.multDirMatrix(V3d(1, 0, 0), right);
-
-			//object->eye = to(eye);
-			//object->lookat = to(eye + forward);
-			//object->up = to(up);
-			//object->down = to(-up);
-			//object->forward = to(forward);
-			//object->back = to(-forward);
-			//object->left = to(-right);
-			//object->right = to(right);
-
-			//CameraSample sample;
-			//schema.get(sample, selector);
-
-			//// Houdini Parameters [ View ]
-			//object->resolution_x = (int)get_typed_scalar_property<IFloatProperty>(schema.getUserProperties(), "resx", selector);
-			//object->resolution_y = (int)get_typed_scalar_property<IFloatProperty>(schema.getUserProperties(), "resy", selector);
-			//object->focalLength_mm = sample.getFocalLength();
-			//object->aperture_horizontal_mm = sample.getHorizontalAperture() * 10.0f;
-			//object->aperture_vertical_mm = sample.getVerticalAperture() * 10.0f;
-			//object->nearClip = sample.getNearClippingPlane();
-			//object->farClip = sample.getFarClippingPlane();
-
-			//// Houdini Parameters [ Sampling ]
-			//object->focusDistance = sample.getFocusDistance();
-			//object->f_stop = sample.getFStop();
-
-			//// Calculated by Parameters
-			//object->fov_horizontal_degree = sample.getFieldOfView();
-			//float fov_vertical_radian = std::atan(object->aperture_vertical_mm * 0.5f / object->focalLength_mm) * 2.0f;
-			//object->fov_vertical_degree = fov_vertical_radian / (2.0 * M_PI) * 360.0f;
-
-			//float A = object->focalLength_mm / 1000.0f;
-			//float B = object->focusDistance;
-			//float F = A * B / (A + B);
-			//object->lensRadius = F / (2.0f * object->f_stop);
-
-			//object->objectPlaneWidth = 2.0f * object->focusDistance * std::tan(0.5f * object->fov_horizontal_degree / 360.0f * 2.0 * M_PI);
-			//object->objectPlaneHeight = 2.0f * object->focusDistance * std::tan(0.5f * object->fov_vertical_degree / 360.0f * 2.0 * M_PI);
-
-			//objects.emplace_back(object);
+			entities.emplace_back( e );
 		}
 		else if (IXform::matches(header)) {
 			IXform xform(o);

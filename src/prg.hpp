@@ -186,6 +186,7 @@ namespace pr {
 	Flat Scene Entities
 	*/
 	enum class FSceneEntityType {
+		Camera,
 		PolygonMesh,
 	};
 	class FSceneEntity {
@@ -199,6 +200,19 @@ namespace pr {
 		virtual glm::mat4 localToWorld() const = 0;
 	};
 
+	class FCameraEntity : public FSceneEntity
+	{
+	public:
+		virtual ~FCameraEntity() {}
+		FSceneEntityType type() const override { return FSceneEntityType::Camera; }
+		virtual int imageWidth() const = 0;
+		virtual int imageHeight() const = 0;
+
+		virtual float fovH() const = 0;
+		virtual float fovV() const = 0;
+		virtual float nearClip() const = 0;
+		virtual float farClip() const = 0;
+	};
 	enum class AttributeSpreadsheetType : int
 	{
 		Points = 0,
@@ -271,6 +285,7 @@ namespace pr {
 				}
 			}
 		}
+		void visitCamera( std::function<void( std::shared_ptr<const FCameraEntity> )> visitor ) const { visit( visitor ); }
 		void visitPolyMesh(std::function<void(std::shared_ptr<const FPolyMeshEntity>)> visitor) const { visit(visitor); }
 		void visitPolyMesh(std::function<VisitorAction(std::shared_ptr<const FPolyMeshEntity>)> visitor) const { visit(visitor); }
 

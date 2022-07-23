@@ -238,6 +238,8 @@ namespace pr {
         float shift_sensitivity = 0.0006f
     );
 
+    Camera3D cameraFromEntity( const pr::FCameraEntity* e );
+
     // Core Primitive Functions ( Only performance, "Simple Functions" are recommended ) 
     // PrimVertex and PrimIndex is only allowed function between PrimBegin() and PrimEnd().
     enum class PrimitiveMode {

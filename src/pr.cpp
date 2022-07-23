@@ -2487,6 +2487,21 @@ suspend_event_handle:
 		return isChange;
     }
 
+    Camera3D cameraFromEntity( const pr::FCameraEntity* e )
+	{
+		glm::mat4 m = e->localToWorld();
+		glm::mat3 IT = glm::inverseTranspose( m );
+
+		Camera3D c;
+		c.origin = m * glm::vec4( 0.0f, 0.0f, 0.0f, 1.0f );
+		c.lookat = m * glm::vec4( 0.0f, 0.0f, -1.0f, 1.0f );
+		c.up = IT * glm::vec3( 0.0f, 1.0f, 0.0f );
+		c.fovy = e->fovV();
+		c.zNear = e->nearClip();
+		c.zFar = e->farClip();
+		return c;
+	}
+
     class Texture : public ITexture {
     public:
         Texture() {
