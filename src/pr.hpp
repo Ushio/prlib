@@ -53,7 +53,7 @@ namespace pr {
         int SwapInterval = 1;
         int NumSamples = 4;
         int imguiFontSize = 20;
-        std::string Title; // UTF-8 encoded
+		std::string Title = "PrLib Window"; // UTF-8 encoded
 
         int64_t PersistentBufferLimitHint = 1024 * 1024 * 64;
     };
