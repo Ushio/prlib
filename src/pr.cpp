@@ -1994,8 +1994,6 @@ namespace pr {
 
         glfwInit();
 
-        glfwWindowHint(GLFW_SAMPLES, config.NumSamples);
-
         glfwWindowHint(GLFW_RED_BITS,   8);
         glfwWindowHint(GLFW_GREEN_BITS, 8);
         glfwWindowHint(GLFW_BLUE_BITS,  8);
