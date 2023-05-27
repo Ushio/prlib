@@ -180,6 +180,29 @@ project "prlib_example"
     links { "prlib" }
     includedirs { "src/" }
 
+    -- embree 3
+    -- libdirs { "libs/embree3/lib" }
+    -- includedirs { "libs/embree3/include" }
+    -- links{
+    --     "embree3",
+    --     "tbb",
+    -- }
+    -- postbuildcommands {
+    --     "{COPYFILE} ../libs/embree3/bin/*.dll %{cfg.targetdir}/*.dll",
+    -- }
+    
+    -- embree 4
+    libdirs { "libs/embree4/lib" }
+    includedirs { "libs/embree4/include" }
+    links{
+        "embree4",
+        "tbb",
+    }
+    postbuildcommands {
+        "{COPYFILE} ../libs/embree4/bin/*.dll %{cfg.targetdir}/*.dll",
+    }
+
+
     symbols "On"
 
     filter {"Debug"}

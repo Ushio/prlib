@@ -2,12 +2,15 @@
 #include <iostream>
 #include <memory>
 #include <fstream>
+#include <embree4/rtcore.h>
+#include <embree4/rtcore_ray.h>
 
 enum DemoMode {
     DemoMode_Point,
     DemoMode_Line,
     DemoMode_Text,
-    DemoMode_Rays,
+	DemoMode_Rays,
+	DemoMode_RaysEmbree,
     DemoMode_Manip,
     DemoMode_Benchmark,
     DemoMode_Alembic,
@@ -19,7 +22,8 @@ const char* DemoModes[] = {
     "DemoMode_Point",
     "DemoMode_Line",
     "DemoMode_Text",
-    "DemoMode_Rays",
+	"DemoMode_Rays",
+	"DemoMode_RaysEmbree",
     "DemoMode_Manip",
     "DemoMode_Benchmark",
     "DemoMode_Alembic",
@@ -219,6 +223,185 @@ private:
     pr::ITexture *_texture = nullptr;
     bool _showWire = true;
     int _stride = 4;
+};
+
+struct UserGeom
+{
+	glm::vec3 o;
+	float radius;
+};
+inline void EmbreeErorrHandler( void* userPtr, RTCError code, const char* str )
+{
+	printf( "Embree Error [%d] %s\n", code, str );
+}
+void boundsFunction( const RTCBoundsFunctionArguments* args )
+{
+	const UserGeom& geom = ( (const UserGeom*)args->geometryUserPtr )[args->primID];
+	RTCBounds* bounds_o = args->bounds_o;
+	bounds_o->lower_x = geom.o.x - geom.radius;
+	bounds_o->lower_y = geom.o.y - geom.radius;
+	bounds_o->lower_z = geom.o.z - geom.radius;
+	bounds_o->upper_x = geom.o.x + geom.radius;
+	bounds_o->upper_y = geom.o.y + geom.radius;
+	bounds_o->upper_z = geom.o.z + geom.radius;
+}
+void intersectFunc( const RTCIntersectFunctionNArguments* args )
+{
+	UserGeom* ptr = (UserGeom*)args->geometryUserPtr;
+	RTCRayHit* ray = (RTCRayHit*)( args->rayhit );
+	RTCHit* hit = (RTCHit*)&ray->hit;
+	uint32_t primID = args->primID;
+	uint32_t geomID = args->geomID;
+
+    glm::vec3 ro = { ray->ray.org_x,
+					 ray->ray.org_y,
+					 ray->ray.org_z };
+	glm::vec3 rd = { ray->ray.dir_x,
+					 ray->ray.dir_y,
+					 ray->ray.dir_z };
+
+    glm::vec4 i = intersect_sphere( ro, rd, ptr[primID].o, ptr[primID].radius );
+	if( 0.0f < i.x && i.x < ray->ray.tfar )
+    {
+		ray->ray.tfar = i.x;
+		ray->hit.primID = primID;
+		ray->hit.geomID = geomID;
+		ray->hit.Ng_x = i.y;
+		ray->hit.Ng_y = i.z;
+		ray->hit.Ng_z = i.w;
+    }
+}
+
+struct RaysEmbreeDemo : public IDemo
+{
+    RaysEmbreeDemo()
+    {
+		_embreeDevice = std::shared_ptr<RTCDeviceTy>( rtcNewDevice( "set_affinity=1" ), rtcReleaseDevice );
+		rtcSetDeviceErrorFunction( _embreeDevice.get(), EmbreeErorrHandler, nullptr );
+
+		_embreeScene = std::shared_ptr<RTCSceneTy>( rtcNewScene( _embreeDevice.get() ), rtcReleaseScene );
+		rtcSetSceneBuildQuality( _embreeScene.get(), RTC_BUILD_QUALITY_HIGH );
+
+        pr::Xoshiro128StarStar random;
+        for (int i = 0; i < 1024; i++)
+        {
+			_geometries.push_back( { { 
+                    glm::mix( -5.0f, 5.0f, random.uniformf() ),
+                    glm::mix( -5.0f, 5.0f, random.uniformf() ),
+                    glm::mix( -5.0f, 5.0f, random.uniformf() )
+                }, random.uniformf() * 0.3f } );
+        }
+
+        RTCGeometry g = rtcNewGeometry( _embreeDevice.get(), RTC_GEOMETRY_TYPE_USER );
+		rtcSetGeometryUserPrimitiveCount( g, _geometries.size() );
+		rtcSetGeometryUserData( g, _geometries.data() );
+		rtcSetGeometryBoundsFunction( g, boundsFunction, nullptr );
+		rtcSetGeometryIntersectFunction( g, intersectFunc );
+		
+		rtcCommitGeometry( g );
+		rtcAttachGeometry( _embreeScene.get(), g );
+		rtcReleaseGeometry( g );
+
+        rtcCommitScene( _embreeScene.get() );
+    }
+	void OnDraw() override
+	{
+		using namespace pr;
+
+		if( _showWire )
+		{
+            for (auto s : _geometries)
+            {
+				DrawSphere( s.o, s.radius, { 255, 255, 255 }, 16, 16 );
+            }
+		}
+
+		Image2DRGBA8 image;
+		image.allocate( GetScreenWidth() / _stride, GetScreenHeight() / _stride );
+
+		CameraRayGenerator rayGenerator( GetCurrentViewMatrix(), GetCurrentProjMatrix(), image.width(), image.height() );
+
+		for( int j = 0; j < image.height(); ++j )
+		{
+			for( int i = 0; i < image.width(); ++i )
+			{
+				glm::vec3 ro, rd;
+				rayGenerator.shoot( &ro, &rd, i, j, 0.5f, 0.5f );
+
+                RTCRayHit rayHit = {};
+				rayHit.ray.org_x = ro.x;
+				rayHit.ray.org_y = ro.y;
+				rayHit.ray.org_z = ro.z;
+				rayHit.ray.dir_x = rd.x;
+				rayHit.ray.dir_y = rd.y;
+				rayHit.ray.dir_z = rd.z;
+				rayHit.ray.tnear = 0.0f;
+				rayHit.ray.tfar = FLT_MAX;
+				rayHit.ray.mask = 0xFFFFFFFF;
+				rayHit.hit.geomID = RTC_INVALID_GEOMETRY_ID;
+				rayHit.hit.instID[0] = RTC_INVALID_GEOMETRY_ID;
+				rayHit.hit.primID = RTC_INVALID_GEOMETRY_ID;
+
+				rtcIntersect1( _embreeScene.get(), &rayHit );
+                
+                auto isect = glm::vec4( -1 );
+                if( rayHit.ray.tfar != FLT_MAX )
+                {
+					isect = { rayHit.ray.tfar,
+							  rayHit.hit.Ng_x,
+							  rayHit.hit.Ng_y,
+							  rayHit.hit.Ng_z };
+                }
+				
+				if( 0.0f < isect.x )
+				{
+					glm::vec3 n( isect.y, isect.z, isect.w );
+					n = glm::normalize( n );
+
+					glm::vec3 color = ( n + glm::vec3( 1.0f ) ) * 0.5f;
+					image( i, j ) = { 255 * color.r, 255 * color.g, 255 * color.b, 255 };
+				}
+				else
+				{
+					image( i, j ) = { 0, 0, 0, 255 };
+				}
+			}
+		}
+		if( _texture == nullptr )
+		{
+			_texture = CreateTexture();
+		}
+		_texture->upload( image );
+	}
+	void OnImGui() override
+	{
+		ImGui::SetNextItemOpen( true, ImGuiCond_Once );
+		if( ImGui::TreeNode( "Rays" ) )
+		{
+			ImGui::Checkbox( "show wire", &_showWire );
+			ImGui::SliderInt( "stride", &_stride, 1, 8 );
+
+			if( _texture )
+			{
+				ImGui::Image( _texture, ImVec2( (float)_texture->width(), (float)_texture->height() ) );
+			}
+			ImGui::TreePop();
+		}
+	}
+	pr::ITexture* GetBackground()
+	{
+		return _texture;
+	}
+
+private:
+	pr::ITexture* _texture = nullptr;
+	bool _showWire = true;
+	int _stride = 4;
+
+    std::shared_ptr<RTCDeviceTy> _embreeDevice;
+	std::shared_ptr<RTCSceneTy> _embreeScene;
+
+    std::vector<UserGeom> _geometries;
 };
 
 struct ManipDemo : public IDemo {
@@ -781,6 +964,7 @@ int main() {
         new LineDemo(),
         new TextDemo(),
         new RaysDemo(),
+		new RaysEmbreeDemo(),
         new ManipDemo(),
         new BenchmarkDemo(),
         new AlembicDemo(),
