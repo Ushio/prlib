@@ -8,23 +8,6 @@
 #include <vector>
 #include <functional>
 
-#ifdef GLM_VERSION
-    #ifndef GLM_FORCE_CTOR_INIT
-        #error "please #define GLM_FORCE_CTOR_INIT or include pr.hpp first"
-    #endif
-    #ifndef GLM_FORCE_PURE
-        #error "please #define GLM_FORCE_PURE or include pr.hpp first"
-    #endif
-#else
-    #ifndef GLM_FORCE_CTOR_INIT
-        #define GLM_FORCE_CTOR_INIT
-    #endif
-    #ifndef GLM_FORCE_PURE
-        #define GLM_FORCE_PURE
-    #endif
-#endif
-
-
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 

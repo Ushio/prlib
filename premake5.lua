@@ -80,7 +80,8 @@ project "prlib"
     filter {}
 
     -- GLM
-    defines { "GLM_FORCE_CTOR_INIT", "GLM_FORCE_PURE" }
+    -- Disabled. Because source codes should not change behavior w/o GLM_FORCE_CTOR_INIT
+    -- defines { "GLM_FORCE_CTOR_INIT", "GLM_FORCE_PURE" }
 
     -- GLEW
     files {"libs/glew/src/*.c"}
