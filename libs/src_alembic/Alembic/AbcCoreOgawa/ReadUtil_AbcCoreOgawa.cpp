@@ -45,7 +45,7 @@
 #  endif
 #endif
 
-#include <halfLimits.h>
+#include <half.h>
 
 namespace Alembic {
 namespace AbcCoreOgawa {
@@ -142,7 +142,7 @@ template <>
 void getMinAndMax<Util::float16_t>(
     Util::float16_t & iMin, Util::float16_t & iMax )
 {
-    iMax = std::numeric_limits<Util::float16_t>::max();
+    iMax = HALF_MAX;
     iMin = -iMax;
 }
 
@@ -1450,6 +1450,16 @@ ReadArraySample( Ogawa::IDataPtr iDims,
 }
 
 //-*****************************************************************************
+template < typename POD >
+static inline POD DerefUnaligned(const void* iData)
+{
+    // on some platforms, dereferencing an unaligned pointer causes a crash. so, copy byte by byte.
+    POD ret;
+    memcpy(&ret, iData, sizeof(POD));
+    return ret;
+}
+
+//-*****************************************************************************
 void
 ReadTimeSamplesAndMax( Ogawa::IDataPtr iData,
                        std::vector <  AbcA::TimeSamplingPtr > & oTimeSamples,
@@ -1467,25 +1477,26 @@ ReadTimeSamplesAndMax( Ogawa::IDataPtr iData,
     while ( pos < bufSize )
     {
         // make sure maxSample, tpc, and numSamples
-        // don't go beyond our butter
+        // don't go beyond our buffer
         if ( pos + 8 + sizeof( chrono_t ) > bufSize)
         {
             ABCA_THROW("Read invalid: TimeSamples info.");
         }
 
-        Util::uint32_t maxSample = *( (Util::uint32_t *)( &buf[pos] ) );
+        Util::uint32_t maxSample = DerefUnaligned<Util::uint32_t>(&buf[pos]);
         pos += 4;
 
         oMaxSamples.push_back( maxSample );
 
-        chrono_t tpc = *( ( chrono_t * )( &buf[pos] ) );
+        chrono_t tpc = DerefUnaligned<chrono_t>(&buf[pos]);
         pos += sizeof( chrono_t );
 
-        Util::uint32_t numSamples = *( (Util::uint32_t *)( &buf[pos] ) );
+        Util::uint32_t numSamples = DerefUnaligned<Util::uint32_t>(&buf[pos]);
         pos += 4;
 
-        // make sure our numSamples don't go beyond the buffer
-        if ( pos + sizeof( chrono_t ) * numSamples > bufSize)
+        // make sure our numSamples don't go beyond the buffer and that we
+        // have at least 1 of them
+        if ( numSamples < 1 || pos + sizeof( chrono_t ) * numSamples > bufSize)
         {
             ABCA_THROW("Read invalid: TimeSamples sample times.");
         }
@@ -1545,10 +1556,10 @@ ReadObjectHeaders( Ogawa::IGroupPtr iGroup,
             ABCA_THROW("Read invalid: Object Headers name size.");
         }
 
-        Util::uint32_t nameSize = *( (Util::uint32_t *)( &buf[pos] ) );
+        Util::uint32_t nameSize = DerefUnaligned<Util::uint32_t>(&buf[pos]);
         pos += 4;
 
-        if (pos + nameSize + 1 > bufSize)
+        if (nameSize == 0 || pos + nameSize + 1 > bufSize)
         {
             ABCA_THROW("Read invalid: Object Headers name and MetaData index.");
         }
@@ -1569,7 +1580,7 @@ ReadObjectHeaders( Ogawa::IGroupPtr iGroup,
                 ABCA_THROW("Read invalid: Object Headers MetaData size.");
             }
 
-            Util::uint32_t metaDataSize = *( (Util::uint32_t *)( &buf[pos] ) );
+            Util::uint32_t metaDataSize = DerefUnaligned<Util::uint32_t>(&buf[pos]);
             pos += 4;
 
             if (pos + metaDataSize > bufSize)
@@ -1705,7 +1716,7 @@ ReadPropertyHeaders( Ogawa::IGroupPtr iGroup,
         }
 
         // first 4 bytes is always info
-        Util::uint32_t info =  *( (Util::uint32_t *)( &buf[pos] ) );
+        Util::uint32_t info = DerefUnaligned<Util::uint32_t>(&buf[pos]);
         pos += 4;
 
         Util::uint32_t ptype = info & 0x0003;
@@ -1791,8 +1802,7 @@ ReadPropertyHeaders( Ogawa::IGroupPtr iGroup,
         }
 
         Util::uint32_t nameSize = GetUint32WithHint( buf, bufSize, sizeHint, pos );
-
-        if (pos + nameSize > bufSize)
+        if ( nameSize == 0 || pos + nameSize > bufSize )
         {
             ABCA_THROW("Read invalid: Property Headers name.");
         }
@@ -1849,6 +1859,13 @@ ReadIndexedMetaData( Ogawa::IDataPtr iData,
 {
     // add the default empty meta data
     oMetaDataVec.push_back( AbcA::MetaData() );
+
+    // we only index small meta data, under 256 bytes each
+    // and we only allow 256 indices
+    if ( iData->getSize() > 65536 )
+    {
+        ABCA_THROW("Read invalid: Indexed MetaData buffer unexpectedly big.");
+    }
 
     std::vector< char > buf( iData->getSize() );
 

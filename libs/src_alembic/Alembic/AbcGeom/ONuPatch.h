@@ -49,9 +49,9 @@ namespace AbcGeom {
 namespace ALEMBIC_VERSION_NS {
 
 //-*****************************************************************************
-// for default "null" values for the int scalar properties
+// for default "null" values for the int scalar properties (INT_MIN/4)
 static ALEMBIC_EXPORT_CONST
-int32_t ABC_GEOM_NUPATCH_NULL_INT_VALUE( INT_MIN / 4 );
+int32_t ABC_GEOM_NUPATCH_NULL_INT_VALUE( -536870912 );
 
 //-*****************************************************************************
 class ALEMBIC_EXPORT ONuPatchSchema : public OGeomBaseSchema<NuPatchSchemaInfo>
@@ -342,13 +342,6 @@ public:
                      const Abc::Argument &iArg0 = Abc::Argument(),
                      const Abc::Argument &iArg1 = Abc::Argument(),
                      const Abc::Argument &iArg2 = Abc::Argument() );
-
-    //! Copy constructor.
-    ONuPatchSchema(const ONuPatchSchema& iCopy)
-        : OGeomBaseSchema<NuPatchSchemaInfo>()
-    {
-        *this = iCopy;
-    }
 
     //-*************************************************************************
     // SCHEMA STUFF

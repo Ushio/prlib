@@ -1,3 +1,160 @@
+2023-03-13, Alembic 1.8.5
+
+Thanks to your feedback pull requests and submitted issues we
+have a few bug fixes and build enhancements.
+
+Add test for fuzzer issue 53406.  (PR415)
+
+Address Issue 402 by not using deprecated kWrapExisting calls
+when possible.
+
+Add missing vertex for cube test in the python bindings per Issue 407.
+
+Fix several warnings mentioned in Issue 309, 398 and 412.
+(PR413, PR414 and PR416)
+
+CMake:
+
+Don't explicitly set MACOSX_RPATH as it is set by default in CMake 3+. (PR404)
+
+Use install rpath for Imath 3. (PR405)
+
+Use STRING instead of PATH for ALEMBIC_LIB_INSTALL_DIR. (PR406)
+
+GitHub:
+
+Add CIFuzz as a GitHub action. (PR403)
+
+2022-11-11, Alembic 1.8.4
+
+Thanks to your feedback pull requests and submitted issues we
+have a few bug fixes and build enhancements.
+
+CMake:
+
+Add ALEMBIC_DEBUG_WARNINGS_AS_ERRORS to control the build in debug mode.
+It is set to ON by default to preserve the current behavior.
+Use add_compile_options instead of the older add_definitions. (PR371)
+
+Fix the include dirs for AbcCoreHDF5 tests. (PR382)
+
+Fix issue hinted at in Issue 223: use PROJECT_SOURCE_DIR instead of
+CMAKE_SOURCE_DIR when embedding Alembic within another CMake project. (PR393)
+
+AbcCoreOgawa:
+
+On Windows _BitScanForward64 is only available when _WIN64 is defined.
+When it is not, fall back on using _BitScanForward. (PR 373)
+
+Fuzzer issue 49213 turned up some new malformed MetaData memory problems.
+Indexed MetaData on the write side only allows 254 (plus the default empty one)
+small (up to 256 bytes), we now throw if we encounter malformed MetaData.
+We were also allowing empty property and object names through on the read side
+even though the writer forbids this.
+Finally integrate a couple of tests flagged by Taotao Gu's local fuzzer.
+(PR391 and PR397)
+
+Fuzzer issue 52939 showed that with certain malformed MetaData the pair
+separator should NOT occur before the assign separator. (PR396)
+
+PyAlembic:
+
+N2f and N2d properties were not being correctly bound.(PR390)
+
+2021-09-11, Alembic 1.8.3
+
+Thanks to your feedback and submitted issues we have a few bug fixes.
+
+Make sure we export the IlmBase requirement in CMake when using OpenEXR 2 to
+fulfill the Imath requirement. (Issue 355)
+
+Address report from GCC Undefined Behavior Sanitizer by initializing a couple
+of bools in OXform.  (Issue 357)
+
+Fix compile issue when using C++17 with Microsoft Visual Studio and use a
+hopefully much faster find first bit set when using that compiler. (Issue 358)
+
+
+2021-06-08, Alembic 1.8.2
+Thanks to your feedback and submitted issues we have a few bug fixes.
+
+Ogawa:
+
+One of the fuzzer tests were was failing with 32 bit builds because of a
+different exception message.
+
+Fix a bug with 32 bit memory mapped Windows builds.
+
+CMake:
+
+Look for boost python a little differently, falling back on existing behavior.
+
+2021-05-15, Alembic 1.8.1
+Thanks to your feedback and submitted issues we have a few bug fixes.
+
+CMake:
+
+Get the python bindings building on MacOS. (Issue 340)
+
+Fix the capitalization of the Imath find_depencency in AlembicConfig.cmake
+so that Imath will be found when used by external projects.
+(Issue 341 and 343)
+
+Ogawa:
+
+Address Fuzzer issue 33685 sanity check that we have a valid group to avoid
+infinite recursion during traversal.
+
+2021-04-17, Alembic 1.8.0
+Thanks to your feedback and issues we have a few bug fixes and enhancements.
+
+API:
+
+We are dropping support for the ancient TR1 and expect the compilers to at
+least support C++std11, we currently default to C++std14. Because we now
+assume at least C++std11, we can remove ALEMBIC_LIB_USES_TR1 and
+ALEMBIC_LIB_USES_BOOST and we instead expect the std versions of things like
+shared_ptr.  (Issue 312)
+
+Ogawa:
+
+Better support emscripten and ARM toolchains by using memcpy to avoid
+dereferencing non-aligned pointers. (PR 332)
+
+Python:
+
+Support building python3, and make it the default, to build the bindings
+against python2 use: -DUSE_PYALEMBIC=ON -DPYALEMBIC_PYTHON_MAJOR=2
+
+Switch from __nonzero__ to __bool__ for the python3 bindings. (Issue 273)
+
+Workaround the testCollections crash.  (Issue 274)
+
+Make the unit tests python 2 and python 3 compatible.  (Issue 276)
+
+Rework the python testing framework so they can be run from CMake. (Issue 278)
+
+Switch from next to __next__ for the python3 bindings. (Issue 279)
+
+Utils:
+
+AbcStitcher:
+
+Propagate MetaData from the first of our ordered input archives over to the
+stitched output. (PR 324)
+
+CMake:
+
+Update the minimum requirement to 3.13
+
+Overhaul to support the recently released Imath 3.
+(https://github.com/AcademySoftwareFoundation/Imath)
+
+Fix for using Alembic as a 3rd party with Imath 3. (Issue 337)
+
+Use Boost_VERSION_MACRO instead of Boost_VERSION. (PR 338)
+
+=======
 2020-10-23, Alembic 1.7.16
 Thanks to your feedback,and pull requests a couple of bug fixes and a GitHub
 enhancement.

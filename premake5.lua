@@ -102,25 +102,17 @@ project "prlib"
     includedirs { "libs/stb" }
     files {"libs/stb/*.h"}
 
-    -- ilmbase
-    includedirs { "libs/src_ilmbase" }
-    files { "libs/src_ilmbase/**.cpp" }
-    files { "libs/src_ilmbase/**.h" }
-
-    -- alembic
-    includedirs { "libs/src_alembic" }
+    -- Imath, OpenEXR, Alembic, zlib
+    files { "libs/src_Imath/**.cpp" }
+    files { "libs/src_Imath/**.h" }
+    files { "libs/src_zlib/**.c" }
+    files { "libs/src_zlib/**.h" }
+    files { "libs/src_openexr/**.cpp" }
+    files { "libs/src_openexr/**.c" }
+    files { "libs/src_openexr/**.h" }
     files { "libs/src_alembic/**.cpp" }
     files { "libs/src_alembic/**.h" }
-
-    -- openexr
-    includedirs { "libs/src_openexr" }
-    files { "libs/src_openexr/**.cpp" }
-    files { "libs/src_openexr/**.h" }
-
-    -- zlib
-    includedirs { "libs/src_zlib" }
-    files { "libs/src_zlib/*.c" }
-    files { "libs/src_zlib/*.h" }
+    includedirs { "libs/src_configs", "libs/src_Imath", "libs/src_zlib", "libs/src_openexr/OpenEXR", "libs/src_alembic"}
 
     -- tinyobjloader
     includedirs { "libs/tiny_obj_loader" }

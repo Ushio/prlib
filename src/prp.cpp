@@ -6,9 +6,11 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#include "ImfHeader.h"
 #include "ImfInputFile.h"
 #include "ImfChannelList.h"
 #include "ImfOutputFile.h"
+#include "ImfFrameBuffer.h"
 
 #include "cwalk.h"
 #include "xxhash.h"

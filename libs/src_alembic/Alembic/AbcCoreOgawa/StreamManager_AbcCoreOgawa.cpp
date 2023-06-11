@@ -43,30 +43,11 @@ namespace ALEMBIC_VERSION_NS {
 // Lets define a compare exchange macro for use below
 
 // C++11 std::atomics version
-#if !defined( ALEMBIC_LIB_USES_TR1 ) && __cplusplus >= 201103L
+#if __cplusplus >= 201103L
 #define COMPARE_EXCHANGE( V, COMP, EXCH ) V.compare_exchange_weak( COMP, EXCH, std::memory_order_seq_cst, std::memory_order_seq_cst )
 // Windows
 #elif defined( _MSC_VER )
 #define COMPARE_EXCHANGE( V, COMP, EXCH ) (InterlockedCompareExchange64( &V, EXCH, COMP ) == COMP)
-
-Alembic::Util::int64_t ffsll( Alembic::Util::int64_t iValue )
-{
-    if ( !iValue )
-    {
-        return 0;
-    }
-
-    for ( Alembic::Util::int64_t bit = 0; bit < 64; ++bit )
-    {
-        if ( iValue & ( Alembic::Util::int64_t( 1 ) << bit ) )
-        {
-            return bit + 1;
-        }
-    }
-
-    return 0;
-}
-
 #elif defined( __HAIKU__ )
 
 #define COMPARE_EXCHANGE( V, COMP, EXCH ) __atomic_compare_exchange_n( &V, &COMP, EXCH, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST )
@@ -76,14 +57,43 @@ int ffsll(long long i)
 	return (__builtin_ffsll(i));
 }
 
-// gcc 4.8 and above not using C++11
-#elif defined(__GNUC__) && __GNUC__ >= 4 && __GNUC_MINOR__ >= 8
-#define COMPARE_EXCHANGE( V, COMP, EXCH ) __atomic_compare_exchange_n( &V, &COMP, EXCH, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST )
-// gcc 4.1 and above not using C++11
-#elif defined(__GNUC__) && __GNUC__ >= 4 && __GNUC_MINOR__ >= 1
-#define COMPARE_EXCHANGE( V, COMP, EXCH ) __sync_bool_compare_and_swap( &V, COMP, EXCH )
 #else
 #error Please contact alembic-discuss@googlegroups.com for support.
+#endif
+
+#ifdef _MSC_VER
+
+#ifdef _WIN64
+Alembic::Util::int64_t ffsll( Alembic::Util::int64_t iValue )
+{
+    unsigned long index = 0;
+    _BitScanForward64(&index, iValue);
+    return index;
+}
+#else
+Alembic::Util::int64_t ffsll( Alembic::Util::int64_t iValue )
+{
+    unsigned long index = 0;
+    Alembic::Util::uint64_t value(iValue);
+
+    // check the bottom 4 bytes
+    _BitScanForward(&index, value & 0xffffffff);
+    if ( index > 0 )
+    {
+        return index;
+    }
+
+    // now the top 4
+    _BitScanForward(&index, value >> 32);
+    if ( index > 0 )
+    {
+        // + 32 because this is the top 4 bytes, bottom 4 is 0
+        return index + 32;
+    }
+
+    return index;
+}
+#endif
 #endif
 
 StreamManager::StreamManager( std::size_t iNumStreams )
