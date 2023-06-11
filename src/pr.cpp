@@ -1922,7 +1922,7 @@ namespace pr {
         return io.WantCaptureMouse;
     }
     void ImGuiSliderDirection(const char *label, glm::vec3 *dir, float minTheta, float maxTheta) {
-        ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+		ImGui::SetNextItemOpen( true, ImGuiCond_Once );
         if (ImGui::TreeNode(label)) {
             char thetaLabel[128];
             sprintf(thetaLabel, "theta##%s", label);
