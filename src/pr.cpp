@@ -1107,7 +1107,10 @@ namespace pr {
 			float zf = std::max( _camera.zFar, FLT_EPSILON );
 			float fovy = std::max( _camera.fovy, FLT_EPSILON );
 			float aspect = (float)width / (float)height;
-            //glm::mat4 persp = glm::perspectiveFov(fovy, (float)GetScreenWidth(), (float)GetScreenHeight(), zn, zf);
+
+            if( _camera.perspective == 1.0f )
+			    return glm::perspectiveFov( fovy, (float)GetScreenWidth(), (float)GetScreenHeight(), zn, zf );
+            
             //glm::mat4 ortho = glm::ortho(
             //    -_camera.orthoy * aspect * 0.5f, _camera.orthoy * aspect * 0.5f,
             //    -_camera.orthoy * 0.5f, _camera.orthoy * 0.5f, zn, zf);
