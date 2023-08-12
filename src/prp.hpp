@@ -317,7 +317,8 @@ namespace pr {
         void allocate(int w, int h);
         Result load(const char *filename);
         Result load(const uint8_t *data, int bytes);
-        Result saveAsPng(const char* filename) const;
+		Result saveAsPng( const char* filename ) const;
+		Result saveAsPngUncompressed( const char* filename ) const;
 
         glm::u8vec4 *data();
         const glm::u8vec4 *data() const;

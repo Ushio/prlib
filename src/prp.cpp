@@ -6,6 +6,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#include "libattopng.h"
+
 #include "ImfHeader.h"
 #include "ImfInputFile.h"
 #include "ImfChannelList.h"
@@ -203,11 +205,21 @@ namespace pr {
         stbi_image_free(pixels);
         return Result::Sucess;
     }
-    Result Image2DRGBA8::saveAsPng(const char* filename) const {
-        if (stbi_write_png(GetDataPath(filename).c_str(), width(), height(), 4, _values.data(), 0)) {
-            return Result::Sucess;
+    Result Image2DRGBA8::saveAsPng( const char* filename ) const {
+		if( stbi_write_png( GetDataPath( filename ).c_str(), width(), height(), 4, _values.data(), 0 ) )
+		{
+			return Result::Sucess;
         }
         return Result::Failure;
+    }
+	Result Image2DRGBA8::saveAsPngUncompressed( const char* filename ) const
+    {
+		libattopng_t* png = libattopng_new( width(), height(), PNG_RGBA, 0 );
+		png->data = (char*)_values.data();
+		bool success = libattopng_save( png, GetDataPath( filename ).c_str() ) == 0;
+		png->data = nullptr;
+		libattopng_destroy( png );
+		return success ? Result::Sucess : Result::Failure;
     }
     glm::u8vec4 *Image2DRGBA8::data() {
         return _values.data();

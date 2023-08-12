@@ -849,7 +849,8 @@ struct ImagesDemo : public IDemo {
             {
                 Image2DRGBA8 image;
                 PR_ASSERT(image.load("edobee.jpg") == pr::Result::Sucess);
-                image.saveAsPng("saveA.png");
+				image.saveAsPng( "saveA.png" );
+				image.saveAsPngUncompressed( "saveA_Uncompressed.png" );
             }
             {
                 Image2DRGBA32 image;

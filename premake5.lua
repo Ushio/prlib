@@ -124,6 +124,11 @@ project "prlib"
     files { "libs/xxhash/xxhash.c" }
     files { "libs/xxhash/xxhash.h" }
 
+    -- xxhash
+    includedirs { "libs/libattopng" }
+    files { "libs/libattopng/libattopng.c" }
+    files { "libs/libattopng/libattopng.h" }
+
     -- Lib Core
     files {"src/*.cpp", "src/*.h", "src/*.hpp"}
     includedirs { "src/" }
