@@ -1109,7 +1109,7 @@ namespace pr {
 			float aspect = (float)width / (float)height;
 
             if( _camera.perspective == 1.0f )
-			    return glm::perspectiveFov( fovy, (float)GetScreenWidth(), (float)GetScreenHeight(), zn, zf );
+				return glm::perspectiveFov( fovy, (float)width, (float)height, zn, zf );
             
             //glm::mat4 ortho = glm::ortho(
             //    -_camera.orthoy * aspect * 0.5f, _camera.orthoy * aspect * 0.5f,
