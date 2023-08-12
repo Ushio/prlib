@@ -212,6 +212,9 @@ namespace pr {
 		virtual float fovV() const = 0;
 		virtual float nearClip() const = 0;
 		virtual float farClip() const = 0;
+
+		virtual float focusDistance() const = 0;
+		virtual float fstop() const = 0;
 	};
 	enum class AttributeSpreadsheetType : int
 	{

@@ -164,6 +164,14 @@ namespace pr {
 		{
 			return _farClip;
 		}
+		float focusDistance() const override
+		{
+			return _focusDistance;
+		}
+		float fstop() const override
+		{
+			return _fstop;
+		}
 		CommonAttribute _common;
 		int _imageWidth = 0;
 		int _imageHeight = 0;
@@ -177,6 +185,9 @@ namespace pr {
 
 		float _nearClip = 0.0f;
 		float _farClip = 0.0f;
+
+		float _focusDistance = 1.0f;
+		float _fstop = 5.6f;
 	};
 
 	class FPolyMeshEntityAbcImpl : public FPolyMeshEntity
@@ -1060,6 +1071,8 @@ namespace pr {
 			e->_fovVertical = std::atan( e->_apertureVertical_mm * 0.5f / e->_focalLength_mm ) * 2.0f;
 			e->_nearClip = sample.getNearClippingPlane();
 			e->_farClip = sample.getFarClippingPlane();
+			e->_focusDistance = sample.getFocusDistance();
+			e->_fstop = sample.getFStop();
 
 			entities.emplace_back( e );
 		}
