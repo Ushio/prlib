@@ -312,6 +312,50 @@ namespace pr {
         float _cosT = 1.0f;
     };
 
+    template <class F>
+	void drawLineDDA( glm::vec2 a, glm::vec2 b, F putPixel /* ( int x, int y ) */ )
+	{
+		auto abs_of = []( int x )
+		{ return x < 0 ? -x : x; };
+		auto floor_of = []( float x )
+		{
+			float d;
+			_mm_store_ss( &d, _mm_floor_ss( _mm_setzero_ps(), _mm_set_ss( x ) ) );
+			return d;
+		};
+		int x1 = floor_of( a.x );
+		int y1 = floor_of( a.y );
+		int x2 = floor_of( b.x );
+		int y2 = floor_of( b.y );
+
+		float dx = ( x2 - x1 );
+		float dy = ( y2 - y1 );
+
+		int abs_dx = abs_of( dx );
+		int abs_dy = abs_of( dy );
+		int step = abs_dy <= abs_dx ? abs_dx : abs_dy;
+
+		dx = (float)dx / step;
+		dy = (float)dy / step;
+
+		for( int i = 0; i <= step; i++ )
+		{
+			int x = floor_of( x1 + dx * i );
+			int y = floor_of( y1 + dy * i );
+			putPixel( x, y );
+		}
+	}
+    template <class IMAGE, class C>
+	void drawLineDDA( IMAGE* image, glm::vec2 a, glm::vec2 b, C color )
+    {
+		drawLineDDA(a, b, [image, color](int x, int y) {
+            if( 0 <= x && x < image->width() && 0 <= y && y < image->height() )
+            {
+                ( *image )( x, y ) = color;
+            }
+        });
+    }
+
     class Image2DRGBA8 {
     public:
         void allocate(int w, int h);
