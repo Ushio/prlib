@@ -1383,6 +1383,22 @@ namespace pr {
         }
         PrimEnd();
     }
+    void DrawEllipse(glm::vec3 o, glm::vec3 axis0, glm::vec3 axis1, glm::u8vec3 c, int vertexCount, float lineWidth )
+    {
+		if( vertexCount <= 0 )
+		{
+			return;
+		}
+
+		PrimBegin( PrimitiveMode::LineStrip, lineWidth );
+		CircleGenerator circular( glm::pi<float>() * 2.0f / vertexCount );
+		for( int i = 0; i <= vertexCount; i++ )
+		{
+			PrimVertex( o + axis0 * circular.sin() + axis1 * circular.cos(), c );
+			circular.step();
+		}
+		PrimEnd();
+    }
     void DrawCube(glm::vec3 o, glm::vec3 size, glm::u8vec3 c, float lineWidth) {
         glm::vec3 h = size * 0.5f;
         PrimBegin(PrimitiveMode::Lines, lineWidth);
