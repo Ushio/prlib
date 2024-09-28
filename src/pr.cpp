@@ -2120,6 +2120,10 @@ namespace pr {
         }
         return 0;
     }
+    void SetScreenSize(int width, int height)
+    {
+		glfwSetWindowSize( g_window, width, height );
+    }
 
     double GetElapsedTime() {
         // work around non initializeed

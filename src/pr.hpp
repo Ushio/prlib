@@ -48,6 +48,7 @@ namespace pr {
 
     int GetScreenWidth();
     int GetScreenHeight();
+	void SetScreenSize( int width, int height );
 
     /*
       - Swap BackBuffer
