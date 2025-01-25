@@ -241,6 +241,21 @@ namespace pr {
         std::mt19937 s;
     };
 
+    struct PCG : public IRandomNumberGenerator
+	{
+		PCG();
+		PCG( uint64_t seed, uint64_t sequence /*0 to 0x7FFFFFFFFFFFFFFF */ );
+
+		float uniformf() override;
+		uint64_t uniformi() override;
+
+        uint32_t uniform();
+
+        uint64_t state; // RNG state.  All values are possible.
+		uint64_t inc;	// Controls which RNG sequence(stream) is selected. Must
+						// *always* be odd.
+	};
+
     glm::vec2 GenerateUniformInCircle(float u0, float u1);
     glm::vec3 GenerateUniformOnSphere(float u0, float u1);
     glm::vec3 GenerateUniformOnHemisphere(float u0, float u1);

@@ -70,37 +70,41 @@ namespace pr {
     }
 
     namespace {
+        // ver 1.1
+        // https://prng.di.unimi.it/xoshiro128starstar.c
         uint32_t rotl(const uint32_t x, int k) {
             return (x << k) | (x >> (32 - k));
         }
         uint32_t Xoshiro128StarStarNext(Xoshiro128StarStar &state) {
-            const uint32_t result_starstar = rotl(state.s[0] * 5, 7) * 9;
-            const uint32_t t = state.s[1] << 9;
+			const uint32_t result = rotl( state.s[1] * 5, 7 ) * 9;
 
-            state.s[2] ^= state.s[0];
-            state.s[3] ^= state.s[1];
-            state.s[1] ^= state.s[2];
-            state.s[0] ^= state.s[3];
+			const uint32_t t = state.s[1] << 9;
 
-            state.s[2] ^= t;
+			state.s[2] ^= state.s[0];
+			state.s[3] ^= state.s[1];
+			state.s[1] ^= state.s[2];
+			state.s[0] ^= state.s[3];
 
-            state.s[3] = rotl(state.s[3], 11);
+			state.s[2] ^= t;
 
-            return result_starstar;
+			state.s[3] = rotl( state.s[3], 11 );
+
+			return result;
         }
     }
 
     float Xoshiro128StarStar::uniformf() {
         uint32_t x = Xoshiro128StarStarNext(*this);
-        uint32_t bits = (x >> 9) | 0x3f800000;
-        float value = *reinterpret_cast<float *>(&bits) - 1.0f;
-        return value;
+		uint32_t bits = ( x >> 9 ) | 0x3f800000;
+		float value;
+		memcpy( &value, &bits, sizeof( float ) );
+		return value - 1.0f;
     }
 
     uint64_t Xoshiro128StarStar::uniformi() {
-        uint64_t a = Xoshiro128StarStarNext(*this) >> 1;
-        uint64_t b = Xoshiro128StarStarNext(*this) >> 1;
-        return (a << 31) | b;
+        uint64_t a = Xoshiro128StarStarNext(*this);
+        uint64_t b = Xoshiro128StarStarNext(*this);
+        return (a << 32) | b;
     }
 
     MersenneTwister::MersenneTwister() : MersenneTwister(953687342) {
@@ -113,10 +117,48 @@ namespace pr {
     }
 
     uint64_t MersenneTwister::uniformi() {
-        uint64_t a = s() >> 1;
-        uint64_t b = s() >> 1;
-        return (a << 31) | b;
+        uint64_t a = s();
+        uint64_t b = s();
+        return (a << 32) | b;
     }
+
+    PCG::PCG()
+    {
+		state = 0x853c49e6748fea9bULL;
+		inc = 0xda3e39cb94b95bdbULL;
+    }
+    PCG::PCG(uint64_t seed, uint64_t sequence)
+    {
+		state = 0U;
+		inc = ( sequence << 1u ) | 1u;
+
+		uniform();
+		state += seed;
+		uniform();
+    }
+	uint32_t PCG::uniform()
+	{
+		uint64_t oldstate = state;
+		state = oldstate * 6364136223846793005ULL + inc;
+		uint32_t xorshifted = ( ( oldstate >> 18u ) ^ oldstate ) >> 27u;
+		uint32_t rot = oldstate >> 59u;
+		return ( xorshifted >> rot ) | ( xorshifted << ( ( -rot ) & 31 ) );
+	}
+    float PCG::uniformf()
+    {
+		uint32_t bits = ( uniform() >> 9 ) | 0x3f800000;
+		float value;
+		memcpy( &value, &bits, sizeof( float ) );
+		return value - 1.0f;
+    }
+    uint64_t PCG::uniformi()
+    {
+		uint64_t a = uniform();
+		uint64_t b = uniform();
+		return ( a << 32 ) | b;
+    }
+
+
 
     // Random Number Helper
     glm::vec2 GenerateUniformInCircle(float u0, float u1) {
