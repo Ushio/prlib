@@ -1,9 +1,5 @@
-//
-// SPDX-License-Identifier: BSD-3-Clause
-// Copyright (c) DreamWorks Animation LLC and Contributors of the OpenEXR Project
-//
 
-static const unsigned short dwaCompressorNoOp[] =
+const unsigned short dwaCompressorNoOp[] = 
 {
     0x0000, 0x0001, 0x0002, 0x0003, 0x0004, 0x0005, 0x0006, 0x0007, 
     0x0008, 0x0009, 0x000a, 0x000b, 0x000c, 0x000d, 0x000e, 0x000f, 
@@ -8201,7 +8197,7 @@ static const unsigned short dwaCompressorNoOp[] =
 
 
 
-static const unsigned short dwaCompressorToLinear[] =
+const unsigned short dwaCompressorToLinear[] = 
 {
     0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 
     0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 
@@ -16399,7 +16395,7 @@ static const unsigned short dwaCompressorToLinear[] =
 
 
 
-static const unsigned short dwaCompressorToNonlinear[] =
+const unsigned short dwaCompressorToNonlinear[] = 
 {
     0x0000, 0x1043, 0x11d7, 0x1305, 0x1400, 0x146d, 0x14cf, 0x1529, 
     0x157b, 0x15c8, 0x1611, 0x1656, 0x1697, 0x16d6, 0x1712, 0x174b, 
@@ -24597,7 +24593,7 @@ static const unsigned short dwaCompressorToNonlinear[] =
 
 
 
-static const unsigned int closestDataOffset[] = {
+const unsigned int closestDataOffset[] = {
          0,      0,      1,      2,      4,      5,      7,      9, 
         12,     13,     15,     17,     20,     22,     25,     28, 
         32,     33,     35,     37,     40,     42,     45,     48, 
@@ -32793,7 +32789,7 @@ static const unsigned int closestDataOffset[] = {
 };
 
 
-static const unsigned short closestData[] = {
+const unsigned short closestData[] = {
         0,     0,     0,     2,     0,     0,     4,     0, 
         4,     0,     8,     6,     0,     0,     8,     0, 
         8,     0,     8,    10,     0,     8,     0,    16, 

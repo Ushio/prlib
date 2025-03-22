@@ -1,7 +1,37 @@
+///////////////////////////////////////////////////////////////////////////
 //
-// SPDX-License-Identifier: BSD-3-Clause
-// Copyright (c) Contributors to the OpenEXR Project.
+// Copyright (c) 2002, Industrial Light & Magic, a division of Lucas
+// Digital Ltd. LLC
+// 
+// All rights reserved.
+// 
+// Redistribution and use in source and binary forms, with or without
+// modification, are permitted provided that the following conditions are
+// met:
+// *       Redistributions of source code must retain the above copyright
+// notice, this list of conditions and the following disclaimer.
+// *       Redistributions in binary form must reproduce the above
+// copyright notice, this list of conditions and the following disclaimer
+// in the documentation and/or other materials provided with the
+// distribution.
+// *       Neither the name of Industrial Light & Magic nor the names of
+// its contributors may be used to endorse or promote products derived
+// from this software without specific prior written permission. 
+// 
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
+///////////////////////////////////////////////////////////////////////////
+
 
 #ifndef INCLUDED_IMF_IO_H
 #define INCLUDED_IMF_IO_H
@@ -12,10 +42,12 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "ImfForward.h"
+#include "ImfInt64.h"
+#include "ImfNamespace.h"
+#include "ImfExport.h"
 
 #include <string>
-#include <cstdint>
+
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
@@ -23,7 +55,7 @@ OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 // class IStream -- an abstract base class for input streams.
 //-----------------------------------------------------------
 
-class IMF_EXPORT_TYPE IStream
+class IStream
 {
   public:
 
@@ -31,7 +63,8 @@ class IMF_EXPORT_TYPE IStream
     // Destructor
     //-----------
 
-    IMF_EXPORT virtual ~IStream ();
+    IMF_EXPORT
+    virtual ~IStream ();
     
     
     //-------------------------------------------------
@@ -43,7 +76,8 @@ class IMF_EXPORT_TYPE IStream
     // into a buffer supplied by the caller.
     //-------------------------------------------------
 
-    IMF_EXPORT virtual bool        isMemoryMapped () const;
+    IMF_EXPORT
+    virtual bool        isMemoryMapped () const;
 
 
     //------------------------------------------------------
@@ -70,7 +104,8 @@ class IMF_EXPORT_TYPE IStream
     // mapped, readMemoryMapped(n) throws an exception.  
     //---------------------------------------------------
 
-    IMF_EXPORT virtual char *	readMemoryMapped (int n);
+    IMF_EXPORT
+    virtual char *	readMemoryMapped (int n);
 
 
     //--------------------------------------------------------
@@ -79,7 +114,7 @@ class IMF_EXPORT_TYPE IStream
     // read the first byte in the file, tellg() returns 0.
     //--------------------------------------------------------
 
-    virtual uint64_t	tellg () = 0;
+    virtual Int64	tellg () = 0;
 
 
     //-------------------------------------------
@@ -87,25 +122,28 @@ class IMF_EXPORT_TYPE IStream
     // After calling seekg(i), tellg() returns i.
     //-------------------------------------------
 
-    virtual void	seekg (uint64_t pos) = 0;
+    virtual void	seekg (Int64 pos) = 0;
 
 
     //------------------------------------------------------
     // Clear error conditions after an operation has failed.
     //------------------------------------------------------
 
-    IMF_EXPORT virtual void	clear ();
+    IMF_EXPORT
+    virtual void	clear ();
 
 
     //------------------------------------------------------
     // Get the name of the file associated with this stream.
     //------------------------------------------------------
 
-    IMF_EXPORT const char *	fileName () const;
+    IMF_EXPORT
+    const char *	fileName () const;
 
   protected:
 
-    IMF_EXPORT IStream (const char fileName[]);
+    IMF_EXPORT
+    IStream (const char fileName[]);
 
   private:
 
@@ -122,7 +160,7 @@ class IMF_EXPORT_TYPE IStream
 // class OStream -- an abstract base class for output streams
 //-----------------------------------------------------------
 
-class IMF_EXPORT_TYPE OStream
+class OStream
 {
   public:
 
@@ -130,7 +168,8 @@ class IMF_EXPORT_TYPE OStream
     // Destructor
     //-----------
 
-    IMF_EXPORT virtual ~OStream ();
+    IMF_EXPORT
+    virtual ~OStream ();
   
 
     //----------------------------------------------------------
@@ -151,7 +190,7 @@ class IMF_EXPORT_TYPE OStream
     // returns 0.
     //---------------------------------------------------------
 
-    virtual uint64_t	tellp () = 0;
+    virtual Int64	tellp () = 0;
 
 
     //-------------------------------------------
@@ -159,18 +198,20 @@ class IMF_EXPORT_TYPE OStream
     // After calling seekp(i), tellp() returns i.
     //-------------------------------------------
 
-    virtual void	seekp (uint64_t pos) = 0;
+    virtual void	seekp (Int64 pos) = 0;
 
 
     //------------------------------------------------------
     // Get the name of the file associated with this stream.
     //------------------------------------------------------
 
-    IMF_EXPORT const char *	fileName () const;
+    IMF_EXPORT
+    const char *	fileName () const;
 
   protected:
 
-    IMF_EXPORT OStream (const char fileName[]);
+    IMF_EXPORT
+    OStream (const char fileName[]);
 
   private:
 
@@ -189,13 +230,13 @@ class IMF_EXPORT_TYPE OStream
 
 struct StreamIO
 {
-    static inline void
+    static void
     writeChars (OStream &os, const char c[/*n*/], int n)
     {
         os.write (c, n);
     }
 
-    static inline bool
+    static bool
     readChars (IStream &is, char c[/*n*/], int n)
     {
         return is.read (c, n);
@@ -205,14 +246,14 @@ struct StreamIO
 
 struct CharPtrIO
 {
-    static inline void
+    static void
     writeChars (char *&op, const char c[/*n*/], int n)
     {
         while (n--)
             *op++ = *c++;
     }
 
-    static inline bool
+    static bool
     readChars (const char *&ip, char c[/*n*/], int n)
     {
         while (n--)

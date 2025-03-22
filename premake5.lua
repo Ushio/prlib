@@ -112,7 +112,7 @@ project "prlib"
     files { "libs/src_openexr/**.h" }
     files { "libs/src_alembic/**.cpp" }
     files { "libs/src_alembic/**.h" }
-    includedirs { "libs/src_configs", "libs/src_Imath", "libs/src_zlib", "libs/src_openexr/OpenEXR", "libs/src_alembic"}
+    includedirs { "libs/src_Imath", "libs/src_zlib", "libs/src_openexr/OpenEXR", "libs/src_alembic"}
 
     -- tinyobjloader
     includedirs { "libs/tiny_obj_loader" }

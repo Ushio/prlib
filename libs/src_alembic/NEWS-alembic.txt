@@ -1,3 +1,62 @@
+2024-12-02, Alembic 1.8.8
+
+Thanks to your feedback and submitted issues we have a few bug fixes.
+
+Support variable order curves in the python bindings. (Issue 458)
+
+Support mingw64 by adding a missing include. (Issue 459)
+
+2024-10-05, Alembic 1.8.7
+
+Thanks to your feedback, pull requests, and submitted issues we have A
+few bugs and build enhancements.
+
+Combine CMake feedback from several PRs and issues.  (PR457)
+
+Protect from potential buffer overrun because of malformed dimensions.
+(Issue 453)
+
+Fix a typo in the python bindings but leave the misspelled member
+(kkVisibilityVisible) to maintain compatibility.  (Issue 440)
+
+Add unicode filename support for Windows (PR450) 
+
+Make some of the extra python scripts including the PyAlembic and Maya
+unit tests python 3 compatible. (PR438)
+
+2023-09-25, Alembic 1.8.6
+
+Thanks to your feedback pull requests and submitted issues we
+have a few bug fixes and build enhancements.
+
+CMake:
+
+Introduce CPack to top level CMake. (PR 425)
+
+AbcCoreOgawa:
+
+Fix typo in a comment. (PR 417)
+
+AbcGeom:
+
+Fix bug with OCurves, ONuPatch, OPoints, OPolyMesh, and OSubD were not properly 
+incrementing their number of set samples when using setFromPrevious. (PR 433)
+
+Util:
+
+Fix default values for float PODTraits. (PR 422)
+
+Windows:
+
+Support compiling with mingw. (PR 434)
+Explicitly call CreateFileA and CreateFileMappingA (instead of CreateFile and
+CreateFileMapping) since we are using std::string to open the file. (PR 435)
+
+AbcStitcher:
+
+Introduce -hold argument which will use the previous set sample instead of
+setting an empty sample for missing samples. (PR 432)
+
 2023-03-13, Alembic 1.8.5
 
 Thanks to your feedback pull requests and submitted issues we

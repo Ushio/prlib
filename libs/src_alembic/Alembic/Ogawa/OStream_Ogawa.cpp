@@ -37,6 +37,11 @@
 #include <fstream>
 #include <stdexcept>
 
+// for mingw support
+#if defined _WIN32 || defined _WIN64
+    #include <Windows.h>
+#endif
+
 namespace Alembic {
 namespace Ogawa {
 namespace ALEMBIC_VERSION_NS {
@@ -47,8 +52,28 @@ public:
     PrivateData(const std::string & iFileName) :
         stream(NULL), fileName(iFileName), startPos(0), curPos(0), maxPos(0)
     {
+#ifdef _WIN32
+        // to wchar_t
+        // get the size of the UTF8 string
+        int wLength = MultiByteToWideChar(CP_UTF8, 0, fileName.c_str(), -1, NULL, 0);
+
+        // allocate buffer
+        wchar_t* wFileName = (wchar_t*)malloc(wLength * sizeof(wchar_t));
+        if (!wFileName)
+          throw std::runtime_error("Unable to convert to wchar_t file name");
+
+        // convert to UTF8
+        MultiByteToWideChar(CP_UTF8, 0, fileName.c_str(), -1, wFileName, wLength);
+
+        // open stream with UTF8 string
+        std::ofstream * filestream = new std::ofstream(wFileName, std::ios_base::trunc | std::ios_base::binary);
+
+        // free conversion buffer
+        free(wFileName);
+#else
         std::ofstream * filestream = new std::ofstream(fileName.c_str(),
             std::ios_base::trunc | std::ios_base::binary);
+#endif
         if (filestream->is_open())
         {
             stream = filestream;
