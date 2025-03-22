@@ -4,5 +4,5 @@ copy libs\prlib\premake5.exe premake5.exe
 copy libs\prlib\example_as_submodule\premake5.lua premake5.lua
 copy libs\prlib\example_as_submodule\main.cpp main.cpp
 copy libs\prlib\utf8.manifest utf8.manifest
-premake5.exe vs2019
+premake5.exe vs2022
 start build\HogeProject.sln
