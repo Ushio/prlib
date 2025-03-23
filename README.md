@@ -2,7 +2,7 @@
 
 ```
 
-premake5 vs2017
+premake5 vs2022
 
 ```
 
@@ -32,3 +32,5 @@ curl "https://raw.githubusercontent.com/Ushio/prlib/master/example_as_submodule/
 ![image](demo3.gif)
 ![image](demo4.png)
 
+## others
+[Alembic builder](https://github.com/Ushio/PotableAlembic)
