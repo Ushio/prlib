@@ -2108,7 +2108,7 @@ namespace pr {
         if (g_window) {
             int w, h;
             glfwGetWindowSize(g_window, &w, &h);
-            return w;
+            return std::max( w, 1 );
         }
         return 0;
     }
@@ -2116,7 +2116,7 @@ namespace pr {
         if (g_window) {
             int w, h;
             glfwGetWindowSize(g_window, &w, &h);
-            return h;
+			return std::max( h, 1 );
         }
         return 0;
     }
