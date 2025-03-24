@@ -1719,30 +1719,6 @@ namespace pr {
 
         io.BackendRendererName = "prlib";
 
-        io.KeyMap[ImGuiKey_Tab] = KEY_TAB;
-        io.KeyMap[ImGuiKey_LeftArrow] = KEY_LEFT;
-        io.KeyMap[ImGuiKey_RightArrow] = KEY_RIGHT;
-        io.KeyMap[ImGuiKey_UpArrow] = KEY_UP;
-        io.KeyMap[ImGuiKey_DownArrow] = KEY_DOWN;
-        io.KeyMap[ImGuiKey_PageUp] = KEY_PAGE_UP;
-        io.KeyMap[ImGuiKey_PageDown] = KEY_PAGE_DOWN;
-        io.KeyMap[ImGuiKey_Home] = KEY_HOME;
-        io.KeyMap[ImGuiKey_End] = KEY_END;
-        io.KeyMap[ImGuiKey_Insert] = KEY_INSERT;
-        io.KeyMap[ImGuiKey_Delete] = KEY_DELETE;
-        io.KeyMap[ImGuiKey_Backspace] = KEY_BACKSPACE;
-        io.KeyMap[ImGuiKey_Space] = KEY_SPACE;
-        io.KeyMap[ImGuiKey_Enter] = KEY_ENTER;
-        io.KeyMap[ImGuiKey_Escape] = KEY_ESCAPE;
-        io.KeyMap[ImGuiKey_KeyPadEnter] = KEY_KP_ENTER;
-        io.KeyMap[ImGuiKey_A] = KEY_A;
-        io.KeyMap[ImGuiKey_C] = KEY_C;
-        io.KeyMap[ImGuiKey_V] = KEY_V;
-        io.KeyMap[ImGuiKey_X] = KEY_X;
-        io.KeyMap[ImGuiKey_Y] = KEY_Y;
-        io.KeyMap[ImGuiKey_Z] = KEY_Z;
-
-        
         io.SetClipboardTextFn = [](void* user_data, const char* text) { glfwSetClipboardString(g_window, text); };
         io.GetClipboardTextFn = [](void* user_data) { return glfwGetClipboardString(g_window); };
 
@@ -1784,60 +1760,68 @@ namespace pr {
 
         // Setup time step
         io.DeltaTime = (float)GetFrameDeltaTime();
-        io.MousePos = ImVec2(GetMousePosition().x, GetMousePosition().y);
+        io.AddMousePosEvent( GetMousePosition().x, GetMousePosition().y );
 
-        io.MouseDown[0] = IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
-        io.MouseDown[1] = IsMouseButtonPressed(MOUSE_BUTTON_RIGHT);
-        io.MouseDown[2] = IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE);
-
-        io.MouseWheelH += GetMouseScrollDelta().x;
-        io.MouseWheel  += GetMouseScrollDelta().y;
-
-        static const int imkeys[] = {
-            KEY_TAB,
-            KEY_LEFT,
-            KEY_RIGHT,
-            KEY_UP,
-            KEY_DOWN,
-            KEY_PAGE_UP,
-            KEY_PAGE_DOWN,
-            KEY_HOME,
-            KEY_END,
-            KEY_INSERT,
-            KEY_DELETE,
-            KEY_BACKSPACE,
-            KEY_SPACE,
-            KEY_ENTER,
-            KEY_ESCAPE,
-            KEY_KP_ENTER,
-            KEY_A,
-            KEY_C,
-            KEY_V,
-            KEY_X,
-            KEY_Y,
-            KEY_Z,
-            KEY_LEFT_CONTROL,
-            KEY_RIGHT_CONTROL,
-            KEY_LEFT_SHIFT,
-            KEY_RIGHT_SHIFT,
-            KEY_LEFT_ALT,
-            KEY_RIGHT_ALT,
-            KEY_LEFT_SUPER,
-            KEY_RIGHT_SUPER,
-        };
-        for (int key : imkeys) {
-            if (IsKeyPressed(key)) {
-                io.KeysDown[key] = true;
+        for (int i = 0; i < 3; i++)
+        {
+            if (IsMouseButtonDown(i))
+            {
+				io.AddMouseButtonEvent( i, true );
             }
-            if (IsKeyUp(key)) {
-                io.KeysDown[key] = false;
+            if (IsMouseButtonUp(i))
+            {
+				io.AddMouseButtonEvent( i, false );
             }
         }
+		io.AddMouseWheelEvent( GetMouseScrollDelta().x, GetMouseScrollDelta().y );
 
-        io.KeyCtrl = IsKeyPressed(KEY_LEFT_CONTROL) || IsKeyPressed(KEY_RIGHT_CONTROL);
-        io.KeyShift = IsKeyPressed(KEY_LEFT_SHIFT) || IsKeyPressed(KEY_RIGHT_SHIFT);
-        io.KeyAlt = IsKeyPressed(KEY_LEFT_ALT) || IsKeyPressed(KEY_RIGHT_ALT);
-        io.KeySuper = IsKeyPressed(KEY_LEFT_SUPER) || IsKeyPressed(KEY_RIGHT_SUPER);
+        static std::map<int, ImGuiKey> keyToIm = {
+			{ KEY_TAB, ImGuiKey_Tab },
+			{ KEY_LEFT, ImGuiKey_LeftArrow },
+			{ KEY_RIGHT, ImGuiKey_RightArrow },
+			{ KEY_UP, ImGuiKey_UpArrow },
+			{ KEY_DOWN, ImGuiKey_DownArrow },
+			{ KEY_PAGE_UP, ImGuiKey_PageUp },
+			{ KEY_PAGE_DOWN, ImGuiKey_PageDown },
+			{ KEY_HOME, ImGuiKey_Home },
+			{ KEY_END, ImGuiKey_End },
+			{ KEY_INSERT, ImGuiKey_Insert },
+			{ KEY_DELETE, ImGuiKey_Delete },
+			{ KEY_BACKSPACE, ImGuiKey_Backspace },
+			{ KEY_SPACE, ImGuiKey_Space },
+			{ KEY_ENTER, ImGuiKey_Enter },
+			{ KEY_ESCAPE, ImGuiKey_Escape },
+			{ KEY_A, ImGuiKey_A },
+			{ KEY_C, ImGuiKey_C },
+			{ KEY_V, ImGuiKey_V },
+			{ KEY_X, ImGuiKey_X },
+			{ KEY_Y, ImGuiKey_Y },
+			{ KEY_Z, ImGuiKey_Z },
+
+			{ KEY_LEFT_CONTROL, ImGuiMod_Ctrl },
+			{ KEY_LEFT_SHIFT, ImGuiMod_Shift },
+			{ KEY_LEFT_ALT, ImGuiMod_Alt },
+			{ KEY_LEFT_SUPER, ImGuiMod_Super },
+
+            { KEY_RIGHT_CONTROL, ImGuiMod_Ctrl },
+			{ KEY_RIGHT_SHIFT, ImGuiMod_Shift },
+			{ KEY_RIGHT_ALT, ImGuiMod_Alt },
+			{ KEY_RIGHT_SUPER, ImGuiMod_Super },
+		};
+        for (auto kv : keyToIm)
+        {
+			int key;
+			ImGuiKey imKey;
+			std::tie( key, imKey ) = kv;
+			if( IsKeyDown( key ) )
+			{
+				io.AddKeyEvent( imKey, true );
+			}
+			if( IsKeyUp( key ) )
+			{
+				io.AddKeyEvent( imKey, false );
+			}
+        }
 
         // Mouse
         if ((io.ConfigFlags & ImGuiConfigFlags_NoMouseCursorChange) == false) {
