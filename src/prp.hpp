@@ -588,10 +588,10 @@ namespace pr {
 
             float xf = (x + xoffsetInPixel) / _width;
             float yf = (y + yoffsetInPixel) / _height;
-            glm::vec3 near = _nearO + _nearRight * xf + _nearDown * yf;
-            glm::vec3 far = _farO + _farRight * xf + _farDown * yf;
-            *ro = near;
-            *rd = far - near;
+            glm::vec3 n = _nearO + _nearRight * xf + _nearDown * yf;
+            glm::vec3 f = _farO + _farRight * xf + _farDown * yf;
+            *ro = n;
+            *rd = f - n;
 		}
 	public:
         int _width, _height;
