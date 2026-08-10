@@ -119,45 +119,26 @@ struct TextDemo : public IDemo {
 };
 
 /*
-    x  : intersected t. -1 is no-intersected
-    yzw: un-normalized normal
+	hit_t  : intersected t
+	hit_n: un-normalized normal
 */
-glm::vec4 intersect_sphere(glm::vec3 ro, glm::vec3 rd, glm::vec3 o, float r) {
-    float A = glm::dot(rd, rd);
-    glm::vec3 S = ro - o;
-    glm::vec3 SxRD = cross(S, rd);
-    float D = A * r * r - glm::dot(SxRD, SxRD);
+bool intersect_sphere( float* hit_t, glm::vec3* hit_n, glm::vec3 ro, glm::vec3 rd, glm::vec3 o, float r )
+{
+	glm::vec3 S = o - ro;
+	float rd2 = glm::dot( rd, rd );
+	float tc = glm::dot( rd, S ) / rd2;
+	glm::vec3 T = rd * tc - S;
+	float D2 = glm::dot( T, T );
+	if( r * r < D2 )
+	{
+		return false;
+	}
+	float h_prime = sqrtf( ( r * r - D2 ) / rd2 );
+	float sign = 0.0f < tc - h_prime ? 1.0f : -1.0f; // near hit: 1, far hit: +1
 
-    if (D < 0.0f) {
-        return glm::vec4(-1);
-    }
-
-    float B = glm::dot(S, rd);
-    float sqrt_d = sqrt(D);
-    float t0 = (-B - sqrt_d) / A;
-    if (0.0f < t0) {
-        glm::vec3 n = (rd * t0 + S);
-        return glm::vec4(t0, n);
-    }
-
-    float t1 = (-B + sqrt_d) / A;
-    if (0.0f < t1) {
-        glm::vec3 n = (rd * t1 + S);
-        return glm::vec4(t1, n);
-    }
-    return glm::vec4(-1);
-}
-glm::vec4 combine(glm::vec4 a, glm::vec4 b) {
-    if (a.x < 0.0f) {
-        return b;
-    }
-    if (b.x < 0.0f) {
-        return a;
-    }
-    if (a.x < b.x) {
-        return a;
-    }
-    return b;
+	*hit_t = tc - h_prime * sign;
+	*hit_n = T * sign - rd * h_prime;
+	return true;
 }
 
 struct RaysDemo : public IDemo {
@@ -182,14 +163,17 @@ struct RaysDemo : public IDemo {
 				glm::vec3 ro, rd;
 				rayGenerator.shoot(&ro, &rd, i, j, 0.5f, 0.5f);
 
-                auto isect = glm::vec4(-1);
-                isect = combine(isect, intersect_sphere(ro, rd, { -2, 0, 0 }, 0.5f));
-                isect = combine(isect, intersect_sphere(ro, rd, { 0, 0, 0 }, 1.0f));
-                isect = combine(isect, intersect_sphere(ro, rd, { 4, 0, 0 }, 2.0f));
+                float closest_hit_t = FLT_MAX;
+				glm::vec3 closest_hit_n;
 
-                if (0.0f < isect.x) {
-                    glm::vec3 n(isect.y, isect.z, isect.w);
-                    n = glm::normalize(n);
+                float hit_t;
+				glm::vec3 hit_n;
+				if( intersect_sphere( &hit_t, &hit_n, ro, rd, { -2, 0, 0 }, 0.5f ) && 0.0f < hit_t && hit_t < closest_hit_t ) { closest_hit_t = hit_t; closest_hit_n = hit_n; }
+				if( intersect_sphere( &hit_t, &hit_n, ro, rd, { 0, 0, 0 }, 1.0f ) && 0.0f < hit_t && hit_t < closest_hit_t ) { closest_hit_t = hit_t; closest_hit_n = hit_n; }
+				if( intersect_sphere( &hit_t, &hit_n, ro, rd, { 4, 0, 0 }, 2.0f ) && 0.0f < hit_t && hit_t < closest_hit_t ) { closest_hit_t = hit_t; closest_hit_n = hit_n; }
+
+                if (closest_hit_t != FLT_MAX) {
+					glm::vec3 n = glm::normalize( closest_hit_n );
 
                     glm::vec3 color = (n + glm::vec3(1.0f)) * 0.5f;
                     image(i, j) = { 255 * color.r, 255 * color.g, 255 * color.b, 255 };
@@ -260,15 +244,16 @@ void intersectFunc( const RTCIntersectFunctionNArguments* args )
 					 ray->ray.dir_y,
 					 ray->ray.dir_z };
 
-    glm::vec4 i = intersect_sphere( ro, rd, ptr[primID].o, ptr[primID].radius );
-	if( 0.0f < i.x && i.x < ray->ray.tfar )
+    float hit_t;
+	glm::vec3 hit_n;
+	if( intersect_sphere( &hit_t, &hit_n, ro, rd, ptr[primID].o, ptr[primID].radius ) && 0.0f < hit_t && hit_t < ray->ray.tfar )
     {
-		ray->ray.tfar = i.x;
+		ray->ray.tfar = hit_t;
 		ray->hit.primID = primID;
 		ray->hit.geomID = geomID;
-		ray->hit.Ng_x = i.y;
-		ray->hit.Ng_y = i.z;
-		ray->hit.Ng_z = i.w;
+		ray->hit.Ng_x = hit_n.x;
+		ray->hit.Ng_y = hit_n.y;
+		ray->hit.Ng_z = hit_n.z;
     }
 }
 
