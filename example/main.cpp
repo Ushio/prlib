@@ -154,7 +154,7 @@ struct RaysDemo : public IDemo {
         Image2DRGBA8 image;
         image.allocate(GetScreenWidth() / _stride, GetScreenHeight() / _stride);
 
-		CameraRayGenerator rayGenerator(GetCurrentViewMatrix(), GetCurrentProjMatrix(), image.width(), image.height());
+		CameraRayGeneratorMinimal rayGenerator(GetCurrentViewMatrix(), GetCurrentProjMatrix(), image.width(), image.height());
 
         for (int j = 0; j < image.height(); ++j)
         {
@@ -304,7 +304,7 @@ struct RaysEmbreeDemo : public IDemo
 		Image2DRGBA8 image;
 		image.allocate( GetScreenWidth() / _stride, GetScreenHeight() / _stride );
 
-		CameraRayGenerator rayGenerator( GetCurrentViewMatrix(), GetCurrentProjMatrix(), image.width(), image.height() );
+		CameraRayGeneratorMinimal rayGenerator( GetCurrentViewMatrix(), GetCurrentProjMatrix(), image.width(), image.height() );
 
 		for( int j = 0; j < image.height(); ++j )
 		{

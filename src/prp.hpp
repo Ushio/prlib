@@ -603,6 +603,41 @@ namespace pr {
         glm::vec3 _farDown;
 	};
 
+    // do not take near and far clip
+	class CameraRayGeneratorMinimal
+	{
+	public:
+		CameraRayGeneratorMinimal( glm::mat4 view_matrix, glm::mat4 proj_matrix, int width, int height ) : m_width( width ), m_height( height )
+		{
+			float PP_half_wide = 1.0f / proj_matrix[0][0];
+			float PP_half_high = 1.0f / proj_matrix[1][1];
+			glm::mat3 R_view2world = glm::transpose( glm::mat3( view_matrix ) );
+
+			m_camera_right = R_view2world[0] * PP_half_wide;
+			m_camera_up = R_view2world[1] * PP_half_high;
+			m_camera_forward = -R_view2world[2];
+			m_camera_origin = {
+				-glm::dot( view_matrix[0], view_matrix[3] ),
+				-glm::dot( view_matrix[1], view_matrix[3] ),
+				-glm::dot( view_matrix[2], view_matrix[3] ) 
+            };
+		}
+
+		void shoot( glm::vec3* ro, glm::vec3* rd, int x, int y, float xoffsetInPixel = 0.0f, float yoffsetInPixel = 0.0f ) const
+		{
+			float xf = ( x + xoffsetInPixel ) / m_width;
+			float yf = ( y + yoffsetInPixel ) / m_height;
+			*ro = m_camera_origin;
+			*rd = m_camera_forward + m_camera_right * ( xf * 2.0f - 1.0f ) - m_camera_up * ( yf * 2.0f - 1.0f );
+		}
+	public:
+		int m_width, m_height;
+		glm::vec3 m_camera_right;
+		glm::vec3 m_camera_up;
+		glm::vec3 m_camera_forward;
+		glm::vec3 m_camera_origin;
+	};
+
     template <class T>
     class OnlineMean {
     public:
