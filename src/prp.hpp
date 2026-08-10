@@ -721,4 +721,61 @@ namespace pr {
 
 		return c0 + t * ( c1 + t * ( c2 + t * ( c3 + t * ( c4 + t * ( c5 + t * c6 ) ) ) ) );
 	}
+
+    // https://www.ncl.ucar.edu/Document/Graphics/ColorTables/MPL_coolwarm.shtml
+    inline glm::vec3 coolworm(float t)
+    {
+        t = glm::clamp(t, -1.0f, 1.0f);
+
+        /* fitting
+        import numpy as np
+        import csv
+
+        with open('MPL_coolwarm.csv', newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader)
+
+            xs = []
+            rs = []
+            gs = []
+            bs = []
+            for row in reader:
+                xs.append(float(row[1]))
+                rs.append(float(row[2]))
+                gs.append(float(row[3]))
+                bs.append(float(row[4]))
+
+            n = 6
+            r_poly = np.polyfit(xs, rs, n)
+            g_poly = np.polyfit(xs, gs, n)
+            b_poly = np.polyfit(xs, bs, n)
+
+            idx = 0
+            for i in reversed(range(n + 1)):
+                print(f"const glm::vec3 c{idx} = glm::vec3({r_poly[i]:.8f}f, {g_poly[i]:.8f}f, {b_poly[i]:.8f}f);")
+                idx += 1
+
+        */
+        const glm::vec3 c0 = glm::vec3(0.87337647f, 0.85350829f, 0.85434017f);
+        const glm::vec3 c1 = glm::vec3(0.48051116f, -0.12501629f, -0.63313217f);
+        const glm::vec3 c2 = glm::vec3(-0.47986709f, -1.00077205f, -0.52594243f);
+        const glm::vec3 c3 = glm::vec3(-0.35208871f, 0.14111231f, 0.45974157f);
+        const glm::vec3 c4 = glm::vec3(0.05614798f, 0.70378238f, 0.18323838f);
+        const glm::vec3 c5 = glm::vec3(0.10380313f, -0.16633682f, -0.13867220f);
+        const glm::vec3 c6 = glm::vec3(0.01636944f, -0.40902150f, -0.06237369f);
+
+        glm::vec3 c = {};
+        float x = 1.0f;
+        c += c0 * x; x *= t;
+        c += c1 * x; x *= t;
+        c += c2 * x; x *= t;
+        c += c3 * x; x *= t;
+        c += c4 * x; x *= t;
+        c += c5 * x; x *= t;
+        c += c6 * x; x *= t;
+        c.x = glm::clamp(c.x, 0.0f, 1.0f);
+        c.y = glm::clamp(c.y, 0.0f, 1.0f);
+        c.z = glm::clamp(c.z, 0.0f, 1.0f);
+        return c;
+    }
 }
